@@ -55,6 +55,7 @@ public final class Theme {
     public static final Color ERROR = new Color(0xC62828);     // 흰 배경 대비 5.6:1
 
     private static final float ARC = 14;
+    private static final String INVALID = "Theme.invalid";
 
     private Theme() {
     }
@@ -230,6 +231,7 @@ public final class Theme {
                 g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), ARC, ARC));
                 g2.dispose();
                 super.paintComponent(g);
+                paintFocusRing(this, g);
             }
         };
         button.setForeground(foreground);
@@ -246,6 +248,12 @@ public final class Theme {
             @Override
             public void updateUI() {
                 setUI(new BasicButtonUI());
+            }
+
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                paintFocusRing(this, g);
             }
         };
         button.setForeground(PRIMARY);
@@ -271,6 +279,30 @@ public final class Theme {
         box.setForeground(TEXT);
         box.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         return box;
+    }
+
+    /**
+     * 입력칸을 "틀림" 상태로 표시하거나 해제한다. 틀린 칸은 테두리가 빨갛게 된다.
+     * 오류 문구(errorLabel)와 함께 쓴다. 색만으로 알리지 않기 위해서다.
+     */
+    public static void setInvalid(JComponent input, boolean invalid) {
+        input.putClientProperty(INVALID, invalid);
+        input.repaint();
+    }
+
+    /**
+     * 키보드로 포커스가 왔을 때 버튼 안쪽에 글자색 테두리를 그린다.
+     * 글자색은 배경 대비 4.5:1 이상이라 테두리도 잘 보인다.
+     */
+    private static void paintFocusRing(JButton button, Graphics g) {
+        if (!button.isFocusOwner()) {
+            return;
+        }
+        Graphics2D g2 = smooth(g);
+        g2.setColor(button.getForeground());
+        g2.setStroke(new BasicStroke(2f));
+        g2.draw(new RoundRectangle2D.Float(3, 3, button.getWidth() - 7, button.getHeight() - 7, ARC - 4, ARC - 4));
+        g2.dispose();
     }
 
     private static void styleInput(JTextComponent field) {
@@ -315,14 +347,15 @@ public final class Theme {
         return g2;
     }
 
-    /** 둥근 테두리. 포커스가 있으면 파란색으로 굵게 그린다. */
+    /** 둥근 테두리. 틀린 칸이면 빨간색, 포커스가 있으면 파란색으로 굵게 그린다. */
     private static final class RoundBorder extends AbstractBorder {
         @Override
         public void paintBorder(Component c, Graphics g, int x, int y, int width, int height) {
             Graphics2D g2 = smooth(g);
+            boolean invalid = c instanceof JComponent jc && Boolean.TRUE.equals(jc.getClientProperty(INVALID));
             boolean focused = c.hasFocus();
-            g2.setColor(focused ? PRIMARY : LINE);
-            g2.setStroke(new BasicStroke(focused ? 2f : 1.2f));
+            g2.setColor(invalid ? ERROR : focused ? PRIMARY : LINE);
+            g2.setStroke(new BasicStroke(invalid || focused ? 2f : 1.2f));
             g2.draw(new RoundRectangle2D.Float(x + 1, y + 1, width - 2, height - 2, ARC, ARC));
             g2.dispose();
         }

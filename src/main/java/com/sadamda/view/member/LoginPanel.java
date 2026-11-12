@@ -8,13 +8,18 @@ import com.sadamda.view.recommend.HomePanel;
 
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
+import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.JTextField;
+import java.awt.BorderLayout;
+import java.awt.CardLayout;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 
 /** 이메일·비밀번호, [비밀번호 찾기]. 관리자는 로그인 후 관리자 화면으로 이동 */
 public class LoginPanel extends ScreenPanel {
@@ -38,7 +43,7 @@ public class LoginPanel extends ScreenPanel {
         Theme.addToCard(card, Theme.label("사담다에 오신 것을 환영합니다", 1f, Font.PLAIN, Theme.HINT), 8);
 
         Theme.addToCard(card, Theme.field("이메일", emailError, emailField), 32);
-        Theme.addToCard(card, Theme.field("비밀번호", passwordError, passwordField), 20);
+        Theme.addToCard(card, Theme.field("비밀번호", passwordError, passwordWithToggle()), 20);
         Theme.addToCard(card, keepLoginBox, 16);
 
         Theme.addToCard(card, loginError, 16);
@@ -59,6 +64,46 @@ public class LoginPanel extends ScreenPanel {
         Theme.addToCard(card, links, 16);
 
         setContent(Theme.centeredPage(card));
+
+        // 화면이 열리면 바로 입력할 수 있게 이메일 칸에 커서를 둔다.
+        addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentShown(ComponentEvent e) {
+                emailField.requestFocusInWindow();
+            }
+        });
+    }
+
+    /**
+     * 비밀번호 칸 오른쪽에 [보기]/[숨기기] 버튼. 입력한 글자를 확인해 오타를 줄인다.
+     * 두 버튼을 CardLayout 으로 겹쳐 두어, 글자가 바뀌어도 버튼 폭(=입력칸 폭)이 흔들리지 않는다.
+     */
+    private JPanel passwordWithToggle() {
+        char hiddenEchoChar = passwordField.getEchoChar();
+        CardLayout toggleCards = new CardLayout();
+        JPanel toggle = new JPanel(toggleCards);
+        toggle.setOpaque(false);
+
+        JButton showButton = Theme.linkButton("보기");
+        JButton hideButton = Theme.linkButton("숨기기");
+        showButton.addActionListener(e -> {
+            passwordField.setEchoChar((char) 0);
+            toggleCards.show(toggle, "hide");
+            hideButton.requestFocusInWindow(); // 키보드로 누른 경우 포커스를 이어 준다.
+        });
+        hideButton.addActionListener(e -> {
+            passwordField.setEchoChar(hiddenEchoChar);
+            toggleCards.show(toggle, "show");
+            showButton.requestFocusInWindow();
+        });
+        toggle.add(showButton, "show");
+        toggle.add(hideButton, "hide");
+
+        JPanel row = new JPanel(new BorderLayout(8, 0));
+        row.setOpaque(false);
+        row.add(passwordField, BorderLayout.CENTER);
+        row.add(toggle, BorderLayout.EAST);
+        return row;
     }
 
     /** UC-02 2~4단계 */
@@ -66,9 +111,9 @@ public class LoginPanel extends ScreenPanel {
         String email = emailField.getText().trim();
         char[] password = passwordField.getPassword();
 
-        boolean valid = show(emailError, email.isEmpty() ? "이메일을 입력해 주세요" : null)
-                & show(passwordError, password.length == 0 ? "비밀번호를 입력해 주세요" : null);
-        show(loginError, null);
+        boolean valid = show(emailError, emailField, email.isEmpty() ? "이메일을 입력해 주세요" : null)
+                & show(passwordError, passwordField, password.length == 0 ? "비밀번호를 입력해 주세요" : null);
+        loginError.setText("");
         if (!valid) {
             return;
         }
@@ -80,7 +125,7 @@ public class LoginPanel extends ScreenPanel {
             return;
         } catch (RuntimeException e) {
             // UC-02 3a. TODO: 백예원과 로그인 실패 예외 종류를 정하면 그 예외만 잡는다.
-            show(loginError, "이메일 또는 비밀번호가 맞지 않습니다");
+            loginError.setText("이메일 또는 비밀번호가 맞지 않습니다");
             return;
         }
 
@@ -94,7 +139,7 @@ public class LoginPanel extends ScreenPanel {
     /** UC-02 2a: 가입 이메일로 비밀번호 재설정 링크를 보낸다. */
     private void requestPasswordReset() {
         String email = emailField.getText().trim();
-        if (!show(emailError, email.isEmpty() ? "이메일을 입력하고 눌러 주세요" : null)) {
+        if (!show(emailError, emailField, email.isEmpty() ? "이메일을 입력하고 눌러 주세요" : null)) {
             return;
         }
         try {
@@ -105,9 +150,10 @@ public class LoginPanel extends ScreenPanel {
         }
     }
 
-    /** 오류 문구를 표시하거나 지운다. 오류가 없으면 true. */
-    private static boolean show(JLabel errorLabel, String message) {
+    /** 오류 문구와 빨간 테두리를 표시하거나 지운다. 오류가 없으면 true. */
+    private static boolean show(JLabel errorLabel, JComponent input, String message) {
         errorLabel.setText(message == null ? "" : message);
+        Theme.setInvalid(input, message != null);
         return message == null;
     }
 }
