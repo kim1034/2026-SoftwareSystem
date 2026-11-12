@@ -14,8 +14,6 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.JTextField;
-import java.awt.BorderLayout;
-import java.awt.CardLayout;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.event.ComponentAdapter;
@@ -43,7 +41,7 @@ public class LoginPanel extends ScreenPanel {
         Theme.addToCard(card, Theme.label("사담다에 오신 것을 환영합니다", 1f, Font.PLAIN, Theme.HINT), 8);
 
         Theme.addToCard(card, Theme.field("이메일", emailError, emailField), 32);
-        Theme.addToCard(card, Theme.field("비밀번호", passwordError, passwordWithToggle()), 20);
+        Theme.addToCard(card, Theme.field("비밀번호", passwordError, Theme.passwordWithToggle(passwordField)), 20);
         Theme.addToCard(card, keepLoginBox, 16);
 
         Theme.addToCard(card, loginError, 16);
@@ -72,38 +70,6 @@ public class LoginPanel extends ScreenPanel {
                 emailField.requestFocusInWindow();
             }
         });
-    }
-
-    /**
-     * 비밀번호 칸 오른쪽에 [보기]/[숨기기] 버튼. 입력한 글자를 확인해 오타를 줄인다.
-     * 두 버튼을 CardLayout 으로 겹쳐 두어, 글자가 바뀌어도 버튼 폭(=입력칸 폭)이 흔들리지 않는다.
-     */
-    private JPanel passwordWithToggle() {
-        char hiddenEchoChar = passwordField.getEchoChar();
-        CardLayout toggleCards = new CardLayout();
-        JPanel toggle = new JPanel(toggleCards);
-        toggle.setOpaque(false);
-
-        JButton showButton = Theme.linkButton("보기");
-        JButton hideButton = Theme.linkButton("숨기기");
-        showButton.addActionListener(e -> {
-            passwordField.setEchoChar((char) 0);
-            toggleCards.show(toggle, "hide");
-            hideButton.requestFocusInWindow(); // 키보드로 누른 경우 포커스를 이어 준다.
-        });
-        hideButton.addActionListener(e -> {
-            passwordField.setEchoChar(hiddenEchoChar);
-            toggleCards.show(toggle, "show");
-            showButton.requestFocusInWindow();
-        });
-        toggle.add(showButton, "show");
-        toggle.add(hideButton, "hide");
-
-        JPanel row = new JPanel(new BorderLayout(8, 0));
-        row.setOpaque(false);
-        row.add(passwordField, BorderLayout.CENTER);
-        row.add(toggle, BorderLayout.EAST);
-        return row;
     }
 
     /** UC-02 2~4단계 */

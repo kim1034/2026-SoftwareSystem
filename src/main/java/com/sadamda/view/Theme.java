@@ -22,6 +22,7 @@ import javax.swing.plaf.basic.BasicComboBoxUI;
 import javax.swing.text.JTextComponent;
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
+import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
@@ -279,6 +280,38 @@ public final class Theme {
         box.setForeground(TEXT);
         box.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         return box;
+    }
+
+    /**
+     * 비밀번호 칸 오른쪽에 [보기]/[숨기기] 버튼을 붙인다. 입력한 글자를 확인해 오타를 줄인다.
+     * 두 버튼을 CardLayout 으로 겹쳐 두어, 글자가 바뀌어도 버튼 폭(=입력칸 폭)이 흔들리지 않는다.
+     */
+    public static JPanel passwordWithToggle(JPasswordField field) {
+        char hiddenEchoChar = field.getEchoChar();
+        CardLayout toggleCards = new CardLayout();
+        JPanel toggle = new JPanel(toggleCards);
+        toggle.setOpaque(false);
+
+        JButton showButton = linkButton("보기");
+        JButton hideButton = linkButton("숨기기");
+        showButton.addActionListener(e -> {
+            field.setEchoChar((char) 0);
+            toggleCards.show(toggle, "hide");
+            hideButton.requestFocusInWindow(); // 키보드로 누른 경우 포커스를 이어 준다.
+        });
+        hideButton.addActionListener(e -> {
+            field.setEchoChar(hiddenEchoChar);
+            toggleCards.show(toggle, "show");
+            showButton.requestFocusInWindow();
+        });
+        toggle.add(showButton, "show");
+        toggle.add(hideButton, "hide");
+
+        JPanel row = new JPanel(new BorderLayout(8, 0));
+        row.setOpaque(false);
+        row.add(field, BorderLayout.CENTER);
+        row.add(toggle, BorderLayout.EAST);
+        return row;
     }
 
     /**
