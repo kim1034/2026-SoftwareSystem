@@ -216,7 +216,7 @@ public class MainFrame extends JFrame {
     }
 
     /**
-     * 글자로 된 메뉴. 지금 화면이면 파란 글씨에 밑줄을 긋는다 (현재 위치를 알려 준다).
+     * 글자로 된 메뉴. 지금 화면이면 굵은 글씨에 밑줄을 긋는다 (현재 위치를 알려 준다).
      * 글씨는 버튼 기준(본문 +2px, NFR-01), 키보드 포커스가 오면 테두리를 그린다.
      */
     private static final class MenuItem extends JButton {

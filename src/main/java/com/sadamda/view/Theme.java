@@ -37,8 +37,10 @@ import java.awt.Insets;
 import java.awt.RenderingHints;
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
+import java.awt.font.TextAttribute;
 import java.awt.geom.Path2D;
 import java.awt.geom.RoundRectangle2D;
+import java.util.Map;
 
 /**
  * 화면 공통 디자인: 색, 둥근 입력칸·버튼, 카드. 담당: 강준서
@@ -46,13 +48,14 @@ import java.awt.geom.RoundRectangle2D;
  * 글씨 크기 조절(UC-15) 때 updateComponentTreeUI 가 UI 를 다시 깔기 때문에, 모양은 updateUI 에서 지정한다.
  */
 public final class Theme {
-    public static final Color PAGE = new Color(0xE8F0FA);      // 화면 배경: 연한 하늘색 (PRIMARY 계열)
+    // 흑백 톤. 색은 오류(빨강)에만 쓴다.
+    public static final Color PAGE = new Color(0xF2F2F2);      // 화면 배경: 아주 연한 회색
     public static final Color CARD = Color.WHITE;
-    public static final Color TEXT = new Color(0x1F2937);      // 흰 배경 대비 14.7:1
-    public static final Color HINT = new Color(0x6B7280);      // 흰 배경 대비 4.8:1
-    public static final Color LINE = new Color(0xD1D5DB);      // 테두리 (글자 아님)
-    public static final Color PRIMARY = new Color(0x1565C0);   // 흰 글씨 대비 5.75:1
-    public static final Color SECONDARY = new Color(0xF2C94C); // TEXT 글씨 대비 9.25:1
+    public static final Color TEXT = new Color(0x1F1F1F);      // 흰 배경 대비 16.6:1
+    public static final Color HINT = new Color(0x666666);      // 흰 배경 대비 5.7:1
+    public static final Color LINE = new Color(0xD4D4D4);      // 테두리 (글자 아님)
+    public static final Color PRIMARY = new Color(0x262626);   // 거의 검정. 흰 글씨 대비 15.1:1
+    public static final Color SECONDARY = new Color(0xE6E6E6); // 연한 회색. TEXT 글씨 대비 13.3:1
     public static final Color ERROR = new Color(0xC62828);     // 흰 배경 대비 5.6:1
 
     private static final float ARC = 14;
@@ -111,7 +114,7 @@ public final class Theme {
     }
 
     /**
-     * 하늘색 배경 가운데 위쪽에 카드를 둔 화면 내용.
+     * 연한 회색 배경 가운데 위쪽에 카드를 둔 화면 내용.
      * 글씨를 키우거나 창이 작아도 모든 내용에 닿을 수 있게 스크롤을 둔다.
      */
     public static JScrollPane centeredPage(JPanel card) {
@@ -205,12 +208,12 @@ public final class Theme {
         return box;
     }
 
-    /** 주 버튼: 파란 바탕에 흰 글씨. */
+    /** 주 버튼: 검정 바탕에 흰 글씨. */
     public static JButton primaryButton(String text) {
         return button(text, PRIMARY, Color.WHITE);
     }
 
-    /** 보조 버튼: 노란 바탕에 진한 글씨. (흰 글씨는 노란 바탕에서 대비가 부족하다) */
+    /** 보조 버튼: 연한 회색 바탕에 진한 글씨. */
     public static JButton secondaryButton(String text) {
         return button(text, SECONDARY, TEXT);
     }
@@ -229,7 +232,7 @@ public final class Theme {
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = smooth(g);
                 g2.setColor(getModel().isPressed() ? background.darker() : background);
-                g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), ARC, ARC));
+                g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), getHeight(), getHeight())); // 알약 모양
                 g2.dispose();
                 super.paintComponent(g);
                 paintFocusRing(this, g);
@@ -243,12 +246,17 @@ public final class Theme {
         return button;
     }
 
-    /** 글자만 있는 파란 링크 버튼 (예: 비밀번호 찾기). 누르는 영역은 48px 이상 (NFR-02). */
+    /**
+     * 밑줄 있는 글자 링크 버튼 (예: 비밀번호 찾기). 누르는 영역은 48px 이상 (NFR-02).
+     * 흑백 톤이라 색으로는 본문과 구별되지 않아서 밑줄로 링크임을 알린다.
+     */
     public static JButton linkButton(String text) {
         JButton button = new JButton(text) {
             @Override
             public void updateUI() {
                 setUI(new BasicButtonUI());
+                Font base = UIManager.getFont("Button.font");
+                setFont(base.deriveFont(Map.of(TextAttribute.UNDERLINE, TextAttribute.UNDERLINE_ON)));
             }
 
             @Override
@@ -334,7 +342,8 @@ public final class Theme {
         Graphics2D g2 = smooth(g);
         g2.setColor(button.getForeground());
         g2.setStroke(new BasicStroke(2f));
-        g2.draw(new RoundRectangle2D.Float(3, 3, button.getWidth() - 7, button.getHeight() - 7, ARC - 4, ARC - 4));
+        float arc = button.getHeight() - 7; // 알약 모양 버튼에 맞춘 둥근 테두리
+        g2.draw(new RoundRectangle2D.Float(3, 3, button.getWidth() - 7, button.getHeight() - 7, arc, arc));
         g2.dispose();
     }
 
@@ -380,7 +389,7 @@ public final class Theme {
         return g2;
     }
 
-    /** 둥근 테두리. 틀린 칸이면 빨간색, 포커스가 있으면 파란색으로 굵게 그린다. */
+    /** 둥근 테두리. 틀린 칸이면 빨간색, 포커스가 있으면 검정으로 굵게 그린다. */
     private static final class RoundBorder extends AbstractBorder {
         @Override
         public void paintBorder(Component c, Graphics g, int x, int y, int width, int height) {

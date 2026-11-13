@@ -50,7 +50,7 @@ public class SignUpPanel extends ScreenPanel {
     // 필수
     private final JTextField emailField = Theme.textField("예: hong@naver.com");
     private final JPasswordField passwordField = Theme.passwordField("8자 이상 입력");
-    private final JPasswordField passwordConfirmField = Theme.passwordField("비밀번호를 한 번 더 입력");
+    private final JPasswordField passwordConfirmField = Theme.passwordField("한 번 더 입력");
     private final JTextField nameField = Theme.textField("이름 입력");
     private final JTextField phoneField = Theme.textField("예: 010-1234-5678");
     // 선택 (TODO: 선택지는 팀과 확정 후 수정)
@@ -78,7 +78,12 @@ public class SignUpPanel extends ScreenPanel {
         super(context, frame, "회원가입", "UC-01 회원가입");
         hideTitle(); // 제목은 카드 안에 그린다.
         setBackground(Theme.PAGE);
-        heightField.setColumns(6); // 두 칸짜리 줄이 카드 폭을 넓히지 않도록 짧게
+        // 두 칸짜리 줄이 카드 폭을 넓히지 않도록 짧게
+        heightField.setColumns(6);
+        passwordField.setColumns(8);
+        passwordConfirmField.setColumns(8);
+        // 오류 문구가 이름표 옆에 떠도 카드 폭이 바뀌지 않게 폼 폭을 미리 잡아 둔다. (글자 수 기준이라 글씨 크기를 따라간다)
+        emailField.setColumns(37);
 
         errorTargets.put(emailError, emailField);
         errorTargets.put(passwordError, passwordField);
@@ -90,13 +95,20 @@ public class SignUpPanel extends ScreenPanel {
 
         JPanel card = Theme.card();
         Theme.addToCard(card, Theme.label("회원가입", 1.6f, Font.BOLD, Theme.TEXT), 0);
-        Theme.addToCard(card, Theme.label("회원이 되어 나에게 맞는 옷을 추천받아 보세요!", 1f, Font.PLAIN, Theme.HINT), 8);
-        Theme.addToCard(card, summaryError, 16);
+        JButton loginLink = Theme.linkButton("로그인");
+        loginLink.addActionListener(e -> frame.navigate(LoginPanel.NAME));
+        JPanel loginRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        loginRow.setOpaque(false);
+        loginRow.add(Theme.label("이미 회원이신가요?", 1f, Font.PLAIN, Theme.HINT));
+        loginRow.add(loginLink);
+        Theme.addToCard(card, loginRow, 0);
+        Theme.addToCard(card, summaryError, 8);
 
-        Theme.addToCard(card, Theme.label("필수 입력", 1.2f, Font.BOLD, Theme.TEXT), 16);
         Theme.addToCard(card, Theme.field("이메일", emailError, emailField), 16);
-        Theme.addToCard(card, Theme.field("비밀번호 (8자 이상)", passwordError, Theme.passwordWithToggle(passwordField)), 20);
-        Theme.addToCard(card, Theme.field("비밀번호 확인", passwordConfirmError, Theme.passwordWithToggle(passwordConfirmField)), 20);
+        Theme.addToCard(card, twoColumns(
+                Theme.field("비밀번호", passwordError, Theme.passwordWithToggle(passwordField)),
+                Theme.field("비밀번호 확인", passwordConfirmError, Theme.passwordWithToggle(passwordConfirmField))), 20);
+        Theme.addToCard(card, Theme.label("비밀번호는 8자 이상 입력해 주세요", 1f, Font.PLAIN, Theme.HINT), 8);
         Theme.addToCard(card, Theme.field("이름", nameError, nameField), 20);
         Theme.addToCard(card, Theme.field("연락처", phoneError, phoneField), 20);
 
@@ -112,14 +124,15 @@ public class SignUpPanel extends ScreenPanel {
         agreeRow.add(agreeError, BorderLayout.CENTER);
         Theme.addToCard(card, agreeRow, 32);
 
+        // 왼쪽 [가입취소] 링크, 오른쪽 [가입하기] 버튼
         JButton signUpButton = Theme.primaryButton("가입하기");
         signUpButton.addActionListener(e -> submit());
-        JButton cancelButton = Theme.secondaryButton("가입취소");
-        cancelButton.addActionListener(e -> frame.navigate(HomePanel.NAME));
-        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.CENTER, 16, 0));
+        JButton cancelLink = Theme.linkButton("가입취소");
+        cancelLink.addActionListener(e -> frame.navigate(HomePanel.NAME));
+        JPanel buttons = new JPanel(new BorderLayout());
         buttons.setOpaque(false);
-        buttons.add(signUpButton);
-        buttons.add(cancelButton);
+        buttons.add(cancelLink, BorderLayout.WEST);
+        buttons.add(signUpButton, BorderLayout.EAST);
         Theme.addToCard(card, buttons, 40);
 
         setContent(Theme.centeredPage(card));
