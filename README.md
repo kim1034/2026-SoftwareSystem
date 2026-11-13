@@ -32,8 +32,9 @@ DB 스키마가 정해지기 전까지 상품·룩북은 메모리에만 두므�
 | `OPENAI_API_KEY` | OpenAI 공식 또는 호환 중계 서비스 키 | (없음) |
 | `OPENAI_BASE_URL` | 중계 서비스 주소 (예: `https://중계주소/v1`) | `https://api.openai.com/v1` |
 | `GEMINI_API_KEY` | Google Gemini 키. OpenAI 형식 키를 여기에 넣어도 자동으로 OpenAI 형식으로 동작 | (없음) |
+| `SADAMDA_AI_API` | OpenAI 형식의 보내는 방식 `images`(이미지 API) · `chat`(chat/completions) | 공식 주소는 `images`, 중계 서비스 주소는 `chat` |
 | `SADAMDA_AI_PROVIDER` | `openai` · `gemini` · `local` 로 강제 지정 | 자동 |
-| `SADAMDA_AI_MODEL` | 이미지 모델 이름 | `gpt-image-2` / `gemini-3.1-flash-image` |
+| `SADAMDA_AI_MODEL` | 이미지 모델 이름 | images `gpt-image-2` / chat `google/gemini-3.1-flash-image` / Gemini `gemini-3.1-flash-image` |
 | `SADAMDA_AI_QUALITY` | OpenAI 형식 품질 `low`·`medium`·`high`·`auto` | `medium` |
 | `SADAMDA_AI_TIMEOUT` | 기다리는 시간(초) | 30 (NFR-05) |
 

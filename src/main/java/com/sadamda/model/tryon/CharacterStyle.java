@@ -9,8 +9,9 @@ public enum CharacterStyle {
                     + "large expressive eyes, graceful proportions, clean painted look. "
                     + "She must be a new original character, not any existing film character"),
     GAME_3D("3D 게임 캐릭터",
-            "a stylized high-quality 3D video game character render of a beautiful adult woman, "
-                    + "detailed materials, cinematic real-time lighting"),
+            "a stylized 3D video game character render of a beautiful adult woman, like a character model "
+                    + "from a modern console role-playing game: clearly computer-generated and NOT photographic, "
+                    + "smooth stylized skin, slightly idealized proportions, crisp game-engine shading"),
     ANIME("애니메이션 캐릭터",
             "a Japanese anime illustration of a beautiful adult woman, clean line art, cel shading");
 

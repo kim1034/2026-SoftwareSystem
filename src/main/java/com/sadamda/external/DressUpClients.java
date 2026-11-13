@@ -11,8 +11,10 @@ package com.sadamda.external;
  * OpenAI 형식 (공식 또는 호환 중계 서비스)
  * - OPENAI_API_KEY (또는 SADAMDA_AI_KEY)   : 이용 열쇠
  * - OPENAI_BASE_URL                       : 중계 서비스 주소. 기본 https://api.openai.com/v1
- * - SADAMDA_AI_MODEL                      : 모델 이름. 기본 gpt-image-2
- * - SADAMDA_AI_QUALITY                    : low·medium·high·auto. 기본 medium
+ * - SADAMDA_AI_API                        : images(이미지 API) 또는 chat(chat/completions).
+ *                                           기본: 공식 주소면 images, 중계 서비스 주소면 chat
+ * - SADAMDA_AI_MODEL                      : 모델 이름. 기본 images=gpt-image-2, chat=google/gemini-3.1-flash-image
+ * - SADAMDA_AI_QUALITY                    : low·medium·high·auto (images 방식). 기본 medium
  *
  * Gemini
  * - GEMINI_API_KEY, SADAMDA_AI_MODEL(기본 gemini-3.1-flash-image), SADAMDA_AI_ENDPOINT
@@ -45,8 +47,8 @@ public final class DressUpClients {
                 if (key == null) {
                     return new LocalDressUpClient();
                 }
-                return new OpenAiDressUpClient(key, setting("OPENAI_BASE_URL"), setting("SADAMDA_AI_MODEL"),
-                        first(setting("SADAMDA_AI_QUALITY"), "medium"), timeout);
+                return new OpenAiDressUpClient(key, setting("OPENAI_BASE_URL"), setting("SADAMDA_AI_API"),
+                        setting("SADAMDA_AI_MODEL"), first(setting("SADAMDA_AI_QUALITY"), "medium"), timeout);
             }
             case "gemini" -> {
                 String key = first(geminiKey, openAiKey);

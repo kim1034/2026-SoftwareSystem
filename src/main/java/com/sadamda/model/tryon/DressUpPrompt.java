@@ -28,6 +28,8 @@ public final class DressUpPrompt {
         text.append("Create one full-body image: ").append(style.prompt()).append(". ");
         text.append("She is a woman in her ").append(spec.ageGroup().replace("대", "")).append("s, about ")
                 .append(spec.heightCm()).append(" cm tall, with ").append(BODY.get(spec.bodyType())).append(". ");
+        text.append("She must clearly look her age (a mature, graceful woman in her ")
+                .append(spec.ageGroup().replace("대", "")).append("s, not a young girl), even in a stylized art style. ");
         text.append("She stands facing the viewer in a relaxed, friendly pose. ")
                 .append("Show her whole body from the top of her head to her shoes, centered, ")
                 .append("on a plain soft light-gray studio background. Portrait orientation. No text, no logos, no watermark. ");

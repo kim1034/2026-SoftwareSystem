@@ -282,6 +282,17 @@ public class DomainSelfCheck {
             exchange.getResponseBody().write(pixel);
             exchange.close();
         });
+        // chat/completions 방식 중계 서비스
+        server.createContext("/relay/chat/completions", exchange -> {
+            path.set(exchange.getRequestURI().getPath());
+            body.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            byte[] reply = ("{\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":null,"
+                    + "\"images\":[{\"type\":\"image_url\",\"image_url\":{\"url\":\"data:image/png;base64,"
+                    + b64.replace("/", "\\/") + "\"}}]}}]}").getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, reply.length);
+            exchange.getResponseBody().write(reply);
+            exchange.close();
+        });
         server.createContext("/bad/images/", exchange -> {
             exchange.getRequestBody().readAllBytes();
             byte[] reply = "{\"error\":{\"message\":\"Incorrect API key provided\"}}".getBytes(StandardCharsets.UTF_8);
@@ -313,6 +324,13 @@ public class DomainSelfCheck {
 
             byte[] fromUrl = new OpenAiDressUpClient("k", base[0] + "/url", "my-model", null, 5).dressUp(withPhotos);
             check(java.util.Arrays.equals(fromUrl, pixel), "url 로 주는 중계 서비스도 처리");
+
+            OpenAiDressUpClient chat = new OpenAiDressUpClient("k", base[0] + "/relay", null, null, null, 5);
+            check(chat.name().contains("google/gemini-3.1-flash-image"), "중계 주소면 chat 방식·기본 모델");
+            byte[] chatImage = chat.dressUp(withPhotos);
+            check(java.util.Arrays.equals(chatImage, pixel), "chat 방식: message.images 의 data URL 읽기");
+            check("/relay/chat/completions".equals(path.get()) && body.get().contains("\"modalities\":[\"image\",\"text\"]")
+                    && body.get().split("data:image/jpeg;base64,", -1).length - 1 == 2, "chat 방식: 상품 사진 2장을 image_url 로 첨부");
 
             expectAiError(() -> new OpenAiDressUpClient("bad", base[0] + "/bad", null, null, 5).dressUp(withPhotos),
                     "이용 열쇠", "중계 서비스 키 오류 → 쉬운 한국어 안내");
