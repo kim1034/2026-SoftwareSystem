@@ -234,7 +234,10 @@ public class DomainSelfCheck {
             String body = seenBody.get();
             check(body.contains("\"model\":\"gemini-3.1-flash-image\""), "기본 모델 이름");
             check(body.contains("Edit Image 1") && body.contains("Image 2 is the product photo for the top")
-                    && body.contains("[shown in Image 2]"), "지시문의 이미지 번호가 보내는 순서와 일치 (1=캐릭터, 2~=상품)");
+                    && body.contains("top: the exact top shown in Image 2"), "지시문의 이미지 번호가 보내는 순서와 일치 (1=캐릭터, 2~=상품)");
+            check(body.contains("shoes: [") && body.split("no photo; draw it from this description", -1).length == 2
+                    && body.contains("ONLY reference for that product"),
+                    "사진을 보낸 상품은 사진만 따르고, 사진이 없는 상품(신발)만 글로 설명");
             check(body.indexOf("image/png") < body.indexOf("image/jpeg"), "기본 캐릭터(PNG) 다음에 상품 사진(JPEG)");
             check(body.contains("165 cm tall and weighs 80 kg") && body.contains("BMI 29.4")
                     && body.contains("clearly overweight"), "키·몸무게·체질량지수 반영");

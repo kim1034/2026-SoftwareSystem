@@ -17,6 +17,7 @@ import java.util.Map;
  * 1) 캐릭터의 얼굴·머리·몸 비율·자세·배경·그림체는 Image 1 그대로
  * 2) 상품 사진에서는 그 상품(옷) 하나만 골라내고, 사진을 붙이지 말고 캐릭터의 자세에 맞게 입은 모습으로 새로 그릴 것
  * 3) 옷도 캐릭터와 같은 그림체로 그리되, 같은 제품임을 알아볼 수 있게 디자인은 유지할 것
+ * 4) 사진을 보낸 상품은 사진만 따를 것 (상품명·색상 글은 보내지 않는다). 사진을 못 구한 상품만 글로 설명한다
  */
 public final class DressUpPrompt {
     private static final Map<String, String> SHAPE = Map.of(
@@ -62,10 +63,15 @@ public final class DressUpPrompt {
             if (product == null) {
                 text.append("- ").append(slot.english()).append(": ").append(slot.whenEmpty()).append("\n");
             } else {
-                text.append("- ").append(slot.english()).append(": ").append(describe(product));
                 int index = referenceSlots.indexOf(slot);
                 if (index >= 0) {
-                    text.append(" [shown in Image ").append(index + 2).append("]");
+                    // 사진이 있으면 사진만 근거로 삼는다. 데이터의 상품명·색상 글이 사진과 다른 상품을 가리키는 경우가 있어서
+                    // 글을 함께 보내면 AI 가 글을 따라 그려 화면의 상품 사진과 다른 결과가 나온다.
+                    text.append("- ").append(slot.english()).append(": the exact ").append(slot.english())
+                            .append(" shown in Image ").append(index + 2);
+                } else {
+                    text.append("- ").append(slot.english()).append(": ").append(describe(product))
+                            .append(" (no photo; draw it from this description)");
                 }
                 text.append("\n");
             }
@@ -80,8 +86,10 @@ public final class DressUpPrompt {
             }
             text.append("From each product photo use ONLY that one product. Ignore everything else in the photo: ")
                     .append("the model or mannequin wearing it, their body and pose, other clothes, the background, ")
-                    .append("props, text and logos of the shop. If the written description and the product photo disagree, ")
-                    .append("follow the product photo.\n\n");
+                    .append("props, text and logos of the shop. The product photo is the ONLY reference for that product: ")
+                    .append("copy its type, shape, colors, material and details from the photo, even if a product name ")
+                    .append("suggests something else. For example, if the photo shows a knitted hood, she wears that hood, ")
+                    .append("not a different kind of hat.\n\n");
         }
 
         text.append("HOW TO DRESS HER: Redraw each product as a real garment that she is actually wearing. ")
