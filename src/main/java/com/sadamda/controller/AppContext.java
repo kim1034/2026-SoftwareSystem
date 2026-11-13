@@ -12,6 +12,8 @@ import com.sadamda.model.recommend.RecommendService;
 import com.sadamda.model.review.ReviewService;
 import com.sadamda.model.tryon.TryOnService;
 
+import java.time.Duration;
+
 /** Model·외부 연동·Controller 객체를 한곳에서 생성해 View 에 넘긴다. */
 public class AppContext {
     public final Session session = new Session();
@@ -40,7 +42,8 @@ public class AppContext {
         member = new MemberController(session, memberService);
         product = new ProductController(productService, reviewService);
         recommend = new RecommendController(session, recommendService);
-        tryOn = new TryOnController(session, aiImageClient, tryOnService);
+        tryOn = new TryOnController(session, aiImageClient, tryOnService, productService,
+                Duration.ofSeconds(AiImageClient.TIMEOUT_SECONDS));
         cart = new CartController(session, cartService);
         order = new OrderController(session, orderService, cartService, memberService, paymentGateway);
         review = new ReviewController(session, reviewService);
