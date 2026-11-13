@@ -1,6 +1,8 @@
 package com.sadamda.controller;
 
+import com.sadamda.common.AccessDeniedException;
 import com.sadamda.common.AppException;
+import com.sadamda.common.RetryableException;
 import com.sadamda.external.PaymentGateway;
 import com.sadamda.model.cart.CartService;
 import com.sadamda.model.member.MemberService;
@@ -29,6 +31,12 @@ public class OrderController {
     static final String MSG_SAVE_FAILED = "주문을 저장하지 못해 결제를 취소했습니다.";
     static final String MSG_CANCEL_FAILED = "결제 취소에 실패했습니다. 고객센터로 연락해 주세요.";
     static final String MSG_IN_PROGRESS = "결제가 진행 중입니다. 잠시만 기다려 주세요.";
+    static final String MSG_NOT_OWNER = "본인 주문만 볼 수 있습니다.";
+    static final String MSG_ALREADY_SHIPPED = "이미 배송이 시작되어 취소할 수 없습니다. 배송 완료 후 반품을 신청해 주세요.";
+    static final String MSG_NOT_CANCELABLE = "취소할 수 없는 주문입니다.";
+    static final String MSG_CANCEL_RETRY = "결제 취소에 실패했습니다. 잠시 후 다시 시도해 주세요.";
+    static final String MSG_NOT_DELIVERED = "배송 완료된 주문만 교환·반품을 신청할 수 있습니다.";
+    static final String MSG_NO_REASON = "사유를 골라 주세요.";
 
     private static final System.Logger LOG = System.getLogger(OrderController.class.getName());
 
@@ -180,21 +188,56 @@ public class OrderController {
 
     /** UC-13 1~2단계 내 주문 목록, 최신순. */
     public List<Order> myOrders() {
-        throw new UnsupportedOperationException("TODO UC-13 (계획 6단계)");
+        return orderService.findByMember(session.requireLogin().getId());
     }
 
     /** UC-13 3단계 주문 상세. 본인 주문이 아니면 AccessDeniedException. */
     public Order orderDetail(Long orderId) {
-        throw new UnsupportedOperationException("TODO UC-13 (계획 6단계)");
+        return ownedOrder(orderId);
     }
 
-    /** UC-13 4~5단계 배송 전 취소: 결제 취소 후 "취소됨". 배송 중이면 AppException (4a). */
+    /**
+     * UC-13 4~5단계 배송 전 취소: 결제 취소 후 "취소됨". 배송 중이면 AppException (4a).
+     * 결제 취소가 실패하면 주문은 그대로 두고 RetryableException.
+     */
     public Order cancel(Long orderId, String reason) {
-        throw new UnsupportedOperationException("TODO UC-13 (계획 6단계)");
+        Order order = ownedOrder(orderId);
+        OrderStatus status = order.getStatus();
+        if (status == OrderStatus.SHIPPING || status == OrderStatus.DELIVERED) {
+            throw new AppException(MSG_ALREADY_SHIPPED);
+        }
+        if (status != OrderStatus.PAID && status != OrderStatus.PREPARING) {
+            throw new AppException(MSG_NOT_CANCELABLE);
+        }
+        if (!cancelPayment(order.getPaymentId())) {
+            LOG.log(System.Logger.Level.ERROR, "주문 취소 중 결제 취소 실패: orderId={0}, paymentId={1}",
+                    orderId, order.getPaymentId());
+            throw new RetryableException(MSG_CANCEL_RETRY);
+        }
+        return orderService.cancel(orderId, reason);
     }
 
     /** UC-13 6단계 교환·반품 신청. requested 는 EXCHANGE_REQUESTED 또는 RETURN_REQUESTED. */
     public Order requestExchangeOrReturn(Long orderId, OrderStatus requested, String reason) {
-        throw new UnsupportedOperationException("TODO UC-13 (계획 6단계)");
+        if (requested != OrderStatus.EXCHANGE_REQUESTED && requested != OrderStatus.RETURN_REQUESTED) {
+            throw new IllegalArgumentException("requested 는 EXCHANGE_REQUESTED 또는 RETURN_REQUESTED: " + requested);
+        }
+        Order order = ownedOrder(orderId);
+        if (order.getStatus() != OrderStatus.DELIVERED) {
+            throw new AppException(MSG_NOT_DELIVERED);
+        }
+        if (isBlank(reason)) {
+            throw new AppException(MSG_NO_REASON);
+        }
+        return orderService.requestChange(orderId, requested, reason);
+    }
+
+    private Order ownedOrder(Long orderId) {
+        Long memberId = session.requireLogin().getId();
+        Order order = orderService.findById(orderId);
+        if (!memberId.equals(order.getMemberId())) {
+            throw new AccessDeniedException(MSG_NOT_OWNER);
+        }
+        return order;
     }
 }
