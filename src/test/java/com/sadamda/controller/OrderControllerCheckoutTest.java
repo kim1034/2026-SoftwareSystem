@@ -194,6 +194,14 @@ class OrderControllerCheckoutTest {
     }
 
     @Test
+    void cartClearFails_stillReturnsOrder_noRefund() {
+        org.mockito.Mockito.doThrow(new IllegalStateException("db down"))
+                .when(orderService).clearOrderedFromCart(1L, LINES);
+        assertSame(order, controller.checkout(request(null, true)));
+        verify(gateway, never()).cancel(anyString());
+    }
+
+    @Test
     void guest_throwsLoginRequired_beforePayment() {
         session.logout();
         assertThrows(com.sadamda.common.LoginRequiredException.class,
