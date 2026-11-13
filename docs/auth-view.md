@@ -1,8 +1,8 @@
 # View 작업 안내: 회원가입·로그인 화면
 
-작성: 강준서 (View 담당) · 2026-11-13 · 브랜치 `Junes`
+작성: 강준서 (View 담당) · 2026-11-13 · 브랜치 `feat/auth-view`
 
-회원가입(UC-01)과 로그인(UC-02) 화면을 만들었습니다. 이 문서에는 화면 구조, 공통 디자인(`Theme`) 사용법, 그리고 **Model·Controller 쪽에 부탁드릴 일**을 정리했습니다.
+회원가입(UC-01)과 로그인(UC-02) 화면을 만들었습니다. 두 화면은 김대원 님의 Controller 명세([docs/controller-spec.md](controller-spec.md))에 맞춰 연결되어 있습니다. 이 문서에는 화면 구조, 공통 디자인(`Theme`) 사용법, 그리고 **Model 쪽에 부탁드릴 일**을 정리했습니다.
 
 ---
 
@@ -27,7 +27,7 @@ IDE에서 `com.sadamda.App`의 `main`을 실행한 뒤, 상단 메뉴에서 **[�
 | `view/member/SignUpPanel.java` | 회원가입 화면 |
 | `view/member/LoginPanel.java` | 로그인 화면 |
 
-Model·Controller 코드는 **수정하지 않았습니다.**
+Model·Controller 코드는 **수정하지 않았습니다.** 명세에 정해진 메서드(`signUp`, `login`, `requestPasswordReset`)만 호출합니다.
 
 ---
 
@@ -64,20 +64,36 @@ Model·Controller 코드는 **수정하지 않았습니다.**
 - 비밀번호 규칙은 이름표에 "비밀번호 (8자 이상)"으로 늘 보입니다.
 - 화면을 열면 이메일 칸에 바로 커서가 갑니다.
 
-> **현재 상태:** 검사를 통과하면 "가입 처리는 아직 연결되지 않았습니다" 안내만 뜹니다. `Member`에 생성자가 없어서 `context.member.signUp(...)`을 아직 호출하지 못합니다. (5번 항목 참고)
+#### Controller 연결
+
+검사를 통과하면 입력값을 `SignUpForm`에 담아 `context.member.signUp(form)`을 호출합니다.
+
+| 화면 입력 | `SignUpForm` / `BodyProfile` | 비고 |
+|---|---|---|
+| 이메일, 비밀번호, 이름, 연락처 | `email`, `password`, `name`, `phone` | 앞뒤 공백 제거. 비밀번호 해시는 Model에서 (NFR-07) |
+| 연령대, 키, 평소 사이즈, 체형 | `BodyProfile(ageGroup, heightCm, usualSize, bodyType)` | "선택 안 함"·빈칸은 `null`, 넷 다 비면 `bodyProfile` 자체가 `null` |
+| 약관 동의 | `agreedToTerms` | |
+
+| 결과 | 화면 동작 |
+|---|---|
+| 성공 | "가입이 완료되었습니다" 안내 → 입력칸 비우기 → 홈으로 이동 (명세대로 바로 로그인 상태) |
+| `AppException` (예: 이미 가입된 이메일, UC-01 4a) | 맨 위 빨간 글씨 자리에 메시지를 그대로 표시하고 그쪽으로 스크롤 |
+| `UnsupportedOperationException` (Model 미구현) | "가입 처리는 아직 연결되지 않았습니다" 안내 |
 
 ### 로그인 (`LoginPanel`)
 
-- **[로그인]** 또는 비밀번호 칸에서 Enter → `context.member.login(email, password)` 호출. **이미 Controller에 연결되어 있습니다.**
-  - `MemberService`가 아직 `UnsupportedOperationException`을 던지면 "아직 연결되지 않았습니다" 안내를 띄웁니다.
-  - 그 밖의 예외가 나면 버튼 위에 "이메일 또는 비밀번호가 맞지 않습니다"를 표시합니다 (UC-02 3a).
-  - 성공하면 홈 화면으로 이동합니다.
-- **[비밀번호 찾기]** → `context.member.requestPasswordReset(email)` 호출 (UC-02 2a)
+- **[로그인]** 또는 비밀번호 칸에서 Enter → `context.member.login(email, password)` 호출
+  - **성공**: 비밀번호 칸을 비우고, `getRole()`이 관리자면 **관리자 화면**, 아니면 **홈**으로 이동합니다 (UC-02 4단계).
+  - **`AppException`** (예: 계정 불일치, UC-02 3a): 버튼 위에 메시지를 그대로 표시합니다.
+  - **Model 미구현**: "로그인 기능은 아직 연결되지 않았습니다" 안내
+- **[비밀번호 찾기]** → `context.member.requestPasswordReset(email)` 호출 (UC-02 2a). 실패하면 같은 자리에 메시지를 표시합니다.
 - **[회원가입]** → 회원가입 화면으로 이동
 - 빈칸으로 [로그인]을 누르면 해당 칸 테두리가 빨갛게 되고 이름표 옆에 이유가 뜹니다.
 - 비밀번호 칸 오른쪽 **[보기]**로 입력한 글자를 확인할 수 있고, 화면을 열면 이메일 칸에 바로 커서가 갑니다.
 
-**`MemberService`를 구현하면 화면 코드를 고치지 않아도 로그인이 바로 동작합니다.**
+**`MemberService`를 구현하면 화면 코드를 고치지 않아도 회원가입과 로그인이 바로 동작합니다.**
+
+> **아직 안 된 것:** 일반 회원이 로그인 후 "로그인 전에 보던 화면"으로 돌아가는 기능(UC-02 4단계)은 로그인이 필요한 화면(장바구니 등)을 만들 때 함께 추가합니다. 지금은 홈으로 갑니다.
 
 ---
 
@@ -122,7 +138,7 @@ public class MyScreen extends ScreenPanel {
         saveButton.addActionListener(e -> save());
         Theme.addToCard(card, saveButton, 32);
 
-        setContent(Theme.centeredPage(card));   // 회색 배경 가운데에 카드, 스크롤 포함
+        setContent(Theme.centeredPage(card));   // 하늘색 배경 가운데에 카드, 스크롤 포함
     }
 
     private void save() {
@@ -138,7 +154,7 @@ public class MyScreen extends ScreenPanel {
 | 메서드 | 용도 |
 |---|---|
 | `card()` / `addToCard(card, 컴포넌트, 위쪽 간격)` | 흰 카드를 만들고, 내용을 위에서 아래로 한 줄씩 쌓음 |
-| `centeredPage(card)` | 회색 배경 가운데 위쪽에 카드를 놓음. 화면이 넘치면 스크롤 |
+| `centeredPage(card)` | 하늘색 배경 가운데 위쪽에 카드를 놓음. 화면이 넘치면 스크롤 |
 | `field(이름표, 오류라벨, 입력칸)` | "이름표 + 오류 문구"를 위에, 입력칸을 아래에 배치. 오류가 필요 없으면 `null` |
 | `textField(안내문구)` / `passwordField(안내문구)` | 둥근 입력칸. 비어 있으면 회색 안내 문구, 누르면 파란 테두리 |
 | `passwordWithToggle(비밀번호칸)` | 비밀번호 칸 오른쪽에 [보기]/[숨기기] 버튼을 붙인 묶음. `field(...)`의 입력칸 자리에 넣음 |
@@ -148,7 +164,7 @@ public class MyScreen extends ScreenPanel {
 | `primaryButton` / `secondaryButton` / `linkButton` | 파란 버튼 / 노란 버튼 / 파란 글자 링크 |
 | `label(문구, 배율, 굵기, 색)` | 글씨 크기 조절을 따라가는 라벨. 제목은 배율 `1.6f` 정도 |
 | `errorLabel()` | 빨간 오류 문구. 빈 문자열이면 보이지 않음 |
-| 색 상수 | `PAGE`(배경), `TEXT`, `HINT`(회색 글씨), `PRIMARY`(파랑), `SECONDARY`(노랑), `ERROR`(빨강), `LINE`(테두리) |
+| 색 상수 | `PAGE`(연한 하늘색 배경), `TEXT`, `HINT`(회색 글씨), `PRIMARY`(파랑), `SECONDARY`(노랑), `ERROR`(빨강), `LINE`(테두리) |
 
 ### `ScreenPanel`에 추가된 메서드
 
@@ -162,34 +178,23 @@ public class MyScreen extends ScreenPanel {
 
 ---
 
-## 5. Model·Controller 담당자께 부탁드릴 일
+## 5. 담당자께 부탁드릴 일
 
 ### 백예원 님 (회원)
 
-1. **`Member` 생성자와 getter**
-   - 회원가입 화면에서 입력값을 `Member`로 만들어 `signUp`에 넘겨야 합니다. 생성자나 setter가 필요합니다.
-   - 로그인 후 관리자인지 확인하려면 `getRole()`이 필요합니다 (UC-02 4단계).
-   - 화면에서 넘길 값:
-
-     | 화면 입력 | `Member` / `BodyProfile` 필드 | 비고 |
-     |---|---|---|
-     | 이메일, 이름, 연락처 | `email`, `name`, `phone` | |
-     | 비밀번호 | `signUp(member, rawPassword)`의 두 번째 인자 | 해시는 Model에서 (NFR-07) |
-     | 연령대, 평소 사이즈, 체형 | `BodyProfile.ageGroup`, `usualSize`, `bodyType` | "선택 안 함"이면 `null` |
-     | 키 | `BodyProfile.heightCm` | 비어 있으면 `null` |
-
-2. **예외 종류 정하기.** 화면이 상황별로 다른 문구를 띄우려면 구분할 수 있는 예외가 필요합니다.
-   - 이미 가입된 이메일 (UC-01 4a) → 이메일 칸 옆에 "이미 가입된 이메일입니다"
-   - 로그인 실패 (UC-02 3a) → "이메일 또는 비밀번호가 맞지 않습니다"
-   - 지금은 로그인에서 `RuntimeException`을 모두 "로그인 실패"로 처리하고 있습니다.
+- **`MemberService` 구현**: `signUp`, `login`, `sendPasswordResetLink`. 끝나면 화면 수정 없이 회원가입·로그인이 실제로 동작합니다.
+- 실패는 명세대로 **`AppException`에 사용자에게 보여줄 문장**을 담아 주세요. 화면은 그 문장을 그대로 표시합니다.
+  - 이미 가입된 이메일 (UC-01 4a) → 예: "이미 가입된 이메일입니다."
+  - 계정 불일치 (UC-02 3a) → 예: "이메일 또는 비밀번호가 맞지 않습니다."
+- 화면에서 넘기는 값은 3번 "Controller 연결" 표를 참고해 주세요.
 
 ### 정우진 님 (상품·추천)
 
-- 다음 작업이 상품 목록, 상세, 홈, 룩북 화면입니다. 화면에 상품명, 가격, 이미지를 보여주려면 **`Product`, `Lookbook`의 getter**가 필요합니다. 그 전까지는 화면 쪽 목업 데이터로 개발하겠습니다.
+- 다음 작업이 상품 목록, 상세, 홈, 룩북 화면입니다. 화면에 상품명, 가격, 이미지를 보여주려면 **`Product`, `Lookbook`의 getter**가 필요합니다 (명세 문서 3장에도 적혀 있습니다). 그 전까지는 화면 쪽 목업 데이터로 개발하겠습니다.
 
 ### 김대원 님 (Controller)
 
-- 회원가입과 로그인은 `MemberController`의 기존 메서드(`signUp`, `login`, `requestPasswordReset`)만 썼습니다. 추가로 필요한 것은 없습니다.
+- 회원가입·로그인은 명세대로 `SignUpForm`, `AppException`, `Member.getRole()`을 써서 연결했습니다. 추가로 필요한 것은 없습니다.
 - 관리자 화면도 `Theme`을 쓰시면 디자인을 맞출 수 있습니다 (4번 참고).
 
 ---
