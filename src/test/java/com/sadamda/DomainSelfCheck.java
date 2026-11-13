@@ -3,7 +3,8 @@ package com.sadamda;
 import com.sadamda.external.AiImageClient;
 import com.sadamda.external.DressUpImageClient;
 import com.sadamda.external.GeminiDressUpClient;
-import com.sadamda.external.LocalDressUpClient;
+import com.sadamda.external.RemoteImages;
+import com.sadamda.external.UnconnectedDressUpClient;
 import com.sadamda.external.OpenAiDressUpClient;
 import com.sadamda.model.member.BodyProfile;
 import com.sadamda.model.member.Member;
@@ -14,6 +15,7 @@ import com.sadamda.model.product.ProductService;
 import com.sadamda.model.product.SearchFilter;
 import com.sadamda.model.recommend.Lookbook;
 import com.sadamda.model.recommend.RecommendService;
+import com.sadamda.model.tryon.CharacterFigure;
 import com.sadamda.model.tryon.CharacterSpec;
 import com.sadamda.model.tryon.CharacterStyle;
 import com.sadamda.model.tryon.DressUpSlot;
@@ -22,6 +24,7 @@ import com.sadamda.model.tryon.TryOnImage;
 import com.sadamda.model.tryon.TryOnService;
 import com.sun.net.httpserver.HttpServer;
 
+import java.awt.image.BufferedImage;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -37,6 +40,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * (인터넷이나 AI 이용 열쇠가 필요 없다. Gemini 연동은 이 PC 에 띄운 가짜 서버로 요청·응답 형식만 확인한다.)
  */
 public class DomainSelfCheck {
+    private static final int DEMO_PRODUCTS = 287;
     private static int checks;
 
     public static void main(String[] args) throws Exception {
@@ -45,12 +49,16 @@ public class DomainSelfCheck {
         locker();
         dressUp();
         openAiRelay();
+        character();
         System.out.println("모두 통과: " + checks + "개 확인");
     }
 
     private static void products() {
         ProductService service = new ProductService();
-        check(service.findAll().size() == 300, "데모 상품 300개");
+        check(service.findAll().size() == DEMO_PRODUCTS, "데모 상품 " + DEMO_PRODUCTS + "개 (하의 13개 제외)");
+        check(service.countByCategory(Category.BOTTOM) == 17, "하의 17개");
+        check(service.findAllByCategory(Category.BOTTOM).stream().map(Product::mainImageUrl).distinct().count() == 17,
+                "하의 사진이 서로 겹치지 않음");
         check(service.countByCategory(Category.SHOES) == 90, "신발 90개");
         check(service.countByCategory(Category.JEWELRY) == 90, "주얼리 90개");
         check(service.findByCategory(Category.TOP, 0).size() == ProductService.PAGE_SIZE, "UC-04 첫 쪽 12개");
@@ -88,7 +96,7 @@ public class DomainSelfCheck {
         created.setOptions(List.of(new ProductOption(null, "66", "블랙", 2)));
         created.setImageUrls(List.of("https://example.com/a.jpg"));
         service.save(created);
-        check(created.getId() == 301L && created.getOptions().get(0).id() != null, "UC-16 등록 시 id 부여");
+        check(created.getId() == DEMO_PRODUCTS + 1L && created.getOptions().get(0).id() != null, "UC-16 등록 시 id 부여");
         check(service.findByCategory(Category.DRESS, 0).size() == 1, "UC-16 등록한 상품이 목록에 반영");
 
         Long optionId = created.getOptions().get(0).id();
@@ -102,7 +110,7 @@ public class DomainSelfCheck {
         check(service.findByCategory(Category.DRESS, 0).isEmpty(), "판매 중지 상품은 목록에서 빠짐");
         service.setActiveOrderChecker(null);
         service.delete(created.getId());
-        check(service.findAll().size() == 300, "UC-16 삭제");
+        check(service.findAll().size() == DEMO_PRODUCTS, "UC-16 삭제");
     }
 
     private static void recommend() {
@@ -117,7 +125,7 @@ public class DomainSelfCheck {
         expectError(() -> service.saveLookbook(new Lookbook("제목만", null, "일상", "봄", List.of())), "UC-17 구성 상품 없음");
 
         List<Product> trending = service.findTrendingItems();
-        check(trending.size() == 20, "UC-08 유행 아이템 20개");
+        check(trending.size() == 18, "UC-08 유행 아이템 18개");
         Product target = productService.findById(3L);
         service.setTrending(3L, true);
         check(service.findTrendingItems().contains(target), "UC-17 유행 지정");
@@ -146,8 +154,7 @@ public class DomainSelfCheck {
     private static void locker() throws Exception {
         Path dir = Files.createTempDirectory("sadamda-check");
         TryOnService service = new TryOnService(dir);
-        byte[] png = new LocalDressUpClient().dressUp(new DressUpImageClient.Request(
-                CharacterStyle.ANIME, CharacterSpec.defaults(), new Outfit(), Map.of(), null));
+        byte[] png = RemoteImages.toPng(new BufferedImage(8, 8, BufferedImage.TYPE_INT_RGB));
 
         TryOnImage saved = service.save(7L, 12L, png);
         service.save(7L, null, png);
@@ -219,20 +226,25 @@ public class DomainSelfCheck {
         try {
             byte[] garment = new byte[]{(byte) 0xFF, (byte) 0xD8, 1, 2, 3};
             DressUpImageClient.Request request = new DressUpImageClient.Request(CharacterStyle.DISNEY,
-                    new CharacterSpec(165, "통통형", "50대"), outfit, Map.of(DressUpSlot.TOP, garment), pixel);
+                    new CharacterSpec(165, 80, "통통형", "50대"), outfit, Map.of(DressUpSlot.TOP, garment), pixel);
 
             byte[] result = new GeminiDressUpClient("test-key", null, base + "/ok", 5).dressUp(request);
             check(result.length == 300, "Gemini 응답에서 이미지 꺼내기");
             check("test-key".equals(seenKey.get()), "이용 열쇠는 헤더로 전달");
             String body = seenBody.get();
             check(body.contains("\"model\":\"gemini-3.1-flash-image\""), "기본 모델 이름");
-            check(body.contains("Image 1 is the character reference") && body.contains("Image 2 shows the top"),
-                    "지시문의 이미지 번호가 보내는 순서와 일치");
-            check(body.contains("\"mime_type\":\"image/png\"") && body.contains("\"mime_type\":\"image/jpeg\""),
-                    "기준 이미지(PNG)와 상품 사진(JPEG) 첨부");
-            check(body.contains("in her 50s") && body.contains("165 cm") && body.contains("plus-size"), "신체 스펙 반영");
-            check(body.contains("hat: no hat") && body.contains("bottom: plain light-gray"), "고르지 않은 자리는 기본 차림");
-            check(body.contains("not any existing film character"), "디즈니 그림체는 새 캐릭터로");
+            check(body.contains("Edit Image 1") && body.contains("Image 2 is the product photo for the top")
+                    && body.contains("[shown in Image 2]"), "지시문의 이미지 번호가 보내는 순서와 일치 (1=캐릭터, 2~=상품)");
+            check(body.indexOf("image/png") < body.indexOf("image/jpeg"), "기본 캐릭터(PNG) 다음에 상품 사진(JPEG)");
+            check(body.contains("165 cm tall and weighs 80 kg") && body.contains("BMI 29.4")
+                    && body.contains("clearly overweight"), "키·몸무게·체질량지수 반영");
+            check(body.contains("top of her head is about 15%"), "화면 속 머리 높이를 숫자로 전달");
+            check(body.contains("hat: none") && body.contains("bottom: keep the plain white shorts"),
+                    "고르지 않은 자리는 기본 캐릭터 차림 그대로");
+            check(body.contains("use ONLY that one product") && body.contains("Do NOT paste, overlay or collage"),
+                    "상품만 골라내고 사진 붙이기 금지");
+            check(body.contains("same art style as the character") && body.contains("recognizes the same product"),
+                    "그림체 통일 + 제품 디자인 유지");
 
             expectAiError(() -> new GeminiDressUpClient("bad", null, base + "/denied", 5).dressUp(request),
                     "이용 열쇠", "UC-09 7b 오류 응답 → 쉬운 한국어 안내");
@@ -305,22 +317,17 @@ public class DomainSelfCheck {
         try {
             byte[] garment = new byte[]{(byte) 0xFF, (byte) 0xD8, 9, 9};
             DressUpImageClient.Request withPhotos = new DressUpImageClient.Request(CharacterStyle.GAME_3D,
-                    CharacterSpec.defaults(), outfit, Map.of(DressUpSlot.TOP, garment, DressUpSlot.BOTTOM, garment), null);
+                    CharacterSpec.defaults(), outfit, Map.of(DressUpSlot.TOP, garment, DressUpSlot.BOTTOM, garment), pixel);
             OpenAiDressUpClient client = new OpenAiDressUpClient("relay-key", base[0] + "/v1/", null, "medium", 5);
 
             byte[] edited = client.dressUp(withPhotos);
             check(java.util.Arrays.equals(edited, pixel), "OpenAI 형식: b64_json 응답 읽기");
-            check("/v1/images/edits".equals(path.get()), "상품 사진이 있으면 images/edits");
+            check("/v1/images/edits".equals(path.get()), "images 방식은 images/edits");
             check("Bearer relay-key".equals(auth.get()), "이용 열쇠는 Bearer 헤더로 전달");
             check(type.get().startsWith("multipart/form-data; boundary="), "multipart 형식");
-            check(body.get().split("name=\"image\\[\\]\"", -1).length - 1 == 2, "상품 사진 2장 첨부");
+            check(body.get().split("name=\"image\\[\\]\"", -1).length - 1 == 3, "기본 캐릭터 1장 + 상품 사진 2장 첨부");
             check(body.get().contains("gpt-image-2") && body.get().contains("1024x1536") && body.get().contains("medium"),
                     "모델·크기·품질 전달");
-
-            client.dressUp(new DressUpImageClient.Request(CharacterStyle.GAME_3D, CharacterSpec.defaults(),
-                    new Outfit(), Map.of(), null));
-            check("/v1/images/generations".equals(path.get()) && body.get().contains("\"size\":\"1024x1536\""),
-                    "사진이 없으면 images/generations (JSON)");
 
             byte[] fromUrl = new OpenAiDressUpClient("k", base[0] + "/url", "my-model", null, 5).dressUp(withPhotos);
             check(java.util.Arrays.equals(fromUrl, pixel), "url 로 주는 중계 서비스도 처리");
@@ -330,13 +337,76 @@ public class DomainSelfCheck {
             byte[] chatImage = chat.dressUp(withPhotos);
             check(java.util.Arrays.equals(chatImage, pixel), "chat 방식: message.images 의 data URL 읽기");
             check("/relay/chat/completions".equals(path.get()) && body.get().contains("\"modalities\":[\"image\",\"text\"]")
-                    && body.get().split("data:image/jpeg;base64,", -1).length - 1 == 2, "chat 방식: 상품 사진 2장을 image_url 로 첨부");
+                    && body.get().split("data:image/jpeg;base64,", -1).length - 1 == 2
+                    && body.get().split("data:image/png;base64,", -1).length - 1 == 1,
+                    "chat 방식: 기본 캐릭터 1장 + 상품 사진 2장을 image_url 로 첨부");
+
+            expectAiError(() -> new UnconnectedDressUpClient().dressUp(withPhotos), "AI 연결 설정",
+                    "열쇠가 없으면 가짜 합성 대신 연결 안내");
 
             expectAiError(() -> new OpenAiDressUpClient("bad", base[0] + "/bad", null, null, 5).dressUp(withPhotos),
                     "이용 열쇠", "중계 서비스 키 오류 → 쉬운 한국어 안내");
         } finally {
             server.stop(0);
         }
+    }
+
+    /** 기본 캐릭터와 신체 스펙(키·몸무게) 반영. */
+    private static void character() {
+        CharacterSpec standard = CharacterSpec.defaults();
+        check(standard.heightCm() == 160 && standard.weightKg() == 56, "기본 스펙 160cm 56kg");
+        check(Math.abs(new CharacterSpec(160, 64, null, null).bmi() - 25.0) < 0.01, "체질량지수 계산");
+        check(CharacterSpec.standardWeight(170) == 64, "키에 맞는 보통 몸무게");
+        check(new CharacterSpec(300, 5, "?", "?").equals(new CharacterSpec(185, 35, "보통형", "40대")), "범위를 벗어난 값은 고쳐 담음");
+
+        for (CharacterStyle style : CharacterStyle.values()) {
+            BufferedImage base = CharacterFigure.base(style);
+            check(base.getWidth() == 896 && base.getHeight() == 1200, style.label() + " 기본 캐릭터 이미지");
+            for (int height : new int[]{185, 160, 140}) {
+                CharacterSpec spec = new CharacterSpec(height, CharacterSpec.standardWeight(height), "보통형", "40대");
+                double[] extent = CharacterFigure.figureExtent(CharacterFigure.shaped(style, spec));
+                check(Math.abs(extent[0] - CharacterFigure.headTop(spec)) < 0.006 && Math.abs(extent[1] - 0.97) < 0.006,
+                        style.label() + " " + height + "cm: 머리끝 " + Math.round(extent[0] * 1000) / 10.0 + "%, 발끝 97%");
+            }
+        }
+        // 키 25cm 차이 = 화면 속 키 25/185 차이
+        double tall = CharacterFigure.headTop(new CharacterSpec(185, 70, "보통형", "40대"));
+        double small = CharacterFigure.headTop(new CharacterSpec(160, 56, "보통형", "40대"));
+        check(Math.abs((small - tall) - 0.92 * 25 / 185) < 0.001, "화면 속 키가 실제 키에 비례");
+
+        BufferedImage light = CharacterFigure.shaped(CharacterStyle.ANIME, new CharacterSpec(160, 50, "보통형", "40대"));
+        BufferedImage heavy = CharacterFigure.shaped(CharacterStyle.ANIME, new CharacterSpec(160, 85, "보통형", "40대"));
+        int lightWidth = widthAt(light, 0.58);
+        int heavyWidth = widthAt(heavy, 0.58);
+        check(heavyWidth > lightWidth * 1.25, "같은 키에서 85kg 이 50kg 보다 넓음 (" + lightWidth + " → " + heavyWidth + "px)");
+
+        // AI 가 캐릭터를 더 크게 그려 온 경우: 185cm 모습을 150cm 스펙으로 바로잡는다
+        CharacterSpec target = new CharacterSpec(150, 50, "보통형", "40대");
+        BufferedImage tooTall = CharacterFigure.shaped(CharacterStyle.REAL, new CharacterSpec(185, 75, "보통형", "40대"));
+        double[] fixed = CharacterFigure.figureExtent(CharacterFigure.fitHeight(tooTall, target, false));
+        check(Math.abs(fixed[0] - CharacterFigure.headTop(target)) < 0.01 && Math.abs(fixed[1] - 0.97) < 0.01,
+                "AI 결과의 화면 속 키 바로잡기");
+        BufferedImage right = CharacterFigure.shaped(CharacterStyle.REAL, target);
+        check(CharacterFigure.fitHeight(right, target, false) == right, "이미 맞는 그림은 건드리지 않음");
+    }
+
+    /** 그 높이에서 배경이 아닌 부분의 너비(px). 가운데에서 바깥으로 훑는다. */
+    private static int widthAt(BufferedImage image, double at) {
+        int y = (int) (image.getHeight() * at);
+        int background = image.getRGB(2, y);
+        int left = image.getWidth();
+        int right = 0;
+        for (int x = 0; x < image.getWidth(); x++) {
+            int rgb = image.getRGB(x, y);
+            int diff = Math.abs(((rgb >> 16) & 0xFF) - ((background >> 16) & 0xFF))
+                    + Math.abs(((rgb >> 8) & 0xFF) - ((background >> 8) & 0xFF))
+                    + Math.abs((rgb & 0xFF) - (background & 0xFF));
+            if (diff > 60) {
+                left = Math.min(left, x);
+                right = Math.max(right, x);
+            }
+        }
+        return Math.max(0, right - left);
     }
 
     private interface AiCall {

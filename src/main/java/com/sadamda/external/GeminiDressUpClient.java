@@ -1,8 +1,6 @@
 package com.sadamda.external;
 
 import com.sadamda.external.AiImageClient.AiImageException;
-import com.sadamda.model.tryon.DressUpPrompt;
-import com.sadamda.model.tryon.DressUpSlot;
 
 import java.io.IOException;
 import java.net.URI;
@@ -12,7 +10,6 @@ import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -83,22 +80,10 @@ public class GeminiDressUpClient implements DressUpImageClient {
         return image;
     }
 
-    /** 보내는 순서: 지시문 → (있으면) 캐릭터 기준 이미지 → 자리 순서대로 상품 사진. 지시문의 "Image N" 번호와 맞춘다. */
+    /** 보내는 순서: 지시문 → 기본 캐릭터(Image 1) → 자리 순서대로 상품 사진. 지시문의 "Image N" 번호와 맞춘다. */
     String requestBody(Request request) {
-        List<String> labels = new ArrayList<>();
-        List<byte[]> images = new ArrayList<>();
-        if (request.baseCharacter() != null) {
-            images.add(request.baseCharacter());
-        }
-        for (DressUpSlot slot : DressUpSlot.values()) {
-            byte[] garment = request.garmentImages().get(slot);
-            if (garment != null && request.outfit().get(slot) != null) {
-                labels.add(slot.english());
-                images.add(garment);
-            }
-        }
-        String prompt = DressUpPrompt.build(request.style(), request.spec(), request.outfit(),
-                request.baseCharacter() != null, labels);
+        String prompt = request.prompt();
+        List<byte[]> images = request.images();
 
         StringBuilder json = new StringBuilder();
         json.append("{\"model\":\"").append(escape(model)).append("\",\"store\":false,\"input\":[");

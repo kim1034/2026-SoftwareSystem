@@ -4,11 +4,11 @@ import com.sadamda.model.product.Category;
 
 /** 옷 입혀보기에서 캐릭터에 입히는 자리 5곳. 화면 오른쪽에 이 순서로 보여준다. */
 public enum DressUpSlot {
-    HAT("모자", Category.HAT, "hat", "no hat"),
-    TOP("상의", Category.TOP, "top", "a plain white fitted t-shirt"),
-    BOTTOM("하의", Category.BOTTOM, "bottom", "plain light-gray straight trousers"),
-    JEWELRY("주얼리", Category.JEWELRY, "jewelry", "no jewelry"),
-    SHOES("신발", Category.SHOES, "shoes", "plain white flat shoes");
+    HAT("모자", Category.HAT, "hat", "none (keep her head and hair exactly as in Image 1, no hat)"),
+    TOP("상의", Category.TOP, "top", "keep the plain white t-shirt she wears in Image 1"),
+    BOTTOM("하의", Category.BOTTOM, "bottom", "keep the plain white shorts she wears in Image 1"),
+    JEWELRY("주얼리", Category.JEWELRY, "jewelry", "none (no jewelry)"),
+    SHOES("신발", Category.SHOES, "shoes", "none (keep her barefoot as in Image 1)");
 
     private final String label;
     private final Category category;
@@ -35,7 +35,7 @@ public enum DressUpSlot {
         return english;
     }
 
-    /** 아무것도 고르지 않았을 때 캐릭터가 입는 기본 차림 (AI 에 보내는 설명). */
+    /** 아무것도 고르지 않았을 때의 지시: 기본 캐릭터의 차림을 그대로 둔다. */
     public String whenEmpty() {
         return whenEmpty;
     }

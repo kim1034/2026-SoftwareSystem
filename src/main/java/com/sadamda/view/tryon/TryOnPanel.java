@@ -2,6 +2,7 @@ package com.sadamda.view.tryon;
 
 import com.sadamda.controller.AppContext;
 import com.sadamda.external.AiImageClient;
+import com.sadamda.external.DressUpSettings;
 import com.sadamda.external.RemoteImages;
 import com.sadamda.model.product.Product;
 import com.sadamda.model.product.ProductOption;
@@ -20,8 +21,10 @@ import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPasswordField;
 import javax.swing.JProgressBar;
 import javax.swing.JSpinner;
+import javax.swing.JTextField;
 import javax.swing.JToggleButton;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingConstants;
@@ -31,6 +34,7 @@ import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GridLayout;
+import java.awt.Insets;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -44,9 +48,11 @@ import java.util.concurrent.ExecutionException;
  *
  * 화면 구성 (구상 그림 기준)
  * - 왼쪽: 큰 캐릭터 칸. 그 위에 그림체 4가지(실사·디즈니 캐릭터·3D 게임 캐릭터·애니메이션 캐릭터)
- * - 왼쪽 아래: [캐릭터 신체 스펙 정함]
+ * - 왼쪽 아래: [캐릭터 신체 스펙 정함] 키·몸무게·체형·연령대. 바꾸면 캐릭터 모습이 바로 바뀐다
  * - 오른쪽: 모자 → 상의 → 하의 → 주얼리 → 신발 칸. 누르면 상품을 고른다
  * - 맨 아래: [입혀보기] 와 결과 처리 버튼 (UC-09 9단계)
+ *
+ * 캐릭터 칸에는 옷을 입히기 전에는 기본 캐릭터가, [입혀보기] 뒤에는 AI 가 옷을 입힌 그림이 보인다.
  */
 public class TryOnPanel extends ScreenPanel {
     public static final String NAME = "tryOn";
@@ -55,16 +61,18 @@ public class TryOnPanel extends ScreenPanel {
     private final Outfit outfit = new Outfit();
     private final Map<DressUpSlot, JButton> slotButtons = new EnumMap<>(DressUpSlot.class);
     private final CharacterView characterView = new CharacterView();
+    private final JLabel serviceLabel = new JLabel(" ", SwingConstants.RIGHT);
     private final JButton specButton = bigButton("");
     private final JLabel status = new JLabel(" ");
     private final JLabel total = new JLabel(" ", SwingConstants.RIGHT);
     private final JProgressBar progress = new JProgressBar();
     private final JButton generateButton = bigButton("입혀보기");
     private final JButton retryButton = bigButton("다시 시도");
-    private final JButton newCharacterButton = bigButton("다른 얼굴로");
+    private final JButton undressButton = bigButton("모두 벗기");
     private final JButton lockerButton = bigButton("보관함에 저장");
     private final JButton downloadButton = bigButton("내 컴퓨터에 저장");
     private final JButton cartButton = bigButton("장바구니 담기");
+    private final JButton settingsButton = bigButton("AI 연결 설정");
 
     private CharacterStyle style = CharacterStyle.REAL;
     private CharacterSpec spec;
@@ -81,17 +89,19 @@ public class TryOnPanel extends ScreenPanel {
         add(slotColumn(), BorderLayout.EAST);
         add(actions(), BorderLayout.SOUTH);
 
+        showService();
         showSpec();
+        showBaseCharacter();
         refreshSlots();
-        characterView.setMessage("옷을 고르고\n[입혀보기]를 눌러 주세요");
-        updateButtons();
+        setStatus(context.tryOn.dressUpConnected()
+                ? "옷을 고르고 [입혀보기]를 눌러 주세요."
+                : "그림 만드는 곳(AI)에 연결되지 않았습니다. [AI 연결 설정]에서 이용 열쇠를 넣어 주세요.");
     }
 
     private JPanel header() {
         JPanel header = new JPanel(new BorderLayout());
         header.add(new JLabel("<html><b>옷 입혀보기</b></html>"), BorderLayout.WEST);
-        header.add(new JLabel("그림 만드는 곳: " + context.tryOn.dressUpServiceName(), SwingConstants.RIGHT),
-                BorderLayout.EAST);
+        header.add(serviceLabel, BorderLayout.EAST);
         return header;
     }
 
@@ -103,9 +113,10 @@ public class TryOnPanel extends ScreenPanel {
             JToggleButton button = new JToggleButton(option.label(), option == style);
             button.setPreferredSize(new Dimension(120, 52));
             button.addActionListener(e -> {
-                if (style != option) {
+                if (style != option && !working) {
                     style = option;
-                    setStatus("그림체를 바꿨습니다. [입혀보기]를 누르면 새로 그립니다.");
+                    showBaseCharacter();
+                    setStatus("그림체를 바꿨습니다. [입혀보기]를 누르면 이 캐릭터가 옷을 입습니다.");
                 }
             });
             group.add(button);
@@ -144,13 +155,16 @@ public class TryOnPanel extends ScreenPanel {
 
         generateButton.addActionListener(e -> generate());
         retryButton.addActionListener(e -> generate());
-        newCharacterButton.addActionListener(e -> {
-            context.tryOn.resetCharacter(style, spec);
-            generate();
+        undressButton.addActionListener(e -> {
+            outfit.clear();
+            refreshSlots();
+            showBaseCharacter();
+            setStatus("옷을 모두 벗겼습니다.");
         });
         lockerButton.addActionListener(e -> saveToLocker());
         downloadButton.addActionListener(e -> download());
         cartButton.addActionListener(e -> addToCart());
+        settingsButton.addActionListener(e -> editSettings());
 
         JPanel statusRow = new JPanel(new BorderLayout(12, 0));
         statusRow.add(status, BorderLayout.CENTER);
@@ -160,15 +174,33 @@ public class TryOnPanel extends ScreenPanel {
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         buttons.add(generateButton);
         buttons.add(retryButton);
-        buttons.add(newCharacterButton);
+        buttons.add(undressButton);
         buttons.add(lockerButton);
         buttons.add(downloadButton);
         buttons.add(cartButton);
+        buttons.add(settingsButton);
 
         JPanel actions = new JPanel(new BorderLayout(0, 8));
         actions.add(statusRow, BorderLayout.NORTH);
         actions.add(buttons, BorderLayout.CENTER);
         return actions;
+    }
+
+    /** 옷을 입히기 전 모습: 그림체의 기본 캐릭터에 신체 스펙을 반영해 보여준다. 전에 만든 합성 결과는 치운다. */
+    private void showBaseCharacter() {
+        resultImage = null;
+        retryButton.setVisible(false);
+        try {
+            characterView.setImage(context.tryOn.characterImage(style, spec));
+        } catch (RuntimeException e) {
+            characterView.setImage(null);
+            characterView.setMessage("캐릭터 그림을 불러오지 못했습니다");
+        }
+        updateButtons();
+    }
+
+    private void showService() {
+        serviceLabel.setText("그림 만드는 곳: " + context.tryOn.dressUpServiceName());
     }
 
     /** 자리 칸을 누르면 그 카테고리 상품을 고르는 창을 연다. */
@@ -187,7 +219,8 @@ public class TryOnPanel extends ScreenPanel {
             return;
         }
         refreshSlots();
-        setStatus("옷을 바꿨습니다. [입혀보기]를 누르면 캐릭터가 입습니다.");
+        setStatus(outfit.isEmpty() ? "입힐 옷을 골라 주세요."
+                : "옷을 바꿨습니다. [입혀보기]를 누르면 캐릭터가 입습니다.");
     }
 
     private void refreshSlots() {
@@ -207,10 +240,12 @@ public class TryOnPanel extends ScreenPanel {
         updateButtons();
     }
 
-    /** [캐릭터 신체 스펙 정함] */
+    /** [캐릭터 신체 스펙 정함]: 키·몸무게·체형·연령대. 바꾸면 캐릭터 모습에 바로 반영된다. */
     private void editSpec() {
         JSpinner height = new JSpinner(new SpinnerNumberModel(spec.heightCm(),
                 CharacterSpec.MIN_HEIGHT, CharacterSpec.MAX_HEIGHT, 1));
+        JSpinner weight = new JSpinner(new SpinnerNumberModel(spec.weightKg(),
+                CharacterSpec.MIN_WEIGHT, CharacterSpec.MAX_WEIGHT, 1));
         JComboBox<String> bodyType = new JComboBox<>(CharacterSpec.BODY_TYPES.toArray(new String[0]));
         bodyType.setSelectedItem(spec.bodyType());
         JComboBox<String> ageGroup = new JComboBox<>(CharacterSpec.AGE_GROUPS.toArray(new String[0]));
@@ -219,6 +254,8 @@ public class TryOnPanel extends ScreenPanel {
         JPanel form = new JPanel(new GridLayout(0, 2, 12, 12));
         form.add(new JLabel("키 (cm)"));
         form.add(height);
+        form.add(new JLabel("몸무게 (kg)"));
+        form.add(weight);
         form.add(new JLabel("체형"));
         form.add(bodyType);
         form.add(new JLabel("연령대"));
@@ -228,12 +265,13 @@ public class TryOnPanel extends ScreenPanel {
         int answer = JOptionPane.showOptionDialog(this, form, "캐릭터 신체 스펙",
                 JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null, choices, choices[0]);
         if (answer == 0) {
-            CharacterSpec changed = new CharacterSpec((Integer) height.getValue(),
+            CharacterSpec changed = new CharacterSpec((Integer) height.getValue(), (Integer) weight.getValue(),
                     (String) bodyType.getSelectedItem(), (String) ageGroup.getSelectedItem());
             if (!changed.equals(spec)) {
                 spec = changed;
                 showSpec();
-                setStatus("신체 스펙을 바꿨습니다. [입혀보기]를 누르면 새로 그립니다.");
+                showBaseCharacter();
+                setStatus("신체 스펙을 캐릭터에 반영했습니다. [입혀보기]를 누르면 이 몸에 맞게 옷을 입힙니다.");
             }
         }
     }
@@ -242,10 +280,48 @@ public class TryOnPanel extends ScreenPanel {
         specButton.setText("캐릭터 신체 스펙 정함: " + spec.summary());
     }
 
+    /** [AI 연결 설정]: 이용 열쇠·서비스 주소·모델을 이 PC 에만 저장한다. */
+    private void editSettings() {
+        DressUpSettings saved = context.tryOn.dressUpSettings();
+        JPasswordField key = new JPasswordField(saved.apiKey() == null ? "" : saved.apiKey(), 28);
+        JTextField baseUrl = new JTextField(saved.baseUrl() == null ? "" : saved.baseUrl(), 28);
+        JTextField model = new JTextField(saved.model() == null ? "" : saved.model(), 28);
+
+        JPanel form = new JPanel(new GridLayout(0, 1, 0, 6));
+        form.add(new JLabel("이용 열쇠 (API 키)"));
+        form.add(key);
+        form.add(new JLabel("서비스 주소 (중계 서비스를 쓸 때만. 비우면 OpenAI 공식 주소)"));
+        form.add(baseUrl);
+        form.add(new JLabel("모델 이름 (비우면 기본 모델)"));
+        form.add(model);
+        form.add(new JLabel(context.tryOn.dressUpKeyFromEnvironment()
+                ? "지금은 환경 변수에 넣은 열쇠가 먼저 쓰입니다."
+                : "이 PC 에만 저장되고, 다른 사람에게 보내는 파일에는 들어가지 않습니다."));
+
+        Object[] choices = {"저장", "취소"};
+        int answer = JOptionPane.showOptionDialog(this, form, "AI 연결 설정",
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null, choices, choices[0]);
+        if (answer == 0) {
+            context.tryOn.configureDressUp(new String(key.getPassword()), baseUrl.getText(), model.getText());
+            showService();
+            setStatus(context.tryOn.dressUpConnected()
+                    ? "AI 연결 설정을 저장했습니다. [입혀보기]를 눌러 확인해 주세요."
+                    : "이용 열쇠가 비어 있어 아직 연결되지 않았습니다.");
+            updateButtons();
+        }
+    }
+
     /** UC-09 5~8단계: 합성 요청 → 진행 상태 표시 → 결과를 크게 보여준다. 실패하면 [다시 시도] (7b). */
     private void generate() {
         if (working) {
             return;
+        }
+        if (!context.tryOn.dressUpConnected()) {
+            setStatus("그림 만드는 곳(AI)에 연결되지 않았습니다. 이용 열쇠를 넣어 주세요.");
+            editSettings();
+            if (!context.tryOn.dressUpConnected()) {
+                return;
+            }
         }
         working = true;
         retryButton.setVisible(false);
@@ -352,13 +428,15 @@ public class TryOnPanel extends ScreenPanel {
 
     private void updateButtons() {
         boolean hasResult = resultImage != null;
-        generateButton.setEnabled(!working);
-        retryButton.setEnabled(!working);
+        boolean hasOutfit = !outfit.isEmpty();
+        generateButton.setEnabled(!working && hasOutfit);
+        retryButton.setEnabled(!working && hasOutfit);
         specButton.setEnabled(!working);
-        newCharacterButton.setEnabled(!working && hasResult);
+        settingsButton.setEnabled(!working);
+        undressButton.setEnabled(!working && (hasOutfit || hasResult));
         lockerButton.setEnabled(!working && hasResult);
         downloadButton.setEnabled(!working && hasResult);
-        cartButton.setEnabled(!working && !outfit.isEmpty());
+        cartButton.setEnabled(!working && hasOutfit);
         slotButtons.values().forEach(button -> button.setEnabled(!working));
     }
 
@@ -373,8 +451,7 @@ public class TryOnPanel extends ScreenPanel {
     private static JButton bigButton(String text) {
         JButton button = new JButton(text);
         button.setMinimumSize(new Dimension(48, 48)); // NFR-02
-        button.setPreferredSize(null);
-        button.setMargin(new java.awt.Insets(10, 16, 10, 16));
+        button.setMargin(new Insets(10, 14, 10, 14));
         return button;
     }
 }

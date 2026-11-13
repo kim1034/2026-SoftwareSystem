@@ -31,8 +31,8 @@ public class AppContext {
         PaymentGateway paymentGateway = new MockPaymentGateway(); // TODO: 실제 PG 연동으로 교체
         AiImageClient aiImageClient = new MockAiImageClient();    // TODO: 실제 AI API 연동으로 교체
 
-        // 옷 입혀보기: GEMINI_API_KEY 가 있으면 Gemini, 없으면 미리보기 합성기 (DressUpClients 참고)
-        DressUpImageClient dressUpClient = DressUpClients.fromEnvironment();
+        // 옷 입혀보기: 환경 변수나 화면의 [AI 연결 설정]에 이용 열쇠가 있으면 AI 로 합성 (DressUpClients 참고)
+        DressUpImageClient dressUpClient = DressUpClients.create();
 
         MemberService memberService = new MemberService();
         ProductService productService = new ProductService();

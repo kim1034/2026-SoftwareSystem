@@ -1,8 +1,6 @@
 package com.sadamda.external;
 
 import com.sadamda.external.AiImageClient.AiImageException;
-import com.sadamda.model.tryon.DressUpPrompt;
-import com.sadamda.model.tryon.DressUpSlot;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -13,7 +11,6 @@ import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
@@ -23,8 +20,8 @@ import java.util.regex.Pattern;
 /**
  * OpenAI 이미지 API 형식(공식 또는 OpenAI 호환 중계 서비스)으로 옷 입혀보기 이미지를 만든다.
  * 보내는 방식(api) 두 가지
- * - "images": 참고 이미지가 있으면 POST {baseUrl}/images/edits (multipart, image[] 여러 장),
- *             없으면 POST {baseUrl}/images/generations (JSON). OpenAI 공식 API 의 기본값.
+ * - "images": POST {baseUrl}/images/edits (multipart, image[] 여러 장: 기본 캐릭터 + 상품 사진).
+ *             OpenAI 공식 API 의 기본값.
  * - "chat"  : POST {baseUrl}/chat/completions, modalities=[image,text], 참고 이미지는 image_url(data URL).
  *             여러 회사 모델을 묶은 중계 서비스(모델 이름이 "google/…" 처럼 생긴 곳)에서 쓰는 방식.
  *             응답의 message.images[].image_url.url (data URL) 을 결과로 쓴다.
@@ -94,22 +91,9 @@ public class OpenAiDressUpClient implements DressUpImageClient {
 
     @Override
     public byte[] dressUp(Request request) throws AiImageException {
-        List<String> labels = new ArrayList<>();
-        List<byte[]> images = new ArrayList<>();
-        if (request.baseCharacter() != null) {
-            images.add(request.baseCharacter());
-        }
-        for (DressUpSlot slot : DressUpSlot.values()) {
-            byte[] garment = request.garmentImages().get(slot);
-            if (garment != null && request.outfit().get(slot) != null) {
-                labels.add(slot.english());
-                images.add(garment);
-            }
-        }
-        String prompt = DressUpPrompt.build(request.style(), request.spec(), request.outfit(),
-                request.baseCharacter() != null, labels);
-        HttpRequest httpRequest = api.equals(API_CHAT) ? chatRequest(prompt, images)
-                : images.isEmpty() ? generationRequest(prompt) : editRequest(prompt, images);
+        String prompt = request.prompt();
+        List<byte[]> images = request.images();
+        HttpRequest httpRequest = api.equals(API_CHAT) ? chatRequest(prompt, images) : editRequest(prompt, images);
         return parse(send(httpRequest));
     }
 
@@ -126,21 +110,6 @@ public class OpenAiDressUpClient implements DressUpImageClient {
         }
         json.append("]}]}");
         return base("/chat/completions")
-                .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(json.toString(), StandardCharsets.UTF_8))
-                .build();
-    }
-
-    HttpRequest generationRequest(String prompt) {
-        StringBuilder json = new StringBuilder("{");
-        json.append("\"model\":\"").append(GeminiDressUpClient.escape(model)).append("\",");
-        json.append("\"prompt\":\"").append(GeminiDressUpClient.escape(prompt)).append("\",");
-        json.append("\"size\":\"").append(SIZE).append("\",\"n\":1");
-        if (quality != null) {
-            json.append(",\"quality\":\"").append(GeminiDressUpClient.escape(quality)).append("\"");
-        }
-        json.append("}");
-        return base("/images/generations")
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(json.toString(), StandardCharsets.UTF_8))
                 .build();
