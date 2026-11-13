@@ -1,5 +1,7 @@
 package com.sadamda.controller;
 
+import com.sadamda.common.AppException;
+import com.sadamda.common.RetryableException;
 import com.sadamda.external.PaymentGateway;
 import com.sadamda.model.order.Order;
 import com.sadamda.model.order.OrderService;
@@ -16,6 +18,13 @@ import java.util.List;
  * 모든 메서드 관리자 로그인 필요 (아니면 LoginRequiredException / AccessDeniedException). 담당: 김대원
  */
 public class AdminController {
+    static final String MSG_NO_TRACKING = "송장번호를 입력해 주세요.";
+    static final String MSG_REFUND_RETRY = "환불 요청에 실패했습니다. 다시 시도해 주세요.";
+    static final String MSG_NO_REQUEST = "처리할 교환·반품 요청이 없습니다.";
+    static final String MSG_NO_REJECT_REASON = "거절 사유를 입력해 주세요.";
+
+    private static final System.Logger LOG = System.getLogger(AdminController.class.getName());
+
     private final Session session;
     private final ProductService productService;
     private final RecommendService recommendService;
@@ -88,17 +97,47 @@ public class AdminController {
     /** UC-18 3단계 배송 상태 변경. SHIPPING 으로 바꿀 때 trackingNumber 필수. */
     public Order updateOrderStatus(Long orderId, OrderStatus status, String trackingNumber) {
         session.requireAdmin();
+        if (status == OrderStatus.SHIPPING && isBlank(trackingNumber)) {
+            throw new AppException(MSG_NO_TRACKING);
+        }
         return orderService.updateStatus(orderId, status, trackingNumber);
     }
 
-    /** UC-18 4~5단계 교환·반품 승인. 반품이면 환불 요청 후 반영, 환불 실패 시 AppException (5a, 재시도 안내). */
+    /** UC-18 4~5단계 교환·반품 승인. 반품이면 환불 후 반영, 환불 실패 시 RetryableException (5a). */
     public Order approveRequest(Long orderId) {
-        throw new UnsupportedOperationException("TODO UC-18 (계획 7단계)");
+        session.requireAdmin();
+        Order order = orderService.findById(orderId);
+        if (order.getStatus() == OrderStatus.RETURN_REQUESTED) {
+            if (!refund(order.getPaymentId())) {
+                LOG.log(System.Logger.Level.ERROR, "반품 환불 실패: orderId={0}, paymentId={1}",
+                        orderId, order.getPaymentId());
+                throw new RetryableException(MSG_REFUND_RETRY);
+            }
+        } else if (order.getStatus() != OrderStatus.EXCHANGE_REQUESTED) {
+            throw new AppException(MSG_NO_REQUEST);
+        }
+        return orderService.approveChange(orderId);
     }
 
     /** UC-18 4단계 교환·반품 거절 */
     public Order rejectRequest(Long orderId, String reason) {
         session.requireAdmin();
+        if (isBlank(reason)) {
+            throw new AppException(MSG_NO_REJECT_REASON);
+        }
         return orderService.rejectChange(orderId, reason);
+    }
+
+    private boolean refund(String paymentId) {
+        try {
+            return paymentGateway.cancel(paymentId).approved();
+        } catch (RuntimeException e) {
+            LOG.log(System.Logger.Level.WARNING, "환불 요청 실패", e);
+            return false;
+        }
+    }
+
+    private static boolean isBlank(String s) {
+        return s == null || s.isBlank();
     }
 }
