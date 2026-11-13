@@ -39,7 +39,11 @@ import java.util.regex.Pattern;
 public class SignUpPanel extends ScreenPanel {
     public static final String NAME = "signUp";
 
-    private static final String NOT_SELECTED = "선택 안 함";
+    // 내 정보 화면(MyInfoPanel)도 같은 선택지·검사 규칙을 쓴다.
+    static final String NOT_SELECTED = "선택 안 함";
+    static final String[] AGE_GROUPS = {NOT_SELECTED, "40대", "50대", "60대"};
+    static final String[] SIZES = {NOT_SELECTED, "S (55)", "M (66)", "L (77)", "XL (88)", "XXL (99)"};
+    static final String[] BODY_TYPES = {NOT_SELECTED, "마른 체형", "보통 체형", "통통한 체형", "하체 발달형", "상체 발달형"};
     private static final Pattern EMAIL = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
     private static final Pattern PHONE = Pattern.compile("^01[016789]-?\\d{3,4}-?\\d{4}$");
 
@@ -50,10 +54,10 @@ public class SignUpPanel extends ScreenPanel {
     private final JTextField nameField = Theme.textField("이름 입력");
     private final JTextField phoneField = Theme.textField("예: 010-1234-5678");
     // 선택 (TODO: 선택지는 팀과 확정 후 수정)
-    private final JComboBox<String> ageGroupBox = Theme.comboBox(NOT_SELECTED, "40대", "50대", "60대");
+    private final JComboBox<String> ageGroupBox = Theme.comboBox(AGE_GROUPS);
     private final JTextField heightField = Theme.textField("예: 160");
-    private final JComboBox<String> sizeBox = Theme.comboBox(NOT_SELECTED, "S (55)", "M (66)", "L (77)", "XL (88)", "XXL (99)");
-    private final JComboBox<String> bodyTypeBox = Theme.comboBox(NOT_SELECTED, "마른 체형", "보통 체형", "통통한 체형", "하체 발달형", "상체 발달형");
+    private final JComboBox<String> sizeBox = Theme.comboBox(SIZES);
+    private final JComboBox<String> bodyTypeBox = Theme.comboBox(BODY_TYPES);
     private final JCheckBox agreeBox = Theme.checkBox("이용약관과 개인정보 수집에 동의합니다 (필수)");
 
     // UC-01 4b: 입력란 이름 옆에 이유를 표시한다.
@@ -186,7 +190,7 @@ public class SignUpPanel extends ScreenPanel {
         return new BodyProfile(ageGroup, heightCm, usualSize, bodyType);
     }
 
-    private static String selected(JComboBox<String> box) {
+    static String selected(JComboBox<String> box) {
         Object value = box.getSelectedItem();
         return NOT_SELECTED.equals(value) ? null : (String) value;
     }
@@ -293,33 +297,33 @@ public class SignUpPanel extends ScreenPanel {
         return Arrays.equals(password, confirm) ? null : "비밀번호가 서로 다릅니다";
     }
 
-    private static String phoneMessage(String phone) {
+    static String phoneMessage(String phone) {
         if (phone.isEmpty()) {
             return "연락처를 입력해 주세요";
         }
-        return PHONE.matcher(phone).matches() ? null : "연락처 형식이 맞지 않습니다";
+        return PHONE.matcher(phone).matches() ? null : "010-1234-5678 형식으로 입력해 주세요";
     }
 
-    private static String heightMessage(String height) {
+    static String heightMessage(String height) {
         if (height.isEmpty()) {
             return null; // 선택 입력
         }
         try {
             int cm = Integer.parseInt(height);
-            return cm >= 100 && cm <= 250 ? null : "100~250 사이로 입력해 주세요";
+            return cm >= 100 && cm <= 220 ? null : "100~220 사이로 입력해 주세요"; // MemberService 와 같은 범위
         } catch (NumberFormatException e) {
             return "숫자로 입력해 주세요";
         }
     }
 
     /** 오류 문구와 빨간 테두리를 표시하거나 지운다. 오류가 없으면 true. */
-    private static boolean show(JLabel errorLabel, JComponent input, String message) {
+    static boolean show(JLabel errorLabel, JComponent input, String message) {
         errorLabel.setText(message == null ? "" : message);
         Theme.setInvalid(input, message != null);
         return message == null;
     }
 
-    private static JPanel twoColumns(JComponent left, JComponent right) {
+    static JPanel twoColumns(JComponent left, JComponent right) {
         JPanel panel = new JPanel(new GridLayout(1, 2, 16, 0));
         panel.setOpaque(false);
         panel.add(left);
