@@ -17,4 +17,9 @@ public class Product {
     private List<String> bodyTypeTags; // 추천 체형 태그
     private boolean trending;          // 유행 아이템 지정 여부 (UC-17)
     private Status status = Status.ON_SALE;
+
+    /** UC-09 AI 합성에 보낼 대표 의류 이미지. 이미지가 없으면 null. (Controller 명세에서 사용) */
+    public String getMainImageUrl() {
+        return imageUrls == null || imageUrls.isEmpty() ? null : imageUrls.get(0);
+    }
 }

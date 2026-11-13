@@ -24,7 +24,10 @@ Controller·Model 은 실패를 아래 예외로 알립니다 (`com.sadamda.comm
 |------|------|---------------|
 | `LoginRequiredException` | 로그인이 필요한 기능을 비회원이 씀 | 로그인 화면(UC-02)으로 이동 → 로그인 후 원래 화면으로 돌아와 다시 호출 |
 | `AccessDeniedException` | 관리자 기능을 일반 회원이 씀, 남의 주문 조회 | 메시지 표시 |
+| `RetryableException` | 잠시 후 다시 하면 될 수 있는 실패 (AI 합성 시간 초과, 결제 취소·환불 실패) | 메시지와 함께 [다시 시도] 버튼 표시 |
 | `AppException` | 그 밖의 검증 실패·대안 흐름 | `getMessage()`를 큰 글씨로 그대로 표시 |
+
+`RetryableException`이 `AppException`을 상속하므로 `catch`는 `RetryableException`을 먼저 둡니다.
 
 - 메시지는 사용자에게 그대로 보여줄 쉬운 한국어로 씁니다 (NFR-03). 예: "이미 가입된 이메일입니다."
 - `UnsupportedOperationException("TODO ...")`은 아직 구현되지 않았다는 뜻입니다.
@@ -123,7 +126,7 @@ Controller·Model 은 실패를 아래 예외로 알립니다 (`com.sadamda.comm
 | 메서드 | 반환 | 실패 |
 |--------|------|------|
 | `backgroundTemplates()` | 템플릿 id 목록 | |
-| `generate(TryOnRequest request)` | 합성 이미지 (PNG 바이트) | 동의 안 함(2a), 형식·용량(3a), 인물 인식 실패(7a), 시간 초과·오류(7b → [다시 시도] 표시) |
+| `generate(TryOnRequest request)` | 합성 이미지 (PNG 바이트) | 동의 안 함(2a), 형식·용량(3a), 인물 인식 실패(7a), 시간 초과·오류(7b, `RetryableException`) |
 | `saveToLocker(Long productId, byte[] image)` | `TryOnImage` | |
 | `locker()` | `List<TryOnImage>` | |
 | `deleteFromLocker(Long tryOnImageId)` | | |
