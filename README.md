@@ -27,6 +27,7 @@ src/main/java/com/sadamda
 │   ├── product/              상품·카테고리·검색 조건  (정우진)
 │   ├── recommend/            룩북·유행·맞춤 추천      (정우진)
 │   └── tryon/                AI 합성 이미지 보관함    (정우진)
+├── common/                   공통 예외 (AppException 등)
 ├── external/                 외부 시스템 연동: 결제(PG), AI 이미지 합성 (김대원)
 ├── controller/               Controller: 화면 요청 처리, Model·외부 연동 조합 (김대원)
 │   └── AppContext.java       객체 생성·연결
@@ -36,6 +37,8 @@ src/main/java/com/sadamda
     ├── FontSize.java         글씨 크기 조절 (UC-15)
     └── member/ product/ recommend/ tryon/ cart/ order/ admin/
 ```
+
+Controller 메서드와 오류 처리 규칙은 [docs/controller-spec.md](docs/controller-spec.md)를 보세요.
 
 ## Use Case ↔ 코드 위치
 

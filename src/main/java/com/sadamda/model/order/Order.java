@@ -15,4 +15,21 @@ public class Order {
     private GiftInfo giftInfo;
     private OrderStatus status;
     private LocalDateTime orderedAt;
+
+    // Controller 명세에서 쓰는 getter. 나머지 접근자는 Model 담당이 추가한다.
+    public Long getId() {
+        return id;
+    }
+
+    public Long getMemberId() {
+        return memberId;
+    }
+
+    public String getPaymentId() {
+        return paymentId;
+    }
+
+    public OrderStatus getStatus() {
+        return status;
+    }
 }
