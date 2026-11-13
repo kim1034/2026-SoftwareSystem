@@ -51,6 +51,10 @@ public class MainFrame extends JFrame {
     private final MenuItem logoutMenu = new MenuItem("로그아웃", null);
     private final MenuItem adminMenu = new MenuItem("관리자", AdminPanel.NAME);
 
+    private String currentScreen;
+    /** 로그인 화면으로 오기 직전의 화면. 로그인 후 돌아갈 곳 (UC-02 4단계). */
+    private String screenBeforeLogin;
+
     public MainFrame(AppContext context) {
         super("사담다");
         this.context = context;
@@ -82,10 +86,29 @@ public class MainFrame extends JFrame {
     /**
      * 화면 전환. name 은 각 화면 클래스의 NAME 상수.
      * 로그인·로그아웃 뒤에도 이 메서드로 이동하므로, 여기서 메뉴를 로그인 상태에 맞춘다.
+     *
+     * 로그인 화면으로 갈 때는 직전 화면을 기억해 두었다가, 로그인 후 returnAfterLogin 이 그 화면으로 돌려보낸다 (UC-02 4단계).
+     * 로그인이 필요한 화면은 LoginRequiredException 을 받으면 navigate(LoginPanel.NAME) 만 부르면 된다 (docs/controller-spec.md).
      */
     public void navigate(String name) {
+        boolean toLoginFlow = name.equals(LoginPanel.NAME) || name.equals(SignUpPanel.NAME);
+        if (toLoginFlow && !isLoginFlow(currentScreen)) {
+            screenBeforeLogin = currentScreen; // 회원가입 링크를 거쳐도 처음 보던 화면을 유지한다
+        }
         cards.show(content, name);
+        currentScreen = name;
         updateMenu(name);
+    }
+
+    /** 로그인 성공 후 일반 회원을 로그인 전에 보던 화면으로 돌려보낸다. 기억한 화면이 없으면 홈. */
+    public void returnAfterLogin() {
+        String target = screenBeforeLogin == null ? HomePanel.NAME : screenBeforeLogin;
+        screenBeforeLogin = null;
+        navigate(target);
+    }
+
+    private static boolean isLoginFlow(String screen) {
+        return LoginPanel.NAME.equals(screen) || SignUpPanel.NAME.equals(screen);
     }
 
     private void addScreen(String name, JPanel panel) {
@@ -178,6 +201,7 @@ public class MainFrame extends JFrame {
 
     private void logout() {
         context.member.logout();
+        screenBeforeLogin = null;
         navigate(HomePanel.NAME);
         JOptionPane.showMessageDialog(this, "로그아웃되었습니다."); // 조용히 끝나지 않도록 결과를 알린다
     }

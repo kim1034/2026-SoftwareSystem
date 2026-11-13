@@ -7,7 +7,6 @@ import com.sadamda.view.MainFrame;
 import com.sadamda.view.ScreenPanel;
 import com.sadamda.view.Theme;
 import com.sadamda.view.admin.AdminPanel;
-import com.sadamda.view.recommend.HomePanel;
 
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -100,11 +99,13 @@ public class LoginPanel extends ScreenPanel {
         }
 
         passwordField.setText("");
-        // UC-02 4단계: 관리자는 관리자 화면으로.
-        // TODO UC-02 4단계: 일반 회원은 로그인 전에 보던 화면으로 돌아가기 (장바구니 화면을 만들 때 MainFrame 에 추가)
         // TODO FR-02: keepLoginBox 가 체크되면 로그인 상태 유지
-        // TODO: 로그인 상태에 따라 상단 메뉴 바꾸기 (MainFrame)
-        frame.navigate(member.getRole() == Member.Role.ADMIN ? AdminPanel.NAME : HomePanel.NAME);
+        // UC-02 4단계: 관리자는 관리자 화면으로, 일반 회원은 로그인 전에 보던 화면으로.
+        if (member.getRole() == Member.Role.ADMIN) {
+            frame.navigate(AdminPanel.NAME);
+        } else {
+            frame.returnAfterLogin();
+        }
     }
 
     /** UC-02 2a: 가입 이메일로 비밀번호 재설정 링크를 보낸다. */
