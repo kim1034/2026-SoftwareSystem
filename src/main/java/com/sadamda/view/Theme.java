@@ -46,7 +46,7 @@ import java.awt.geom.RoundRectangle2D;
  * 글씨 크기 조절(UC-15) 때 updateComponentTreeUI 가 UI 를 다시 깔기 때문에, 모양은 updateUI 에서 지정한다.
  */
 public final class Theme {
-    public static final Color PAGE = new Color(0xF3F4F6);      // 화면 배경
+    public static final Color PAGE = new Color(0xE8F0FA);      // 화면 배경: 연한 하늘색 (PRIMARY 계열)
     public static final Color CARD = Color.WHITE;
     public static final Color TEXT = new Color(0x1F2937);      // 흰 배경 대비 14.7:1
     public static final Color HINT = new Color(0x6B7280);      // 흰 배경 대비 4.8:1
@@ -111,7 +111,7 @@ public final class Theme {
     }
 
     /**
-     * 회색 배경 가운데 위쪽에 카드를 둔 화면 내용.
+     * 하늘색 배경 가운데 위쪽에 카드를 둔 화면 내용.
      * 글씨를 키우거나 창이 작아도 모든 내용에 닿을 수 있게 스크롤을 둔다.
      */
     public static JScrollPane centeredPage(JPanel card) {
