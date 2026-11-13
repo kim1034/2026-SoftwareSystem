@@ -12,4 +12,17 @@ public class Member {
     private String defaultAddress;
     private Role role = Role.MEMBER;
     private BodyProfile bodyProfile; // 선택 입력
+
+    // Controller 명세에서 쓰는 getter. 나머지 접근자는 Model 담당이 추가한다.
+    public Long getId() {
+        return id;
+    }
+
+    public Role getRole() {
+        return role;
+    }
+
+    public String getDefaultAddress() {
+        return defaultAddress;
+    }
 }
