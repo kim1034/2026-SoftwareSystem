@@ -117,6 +117,28 @@ class AdminControllerOrderTest {
     }
 
     @Test
+    void approveReturn_refundedButStatusUpdateFails_notRetryable() {
+        order(5L, OrderStatus.RETURN_REQUESTED);
+        when(gateway.cancel("pay-5")).thenReturn(new PaymentResult(true, "pay-5", "환불"));
+        when(orderService.approveChange(5L)).thenThrow(new IllegalStateException("db down"));
+
+        AppException e = assertThrows(AppException.class, () -> controller.approveRequest(5L));
+
+        assertEquals("환불은 완료되었지만 주문 상태를 바꾸지 못했습니다. 다시 승인하지 말고 주문을 확인해 주세요.",
+                e.getMessage());
+        org.junit.jupiter.api.Assertions.assertFalse(e instanceof RetryableException);
+    }
+
+    @Test
+    void updateStatus_onlyDeliveryStatusesAllowed() {
+        for (OrderStatus status : new OrderStatus[] {OrderStatus.PAID, OrderStatus.CANCELED,
+                OrderStatus.RETURNED, OrderStatus.EXCHANGE_REQUESTED, OrderStatus.RETURN_REQUESTED}) {
+            assertThrows(IllegalArgumentException.class, () -> controller.updateOrderStatus(5L, status, "1"));
+        }
+        verify(orderService, never()).updateStatus(any(), any(), any());
+    }
+
+    @Test
     void nonAdmin_accessDenied() {
         session.login(SessionTest.member(1L, Member.Role.MEMBER));
         assertThrows(AccessDeniedException.class, () -> controller.approveRequest(5L));

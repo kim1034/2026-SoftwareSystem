@@ -107,7 +107,7 @@ Controller·Model 은 실패를 아래 예외로 알립니다 (`com.sadamda.comm
 | `checkout(CheckoutRequest request)` | UC-11, UC-12 | 완료된 `Order` | 결제 실패(6a), 재고 소진(7a, 결제 자동 취소) |
 | `myOrders()` | UC-13 | `List<Order>` 최신순 | |
 | `orderDetail(Long orderId)` | UC-13 | `Order` | 남의 주문 |
-| `cancel(Long orderId, String reason)` | UC-13 4~5 | `Order` (취소됨) | 배송 중(4a) |
+| `cancel(Long orderId, String reason)` | UC-13 4~5 | `Order` (취소됨) | 배송 중(4a), 결제 취소 실패(`RetryableException`), 결제는 취소됐는데 주문 상태 변경 실패(고객센터 안내, 재시도 아님) |
 | `requestExchangeOrReturn(Long orderId, OrderStatus requested, String reason)` | UC-13 6 | `Order` | |
 
 - `OrderSheet(lines, defaultAddress, totalPrice, fromCart)` — 주문서 화면에 그대로 표시
@@ -147,8 +147,8 @@ Controller·Model 은 실패를 아래 예외로 알립니다 (`com.sadamda.comm
 | `saveLookbook(Lookbook lookbook)` | UC-17 | 저장된 `Lookbook` | 판매 중지 상품 포함(2a) |
 | `setTrending(Long productId, boolean trending)` | UC-17 | | |
 | `orders(OrderStatus status)` | UC-18 | 상태별 목록, null 이면 전체 | |
-| `updateOrderStatus(Long orderId, OrderStatus status, String trackingNumber)` | UC-18 3 | `Order` — SHIPPING 이면 송장번호 필수 | 잘못된 상태 변경 |
-| `approveRequest(Long orderId)` | UC-18 4~5 | `Order` — 반품이면 환불 후 반영 | 환불 실패(5a, 재시도 안내) |
+| `updateOrderStatus(Long orderId, OrderStatus status, String trackingNumber)` | UC-18 3 | `Order` — status 는 PREPARING·SHIPPING·DELIVERED 만 (그 밖은 `IllegalArgumentException`), SHIPPING 이면 송장번호 필수 | 잘못된 상태 변경 |
+| `approveRequest(Long orderId)` | UC-18 4~5 | `Order` — 반품이면 환불 후 반영 | 환불 실패(5a, `RetryableException`), 환불은 됐는데 상태 반영 실패(다시 승인하지 말라는 안내, 재시도 아님) |
 | `rejectRequest(Long orderId, String reason)` | UC-18 4 | `Order` | |
 
 ## 3. Controller 가 Model 에 요구하는 것

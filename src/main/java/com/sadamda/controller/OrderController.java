@@ -37,6 +37,8 @@ public class OrderController {
     static final String MSG_CANCEL_RETRY = "결제 취소에 실패했습니다. 잠시 후 다시 시도해 주세요.";
     static final String MSG_NOT_DELIVERED = "배송 완료된 주문만 교환·반품을 신청할 수 있습니다.";
     static final String MSG_NO_REASON = "사유를 골라 주세요.";
+    static final String MSG_REFUNDED_BUT_NOT_UPDATED =
+            "결제는 취소되었지만 주문 상태를 바꾸지 못했습니다. 고객센터로 연락해 주세요.";
 
     private static final System.Logger LOG = System.getLogger(OrderController.class.getName());
 
@@ -226,7 +228,14 @@ public class OrderController {
                     orderId, order.getPaymentId());
             throw new RetryableException(MSG_CANCEL_RETRY);
         }
-        return orderService.cancel(orderId, reason);
+        try {
+            return orderService.cancel(orderId, reason);
+        } catch (RuntimeException e) {
+            // 돈은 이미 돌려줬다. 다시 시도하면 이미 취소된 결제를 또 취소하게 되므로 재시도를 권하지 않는다.
+            LOG.log(System.Logger.Level.ERROR, "결제 취소 후 주문 상태 변경 실패: orderId=" + orderId
+                    + ", paymentId=" + order.getPaymentId(), e);
+            throw new AppException(MSG_REFUNDED_BUT_NOT_UPDATED);
+        }
     }
 
     /** UC-13 6단계 교환·반품 신청. requested 는 EXCHANGE_REQUESTED 또는 RETURN_REQUESTED. */

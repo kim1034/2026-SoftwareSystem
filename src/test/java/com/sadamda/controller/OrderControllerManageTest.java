@@ -158,6 +158,18 @@ class OrderControllerManageTest {
     }
 
     @Test
+    void cancel_refundedButStatusUpdateFails_tellsUserToContactUs_notRetryable() {
+        order(5L, 1L, OrderStatus.PAID);
+        when(gateway.cancel("pay-5")).thenReturn(new PaymentResult(true, "pay-5", "취소"));
+        when(orderService.cancel(5L, "단순 변심")).thenThrow(new IllegalStateException("db down"));
+
+        AppException e = assertThrows(AppException.class, () -> controller.cancel(5L, "단순 변심"));
+
+        assertEquals("결제는 취소되었지만 주문 상태를 바꾸지 못했습니다. 고객센터로 연락해 주세요.", e.getMessage());
+        org.junit.jupiter.api.Assertions.assertFalse(e instanceof RetryableException);
+    }
+
+    @Test
     void returnRequest_wrongStatusArgument_illegalArgument() {
         order(5L, 1L, OrderStatus.DELIVERED);
         assertThrows(IllegalArgumentException.class,
