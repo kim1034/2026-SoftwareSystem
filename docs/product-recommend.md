@@ -15,7 +15,7 @@
 
 ## 데모 데이터
 
-- `src/main/resources/data/products.tsv`: 팀 구글 시트의 테스트 데이터 300개입니다. 모자 30, 상의 30, 하의 30, 신발 90, 양말 30, 주얼리 90개가 들어 있습니다.
+- `src/main/resources/data/products.tsv`: 팀 구글 시트의 테스트 데이터 300개입니다. (https://docs.google.com/spreadsheets/d/1OEbyJTQ3_8mpnIesrYRcQPwiPQlF9hbfUxq6GUTmyi4/edit?gid=0#gid=0) 모자 30, 상의 30, 하의 30, 신발 90, 양말 30, 주얼리 90개가 들어 있습니다.
 - 시트의 "현지표시가"와 "이미지 속성" 열은 쓰지 않습니다. 가격은 숫자로 바꿔 넣습니다.
 - 데이터에 없는 값은 임시 규칙으로 채웁니다 (`ProductSeedLoader`, `RecommendService` 주석).
   - 옵션·재고: 카테고리별 기본 사이즈 × 소재 문구의 색상, 재고 10
