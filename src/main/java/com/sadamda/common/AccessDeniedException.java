@@ -1,8 +1,12 @@
 package com.sadamda.common;
 
-/** 관리자 전용 기능(UC-16~18)을 관리자가 아닌 사용자가 썼다. */
+/** 권한이 없다: 관리자 전용 기능(UC-16~18)을 일반 회원이 썼거나, 남의 주문을 보려 했다. */
 public class AccessDeniedException extends AppException {
     public AccessDeniedException() {
-        super("관리자만 사용할 수 있습니다.");
+        this("관리자만 사용할 수 있습니다.");
+    }
+
+    public AccessDeniedException(String message) {
+        super(message);
     }
 }
