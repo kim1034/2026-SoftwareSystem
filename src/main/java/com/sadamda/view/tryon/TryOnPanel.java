@@ -251,7 +251,7 @@ public class TryOnPanel extends ScreenPanel {
         retryButton.setVisible(false);
         progress.setVisible(true);
         setStatus("캐릭터에게 옷을 입히는 중입니다. 잠시만 기다려 주세요 (최대 "
-                + AiImageClient.TIMEOUT_SECONDS + "초)");
+                + context.tryOn.dressUpTimeoutSeconds() + "초)");
         updateButtons();
 
         CharacterStyle requestedStyle = style;

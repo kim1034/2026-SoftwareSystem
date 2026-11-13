@@ -45,6 +45,11 @@ public class GeminiDressUpClient implements DressUpImageClient {
     }
 
     @Override
+    public int timeoutSeconds() {
+        return timeoutSeconds;
+    }
+
+    @Override
     public String name() {
         return "Gemini (" + model + ")";
     }

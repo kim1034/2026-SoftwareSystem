@@ -4,6 +4,7 @@ import com.sadamda.external.AiImageClient;
 import com.sadamda.external.DressUpImageClient;
 import com.sadamda.external.GeminiDressUpClient;
 import com.sadamda.external.LocalDressUpClient;
+import com.sadamda.external.OpenAiDressUpClient;
 import com.sadamda.model.member.BodyProfile;
 import com.sadamda.model.member.Member;
 import com.sadamda.model.product.Category;
@@ -43,6 +44,7 @@ public class DomainSelfCheck {
         recommend();
         locker();
         dressUp();
+        openAiRelay();
         System.out.println("모두 통과: " + checks + "개 확인");
     }
 
@@ -236,6 +238,84 @@ public class DomainSelfCheck {
                     "이용 열쇠", "UC-09 7b 오류 응답 → 쉬운 한국어 안내");
             expectAiError(() -> new GeminiDressUpClient("k", null, base + "/slow", 1).dressUp(request),
                     "초 안에", "UC-09 7b 시간 초과");
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    /** OpenAI 호환 중계 서비스 형식: 가짜 서버로 요청·응답만 확인한다. */
+    private static void openAiRelay() throws Exception {
+        ProductService productService = new ProductService();
+        Outfit outfit = new Outfit();
+        outfit.put(DressUpSlot.TOP, productService.findAllByCategory(Category.TOP).get(0));
+        outfit.put(DressUpSlot.BOTTOM, productService.findAllByCategory(Category.BOTTOM).get(0));
+
+        byte[] pixel = Base64.getDecoder().decode(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==");
+        String b64 = Base64.getEncoder().encodeToString(pixel);
+        AtomicReference<String> path = new AtomicReference<>();
+        AtomicReference<String> auth = new AtomicReference<>();
+        AtomicReference<String> type = new AtomicReference<>();
+        AtomicReference<String> body = new AtomicReference<>();
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        String[] base = new String[1];
+        server.createContext("/v1/images/", exchange -> {
+            path.set(exchange.getRequestURI().getPath());
+            auth.set(exchange.getRequestHeaders().getFirst("Authorization"));
+            type.set(exchange.getRequestHeaders().getFirst("Content-Type"));
+            body.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.ISO_8859_1));
+            byte[] reply = ("{\"created\":1,\"data\":[{\"b64_json\":\"" + b64 + "\"}]}").getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, reply.length);
+            exchange.getResponseBody().write(reply);
+            exchange.close();
+        });
+        // url 로 돌려주는 중계 서비스
+        server.createContext("/url/images/", exchange -> {
+            exchange.getRequestBody().readAllBytes();
+            byte[] reply = ("{\"data\":[{\"url\":\"" + base[0] + "/file.png\"}]}").getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, reply.length);
+            exchange.getResponseBody().write(reply);
+            exchange.close();
+        });
+        server.createContext("/file.png", exchange -> {
+            exchange.sendResponseHeaders(200, pixel.length);
+            exchange.getResponseBody().write(pixel);
+            exchange.close();
+        });
+        server.createContext("/bad/images/", exchange -> {
+            exchange.getRequestBody().readAllBytes();
+            byte[] reply = "{\"error\":{\"message\":\"Incorrect API key provided\"}}".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(401, reply.length);
+            exchange.getResponseBody().write(reply);
+            exchange.close();
+        });
+        server.start();
+        base[0] = "http://127.0.0.1:" + server.getAddress().getPort();
+        try {
+            byte[] garment = new byte[]{(byte) 0xFF, (byte) 0xD8, 9, 9};
+            DressUpImageClient.Request withPhotos = new DressUpImageClient.Request(CharacterStyle.GAME_3D,
+                    CharacterSpec.defaults(), outfit, Map.of(DressUpSlot.TOP, garment, DressUpSlot.BOTTOM, garment), null);
+            OpenAiDressUpClient client = new OpenAiDressUpClient("relay-key", base[0] + "/v1/", null, "medium", 5);
+
+            byte[] edited = client.dressUp(withPhotos);
+            check(java.util.Arrays.equals(edited, pixel), "OpenAI 형식: b64_json 응답 읽기");
+            check("/v1/images/edits".equals(path.get()), "상품 사진이 있으면 images/edits");
+            check("Bearer relay-key".equals(auth.get()), "이용 열쇠는 Bearer 헤더로 전달");
+            check(type.get().startsWith("multipart/form-data; boundary="), "multipart 형식");
+            check(body.get().split("name=\"image\\[\\]\"", -1).length - 1 == 2, "상품 사진 2장 첨부");
+            check(body.get().contains("gpt-image-2") && body.get().contains("1024x1536") && body.get().contains("medium"),
+                    "모델·크기·품질 전달");
+
+            client.dressUp(new DressUpImageClient.Request(CharacterStyle.GAME_3D, CharacterSpec.defaults(),
+                    new Outfit(), Map.of(), null));
+            check("/v1/images/generations".equals(path.get()) && body.get().contains("\"size\":\"1024x1536\""),
+                    "사진이 없으면 images/generations (JSON)");
+
+            byte[] fromUrl = new OpenAiDressUpClient("k", base[0] + "/url", "my-model", null, 5).dressUp(withPhotos);
+            check(java.util.Arrays.equals(fromUrl, pixel), "url 로 주는 중계 서비스도 처리");
+
+            expectAiError(() -> new OpenAiDressUpClient("bad", base[0] + "/bad", null, null, 5).dressUp(withPhotos),
+                    "이용 열쇠", "중계 서비스 키 오류 → 쉬운 한국어 안내");
         } finally {
             server.stop(0);
         }

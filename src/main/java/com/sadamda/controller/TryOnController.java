@@ -103,6 +103,11 @@ public class TryOnController {
         return dressUpClient.name();
     }
 
+    /** 합성 응답을 기다리는 최대 시간(초). */
+    public int dressUpTimeoutSeconds() {
+        return dressUpClient.timeoutSeconds();
+    }
+
     /** 캐릭터 신체 스펙의 시작값. 로그인한 회원이면 등록한 체형 정보를 쓴다. */
     public CharacterSpec initialSpec() {
         return session.isLoggedIn() ? CharacterSpec.from(session.currentMember().getBodyProfile())

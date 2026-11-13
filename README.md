@@ -25,18 +25,25 @@ DB 스키마가 정해지기 전까지 상품·룩북은 메모리에만 두므�
 상단 메뉴 [옷 입혀보기]에서 여성 캐릭터(실사·디즈니 캐릭터·3D 게임 캐릭터·애니메이션 캐릭터)에 모자·상의·하의·주얼리·신발을 입혀 봅니다.
 이용 열쇠(API 키)는 코드나 저장소에 넣지 않고 환경 변수로 줍니다.
 
+키 모양을 보고 서비스를 자동으로 고릅니다: Google 키(`AIza…`)는 Gemini, 그 밖의 키는 OpenAI 형식(공식 또는 호환 중계 서비스).
+
 | 환경 변수 | 뜻 | 기본값 |
 |-----------|----|--------|
-| `GEMINI_API_KEY` | Google Gemini API 키. 없으면 외부로 아무것도 보내지 않는 미리보기 합성기를 씁니다 | (없음) |
-| `SADAMDA_AI_MODEL` | 이미지 생성 모델 이름 | `gemini-3.1-flash-image` |
-| `SADAMDA_AI_ENDPOINT` | API 주소 | Gemini Interactions API |
+| `OPENAI_API_KEY` | OpenAI 공식 또는 호환 중계 서비스 키 | (없음) |
+| `OPENAI_BASE_URL` | 중계 서비스 주소 (예: `https://중계주소/v1`) | `https://api.openai.com/v1` |
+| `GEMINI_API_KEY` | Google Gemini 키. OpenAI 형식 키를 여기에 넣어도 자동으로 OpenAI 형식으로 동작 | (없음) |
+| `SADAMDA_AI_PROVIDER` | `openai` · `gemini` · `local` 로 강제 지정 | 자동 |
+| `SADAMDA_AI_MODEL` | 이미지 모델 이름 | `gpt-image-2` / `gemini-3.1-flash-image` |
+| `SADAMDA_AI_QUALITY` | OpenAI 형식 품질 `low`·`medium`·`high`·`auto` | `medium` |
 | `SADAMDA_AI_TIMEOUT` | 기다리는 시간(초) | 30 (NFR-05) |
 
+키가 하나도 없으면 외부로 아무것도 보내지 않는 미리보기 합성기를 씁니다. 모든 값은 같은 이름의 `-D` 옵션으로도 줄 수 있습니다.
+
 ```bash
-GEMINI_API_KEY=발급받은_키 java -jar target/sadamda-0.1.0-SNAPSHOT.jar
+OPENAI_API_KEY=발급받은_키 OPENAI_BASE_URL=https://중계주소/v1 java -jar target/sadamda-0.1.0-SNAPSHOT.jar
 ```
 
-관련 코드: `view/tryon/TryOnPanel`, `controller/TryOnController.dressUp`, `external/DressUpImageClient`(`GeminiDressUpClient`, `LocalDressUpClient`), `model/tryon`(`CharacterStyle`, `CharacterSpec`, `DressUpSlot`, `Outfit`, `DressUpPrompt`).
+관련 코드: `view/tryon/TryOnPanel`, `controller/TryOnController.dressUp`, `external/DressUpImageClient`(`OpenAiDressUpClient`, `GeminiDressUpClient`, `LocalDressUpClient`, 선택은 `DressUpClients`), `model/tryon`(`CharacterStyle`, `CharacterSpec`, `DressUpSlot`, `Outfit`, `DressUpPrompt`).
 
 ## 점검
 

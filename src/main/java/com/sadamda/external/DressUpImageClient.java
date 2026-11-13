@@ -20,6 +20,11 @@ public interface DressUpImageClient {
     /** 화면에 보여줄 서비스 이름. */
     String name();
 
+    /** 응답을 기다리는 최대 시간(초). 화면의 안내 문구에 쓴다. */
+    default int timeoutSeconds() {
+        return AiImageClient.TIMEOUT_SECONDS;
+    }
+
     /**
      * @param garmentImages 자리별 상품 사진(JPEG). 사진을 구하지 못한 자리는 빠져 있고, 그때는 상품 설명만으로 그린다.
      * @param baseCharacter 같은 그림체·스펙으로 전에 만든 캐릭터 이미지. 얼굴과 자세를 유지하는 기준이며 없으면 null.
