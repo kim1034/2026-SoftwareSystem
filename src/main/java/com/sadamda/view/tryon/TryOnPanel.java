@@ -70,6 +70,7 @@ public class TryOnPanel extends ScreenPanel {
     private final JButton retryButton = bigButton("다시 시도");
     private final JButton undressButton = bigButton("모두 벗기");
     private final JButton lockerButton = bigButton("보관함에 저장");
+    private final JButton openLockerButton = bigButton("내 보관함");
     private final JButton downloadButton = bigButton("내 컴퓨터에 저장");
     private final JButton cartButton = bigButton("장바구니 담기");
     private final JButton settingsButton = bigButton("AI 연결 설정");
@@ -162,6 +163,7 @@ public class TryOnPanel extends ScreenPanel {
             setStatus("옷을 모두 벗겼습니다.");
         });
         lockerButton.addActionListener(e -> saveToLocker());
+        openLockerButton.addActionListener(e -> openLocker());
         downloadButton.addActionListener(e -> download());
         cartButton.addActionListener(e -> addToCart());
         settingsButton.addActionListener(e -> editSettings());
@@ -176,6 +178,7 @@ public class TryOnPanel extends ScreenPanel {
         buttons.add(retryButton);
         buttons.add(undressButton);
         buttons.add(lockerButton);
+        buttons.add(openLockerButton);
         buttons.add(downloadButton);
         buttons.add(cartButton);
         buttons.add(settingsButton);
@@ -387,6 +390,19 @@ public class TryOnPanel extends ScreenPanel {
         }
     }
 
+    /** FR-16 보관함 보기·지우기 (NFR-08: 사용자가 언제든 삭제 가능) */
+    private void openLocker() {
+        if (!context.tryOn.isLoggedIn()) {
+            JOptionPane.showMessageDialog(this, "보관함은 로그인한 뒤에 쓸 수 있습니다.");
+            return;
+        }
+        try {
+            new LockerDialog(SwingUtilities.getWindowAncestor(this), context.tryOn).setVisible(true);
+        } catch (RuntimeException e) {
+            JOptionPane.showMessageDialog(this, "보관함을 열지 못했습니다.\n" + e.getMessage());
+        }
+    }
+
     /** UC-09 9단계 [다운로드] */
     private void download() {
         JFileChooser chooser = new JFileChooser();
@@ -436,6 +452,7 @@ public class TryOnPanel extends ScreenPanel {
         undressButton.setEnabled(!working && (hasOutfit || hasResult));
         lockerButton.setEnabled(!working && hasResult);
         downloadButton.setEnabled(!working && hasResult);
+        openLockerButton.setEnabled(!working);
         cartButton.setEnabled(!working && hasOutfit);
         slotButtons.values().forEach(button -> button.setEnabled(!working));
     }
