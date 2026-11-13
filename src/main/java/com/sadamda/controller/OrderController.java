@@ -101,7 +101,7 @@ public class OrderController {
             String paymentId = approve(total, request.paymentMethod());
             Order order = placeOrCancel(memberId, request, shippingAddress, paymentId);
             if (request.fromCart()) {
-                orderService.clearOrderedFromCart(memberId, request.lines());
+                clearCartQuietly(memberId, request);
             }
             return order;
         } finally {
@@ -162,6 +162,18 @@ public class OrderController {
             }
             LOG.log(System.Logger.Level.ERROR, "주문 저장 실패, 결제 취소함: paymentId=" + paymentId, placeFailure);
             throw new AppException(MSG_SAVE_FAILED);
+        }
+    }
+
+    /**
+     * 결제와 주문은 이미 끝났으므로 장바구니 비우기 실패는 기록만 한다.
+     * 여기서 예외를 내면 사용자가 결제 실패로 알고 다시 결제할 수 있다.
+     */
+    private void clearCartQuietly(Long memberId, CheckoutRequest request) {
+        try {
+            orderService.clearOrderedFromCart(memberId, request.lines());
+        } catch (RuntimeException e) {
+            LOG.log(System.Logger.Level.WARNING, "주문 완료 후 장바구니 비우기 실패: memberId=" + memberId, e);
         }
     }
 
