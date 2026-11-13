@@ -3,6 +3,8 @@ package com.sadamda.controller;
 import com.sadamda.external.MockAiImageClient;
 import com.sadamda.external.MockPaymentGateway;
 import com.sadamda.external.AiImageClient;
+import com.sadamda.external.DressUpClients;
+import com.sadamda.external.DressUpImageClient;
 import com.sadamda.external.PaymentGateway;
 import com.sadamda.model.cart.CartService;
 import com.sadamda.model.member.MemberService;
@@ -29,9 +31,12 @@ public class AppContext {
         PaymentGateway paymentGateway = new MockPaymentGateway(); // TODO: 실제 PG 연동으로 교체
         AiImageClient aiImageClient = new MockAiImageClient();    // TODO: 실제 AI API 연동으로 교체
 
+        // 옷 입혀보기: GEMINI_API_KEY 가 있으면 Gemini, 없으면 미리보기 합성기 (DressUpClients 참고)
+        DressUpImageClient dressUpClient = DressUpClients.fromEnvironment();
+
         MemberService memberService = new MemberService();
         ProductService productService = new ProductService();
-        RecommendService recommendService = new RecommendService();
+        RecommendService recommendService = new RecommendService(productService);
         CartService cartService = new CartService();
         OrderService orderService = new OrderService();
         ReviewService reviewService = new ReviewService();
@@ -40,7 +45,7 @@ public class AppContext {
         member = new MemberController(session, memberService);
         product = new ProductController(productService, reviewService);
         recommend = new RecommendController(session, recommendService);
-        tryOn = new TryOnController(session, aiImageClient, tryOnService);
+        tryOn = new TryOnController(session, aiImageClient, dressUpClient, tryOnService, productService);
         cart = new CartController(session, cartService);
         order = new OrderController(session, orderService, paymentGateway);
         review = new ReviewController(reviewService);

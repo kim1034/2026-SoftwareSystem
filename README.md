@@ -14,6 +14,39 @@ java -jar target/sadamda-0.1.0-SNAPSHOT.jar
 
 IDE에서는 `com.sadamda.App`의 `main`을 실행하면 됩니다.
 
+## 데모 데이터
+
+`src/main/resources/data/products.tsv` 에 데모용 상품 300개(모자·상의·하의·신발·양말·주얼리)가 들어 있고, 프로그램을 켤 때 `ProductService` 가 읽습니다.
+DB 스키마가 정해지기 전까지 상품·룩북은 메모리에만 두므로, 관리자 화면에서 바꾼 내용은 프로그램을 끄면 사라집니다.
+데모 데이터에 없는 값(옵션·재고, 연령대·체형 태그, 유행 아이템, 룩북 6개)은 `ProductSeedLoader`, `RecommendService` 의 주석에 적은 규칙으로 임시로 채웁니다.
+
+## 옷 입혀보기 (AI 이미지 합성)
+
+상단 메뉴 [옷 입혀보기]에서 여성 캐릭터(실사·디즈니 캐릭터·3D 게임 캐릭터·애니메이션 캐릭터)에 모자·상의·하의·주얼리·신발을 입혀 봅니다.
+이용 열쇠(API 키)는 코드나 저장소에 넣지 않고 환경 변수로 줍니다.
+
+| 환경 변수 | 뜻 | 기본값 |
+|-----------|----|--------|
+| `GEMINI_API_KEY` | Google Gemini API 키. 없으면 외부로 아무것도 보내지 않는 미리보기 합성기를 씁니다 | (없음) |
+| `SADAMDA_AI_MODEL` | 이미지 생성 모델 이름 | `gemini-3.1-flash-image` |
+| `SADAMDA_AI_ENDPOINT` | API 주소 | Gemini Interactions API |
+| `SADAMDA_AI_TIMEOUT` | 기다리는 시간(초) | 30 (NFR-05) |
+
+```bash
+GEMINI_API_KEY=발급받은_키 java -jar target/sadamda-0.1.0-SNAPSHOT.jar
+```
+
+관련 코드: `view/tryon/TryOnPanel`, `controller/TryOnController.dressUp`, `external/DressUpImageClient`(`GeminiDressUpClient`, `LocalDressUpClient`), `model/tryon`(`CharacterStyle`, `CharacterSpec`, `DressUpSlot`, `Outfit`, `DressUpPrompt`).
+
+## 점검
+
+상품·추천·보관함 도메인과 옷 입혀보기 연동을 한 번에 확인하는 실행형 검사입니다 (인터넷·API 키 불필요).
+
+```bash
+mvn test-compile
+java -cp target/classes:target/test-classes com.sadamda.DomainSelfCheck
+```
+
 ## 패키지 구조
 
 ```
@@ -60,5 +93,6 @@ src/main/java/com/sadamda
 | UC-17 | 룩북·유행 아이템 관리 | `AdminPanel` | `AdminController` | `RecommendService` |
 | UC-18 | 주문 관리 | `AdminPanel` | `AdminController` | `OrderService`, `PaymentGateway` |
 
-아직 구현되지 않은 메서드는 `UnsupportedOperationException("TODO UC-xx")`를 던집니다.
-결제 시스템과 AI 합성 서비스는 실제 연동 전까지 `MockPaymentGateway`, `MockAiImageClient`를 씁니다.
+상품·추천 도메인(`model/product`, `model/recommend`, `model/tryon`)은 구현되어 있습니다.
+그 밖에 아직 구현되지 않은 메서드는 `UnsupportedOperationException("TODO UC-xx")`를 던집니다.
+결제 시스템과 AI 합성 서비스는 실제 연동 전까지 `MockPaymentGateway`, `MockAiImageClient`를 씁니다. (인물 사진 업로드 방식의 UC-09 흐름은 그대로 남아 있고, 옷 입혀보기는 그와 별개의 `DressUpImageClient`를 씁니다.)
