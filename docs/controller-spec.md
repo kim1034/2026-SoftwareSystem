@@ -66,6 +66,8 @@ Controller·Model 은 실패를 아래 예외로 알립니다 (`com.sadamda.comm
 | `listByCategory(Category category, int page)` | UC-04 | `List<Product>` — page 는 0부터, [더 보기]마다 +1 |
 | `popular()` | UC-04 2a, UC-05 2a | 결과가 없을 때 보여줄 인기 상품 |
 | `search(SearchFilter filter)` | UC-05 | `List<Product>` — 3a [내 체형에 맞는 상품]은 회원 체형 정보로 filter 를 채워 호출 |
+| `countByCategory(Category category)` | UC-04 | 판매 중 상품 수 — 카테고리 버튼 숫자, [더 보기] 표시 여부 |
+| `suggestKeywords(String keyword)` | UC-05 2a | 결과가 없을 때 제안할 비슷한 검색어 |
 | `detail(Long productId)` | UC-06 | `Product` |
 | `reviews(Long productId)` | UC-06 | `List<Review>` |
 
@@ -77,6 +79,9 @@ Controller·Model 은 실패를 아래 예외로 알립니다 (`com.sadamda.comm
 | `lookbook(Long lookbookId)` | UC-07 | `Lookbook` |
 | `trendingItems()` | UC-08 | 이번 시즌 유행 아이템 |
 | `recommendedForMe()` | UC-08 | 맞춤 상품, 비회원이면 빈 목록 |
+| `lookbookProducts(Long lookbookId)` | UC-07 4 | 코디 구성 상품 (지워진 상품은 빠짐, 품절은 `isSoldOut`) |
+| `occasions()`, `seasons()` | UC-07 2 | 상황·계절 필터 값 (등록된 코디에 있는 것만) |
+| `hasBodyType()` | UC-08 3a | 로그인한 회원이 체형 정보를 넣었는지 — `false`면 체형 입력 권유 |
 
 [코디 전체 담기](UC-07 5단계)는 `CartController.addAll`을 씁니다.
 
@@ -140,6 +145,7 @@ Controller·Model 은 실패를 아래 예외로 알립니다 (`com.sadamda.comm
 | `suspendProduct(Long productId)` | UC-16 3a | | |
 | `deleteProduct(Long productId)` | UC-16 | | |
 | `saveLookbook(Lookbook lookbook)` | UC-17 | 저장된 `Lookbook` | 판매 중지 상품 포함(2a) |
+| `deleteLookbook(Long lookbookId)` | UC-17 | | 없는 코디 |
 | `setTrending(Long productId, boolean trending)` | UC-17 | | |
 | `orders(OrderStatus status)` | UC-18 | 상태별 목록, null 이면 전체 | |
 | `updateOrderStatus(Long orderId, OrderStatus status, String trackingNumber)` | UC-18 3 | `Order` — SHIPPING 이면 송장번호 필수 | 잘못된 상태 변경 |

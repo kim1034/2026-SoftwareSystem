@@ -55,6 +55,33 @@ public class TryOnService {
         this.lockerDir = baseDir.resolve("locker");
         this.uploadDir = baseDir.resolve("uploads");
         loadSavedImages();
+        deleteLeftoverUploads();
+    }
+
+    /**
+     * NFR-08: 업로드 사진 폴더를 통째로 비운다. 지운 파일 수를 돌려준다.
+     * 업로드 사진은 합성하는 동안만 있어야 하므로, 프로그램이 합성 중에 꺼져 남은 사진도 다음 실행 때 지운다.
+     */
+    public synchronized int deleteLeftoverUploads() {
+        if (!Files.isDirectory(uploadDir)) {
+            return 0;
+        }
+        try (Stream<Path> files = Files.walk(uploadDir)) {
+            List<Path> targets = files.filter(Files::isRegularFile).collect(Collectors.toList());
+            int deleted = 0;
+            for (Path file : targets) {
+                try {
+                    if (Files.deleteIfExists(file)) {
+                        deleted++;
+                    }
+                } catch (IOException ignored) {
+                    // 다른 프로그램이 잡고 있는 파일은 다음 실행 때 다시 지운다
+                }
+            }
+            return deleted;
+        } catch (IOException e) {
+            return 0;
+        }
     }
 
     /** UC-09 4단계 기본 배경 템플릿 id 목록 (FR-14). id 는 화면에 그대로 보여줄 이름이다. */

@@ -15,7 +15,7 @@ import java.util.List;
  *
  * 데모 데이터에 없는 값은 아래처럼 임시로 채운다.
  * - 옵션: 카테고리별 기본 사이즈 × 소재 문구의 괄호 안 색상, 재고는 모두 10
- * - 연령대 태그: 40대·50대·60대 전부 / 체형 태그: ProductTags.guessBodyTypes
+ * - 연령대 태그: ProductTags.guessAgeGroups / 체형 태그: ProductTags.guessBodyTypes
  * - 유행 아이템: 세부 카테고리마다 앞의 2개 (관리자가 UC-17 로 바꿀 수 있다)
  */
 public final class ProductSeedLoader {
@@ -68,7 +68,7 @@ public final class ProductSeedLoader {
         product.setDescription(cols[8]);
         product.setProductUrl(cols[9]);
         product.setImageUrls(List.of(cols[10]));
-        product.setAgeGroupTags(ProductTags.AGE_GROUPS);
+        product.setAgeGroupTags(ProductTags.guessAgeGroups(cols[5] + " " + cols[8]));
         product.setBodyTypeTags(ProductTags.guessBodyTypes(category, cols[5] + " " + cols[8]));
         product.setTrending(cols[0].endsWith("-01") || cols[0].endsWith("-02"));
         product.setOptions(demoOptions(category, cols[7]));

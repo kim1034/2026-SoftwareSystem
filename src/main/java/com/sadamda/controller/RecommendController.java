@@ -38,4 +38,24 @@ public class RecommendController {
         }
         return recommendService.recommendFor(session.currentMember());
     }
+
+    /** UC-07 4단계 코디의 구성 상품. 지워진 상품은 빠진다. 품절은 Product.isSoldOut 으로 확인 (6a). */
+    public List<Product> lookbookProducts(Long lookbookId) {
+        return recommendService.findLookbookProducts(lookbookId);
+    }
+
+    /** UC-07 2단계 상황 필터 값 (등록된 코디에 있는 것만). */
+    public List<String> occasions() {
+        return recommendService.occasions();
+    }
+
+    /** UC-07 2단계 계절 필터 값 (등록된 코디에 있는 것만). */
+    public List<String> seasons() {
+        return recommendService.seasons();
+    }
+
+    /** UC-08 3a: 로그인한 회원이 체형 정보를 등록했는지. false 면 화면이 체형 정보 입력(UC-03)을 권한다. */
+    public boolean hasBodyType() {
+        return session.isLoggedIn() && recommendService.hasBodyType(session.currentMember());
+    }
 }

@@ -12,6 +12,23 @@
 | 유행 아이템, 연령대·체형 맞춤 추천 | `RecommendService.findTrendingItems`, `recommendFor` | FR-11, FR-12, UC-08 |
 | 합성 이미지 보관함 (저장·목록·삭제) | `model/tryon/TryOnService`, `view/tryon/LockerDialog` | FR-16, NFR-08 |
 | 옷 입혀보기 (캐릭터에 상품을 AI로 입히기) | `view/tryon/TryOnPanel`, `controller/TryOnController`, `external/*DressUp*`, `model/tryon` | UC-09 확장 |
+| 업로드 사진 정리 (합성 뒤 삭제, 다시 켤 때 남은 사진 삭제) | `TryOnService.deleteUpload`, `deleteLeftoverUploads` | NFR-08 |
+| 홈(첫 화면): 검색창, 카테고리로 찾기, 나에게 어울리는 상품, 유행 아이템, 추천 코디, 새로 들어온 상품 | `view/recommend/HomePanel` | UC-04, UC-07, UC-08 |
+| 상품 목록: 큰 카테고리 버튼, 검색, 필터·정렬, [내 체형에 맞는 상품], [더 보기], 결과 없음 안내 | `view/product/ProductListPanel`, `CategoryBar`, `ProductGrid`, `ProductCard` | UC-04, UC-05 |
+| 상품 정보 창: 큰 사진, 소재·코디 포인트, 옵션, [장바구니 담기] [찜하기] | `view/product/ProductInfoDialog` | UC-06 요약 |
+| 룩북: 상황·계절 고르기, 코디 보기, [코디 전체 담기], 관리자 [새 코디 올리기]·수정·삭제 | `view/recommend/LookbookPanel`, `LookbookEditorDialog` | UC-07, UC-17 |
+
+## 화면 (View)
+
+다른 브랜치와 부딪히지 않도록 아래처럼 만들었습니다.
+
+- `MainFrame`은 고치지 않았습니다. 화면이 보일 때마다 내용을 새로 읽으므로(`ShopUi.whenShown`) 로그인·로그아웃 뒤에도 맞춤 추천이 바로 바뀝니다.
+- `ScreenPanel`은 `feat/auth-view` 브랜치와 **똑같은 내용**으로 맞췄습니다(`setContent`, `hideTitle`). 두 브랜치를 합쳐도 충돌하지 않습니다.
+- 색은 `feat/auth-view`의 `Theme`과 같은 값을 `ShopUi`에 두었습니다. 그 브랜치가 합쳐지면 `ShopUi`의 색 상수를 `Theme` 상수로 바꿔도 됩니다.
+- 상품 카드를 누르면 `ShopUi.openProduct`가 상품 정보 창을 엽니다. 상품 상세 화면(`ProductDetailPanel`, UC-06)이 완성되면 이 메서드 하나만 바꾸면 됩니다.
+- 홈에서 카테고리·검색어·코디를 누르면 `ProductListPanel.showCategory/showSearch`, `LookbookPanel.showLookbook`을 부른 뒤 그 화면으로 이동합니다.
+- 장바구니·찜(백예원)과 로그인(회원 도메인)이 아직 TODO라서, 지금은 [장바구니 담기]를 누르면 "로그인이 필요한 기능입니다" 또는 "준비 중" 안내가 나옵니다. 구현되면 화면은 고치지 않아도 그대로 동작합니다.
+- 코디 올리기·수정·삭제는 관리자로 로그인했을 때만 룩북 화면에 버튼이 보입니다.
 
 ## 데모 데이터
 
@@ -82,7 +99,7 @@ $env:OPENAI_API_KEY="연동키"; $env:OPENAI_BASE_URL="https://hello.timelyai.io
 
 ## 점검
 
-상품·추천·보관함 도메인과 옷 입혀보기 연동을 한 번에 확인하는 실행형 검사입니다 (인터넷·API 키 불필요, 107개).
+상품·추천·보관함 도메인과 옷 입혀보기 연동을 한 번에 확인하는 실행형 검사입니다 (인터넷·API 키 불필요, 130개).
 
 ```bash
 mvn test-compile
@@ -94,8 +111,8 @@ java -cp "target/classes;target/test-classes" com.sadamda.DomainSelfCheck
 
 ## 아직 남은 것
 
-- 연령대 태그: 모든 상품에 40·50·60대가 똑같이 붙어 있어서, 연령대 필터와 연령대 맞춤 추천이 결과를 바꾸지 못합니다. 체형 태그는 상품명·코디 문구로 추정한 임시 값입니다.
+- 연령대·체형 태그: 데모 데이터에 없어서 상품명·코디 문구로 추정한 임시 값입니다 (`ProductTags.guessAgeGroups`, `guessBodyTypes`). 40대는 캐주얼·트렌디, 50대는 단정·우아, 60대는 편안함 위주이고, 어느 쪽에도 해당하지 않으면 세 연령대 모두입니다. 실제 값이 정해지면 데이터나 관리자 화면에서 바꿔 주세요.
 - 데이터 불일치: `HAT-KR-02`는 이름이 "블랙 버킷햇"인데 사진은 회색 니트 후드입니다. 다른 상품은 아직 확인하지 않았습니다.
-- 업로드 사진 삭제: `TryOnService`의 업로드 사진 보관·삭제 메서드는 있지만, 인물 사진 업로드 방식(`TryOnController.generate`)이 아직 TODO여서 호출하는 곳이 없습니다.
-- 로그인(회원 도메인)이 구현되기 전까지 보관함 저장·보기는 화면에서 쓸 수 없습니다.
-- 홈·상품 목록·룩북·마이페이지 화면(View)은 아직 골격 상태라, 검색·추천은 Controller까지만 연결되어 있습니다.
+- 업로드 사진 삭제: `feat/tryon`의 `TryOnController.generate`는 인물 사진을 파일로 남기지 않고 메모리에서만 씁니다. 파일로 잠시 보관하는 방식으로 바뀌면 `storeUpload` → 합성 → `deleteUpload`(finally)로 지우면 됩니다. 프로그램이 합성 중에 꺼져 남은 사진은 다음 실행 때 `deleteLeftoverUploads`가 지웁니다.
+- 로그인(회원 도메인)이 구현되기 전까지 보관함, 장바구니 담기, 맞춤 추천, 관리자 코디 올리기는 화면에서 쓸 수 없습니다.
+- 데모 데이터는 판매 수량이 모두 0이라 인기순이 "유행 아이템 → 등록 순"으로 정해집니다. 그래서 홈에는 인기 상품 대신 새로 들어온 상품을 보여줍니다.

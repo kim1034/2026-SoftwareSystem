@@ -23,6 +23,10 @@ import com.sadamda.model.tryon.Outfit;
 import com.sadamda.model.tryon.TryOnImage;
 import com.sadamda.model.tryon.TryOnService;
 import com.sadamda.common.AppException;
+import com.sadamda.controller.AdminController;
+import com.sadamda.controller.ProductController;
+import com.sadamda.controller.RecommendController;
+import com.sadamda.controller.Session;
 import com.sun.net.httpserver.HttpServer;
 
 import java.awt.image.BufferedImage;
@@ -47,6 +51,7 @@ public class DomainSelfCheck {
     public static void main(String[] args) throws Exception {
         products();
         recommend();
+        controllers();
         locker();
         dressUp();
         openAiRelay();
@@ -82,6 +87,11 @@ public class DomainSelfCheck {
         check(size240.size() == 90, "UC-05 사이즈 필터 (240 은 신발만)");
         List<Product> pear = service.search(new SearchFilter(null, "50대", "하체발달형", null, null, null, null, null));
         check(!pear.isEmpty() && pear.size() < DEMO_PRODUCTS, "UC-05 연령대·체형 필터");
+        check(service.findAll().stream().anyMatch(p -> p.getAgeGroupTags().size() < 3)
+                && service.findAll().stream().allMatch(p -> !p.getAgeGroupTags().isEmpty()), "연령대 태그가 상품마다 다름 (빈 태그 없음)");
+        int forties = service.search(new SearchFilter(null, "40대", null, null, null, null, null, null)).size();
+        int sixties = service.search(new SearchFilter(null, "60대", null, null, null, null, null, null)).size();
+        check(forties > 0 && sixties > 0 && forties != sixties && forties < DEMO_PRODUCTS, "UC-05 연령대 필터가 결과를 바꿈");
         check(service.search(new SearchFilter("없는상품이름", null, null, null, null, null, null, null)).isEmpty(), "UC-05 2a 결과 없음");
         check(service.suggestKeywords("로파 신발").contains("신발"), "UC-05 2a 비슷한 검색어");
 
@@ -152,12 +162,56 @@ public class DomainSelfCheck {
         check(forMe.get(0).getCategory() == Category.TOP || forMe.get(0).getCategory() == Category.BOTTOM,
                 "UC-08 체형이 맞는 옷이 먼저");
         check(forMe.stream().map(Product::getCategory).distinct().count() >= 4, "UC-08 카테고리가 고르게");
+        Member younger = new Member();
+        younger.setBodyProfile(new BodyProfile("40대", 158, "66", "하체발달형"));
+        Member older = new Member();
+        older.setBodyProfile(new BodyProfile("60대", 158, "66", "하체발달형"));
+        check(!service.recommendFor(younger).equals(service.recommendFor(older)), "UC-08 연령대가 다르면 추천도 다름");
+        check(service.recommendFor(older).stream().limit(3).allMatch(p -> p.getAgeGroupTags().contains("60대")),
+                "UC-08 연령대가 맞는 상품이 먼저");
 
         Product suspended = productService.findById(lookbook.getProductIds().get(0));
         suspended.setStatus(Product.Status.SUSPENDED);
         check(service.lookbookWarnings(lookbook).size() == 1, "UC-17 2a 판매 중지 상품 경고");
         expectError(() -> service.saveLookbook(lookbook), "UC-17 2a 판매 중지 상품이 든 코디는 저장 안 됨");
         check(!service.recommendFor(member).contains(suspended), "판매 중지 상품은 추천에서 빠짐");
+    }
+
+    /** 화면이 쓰는 Controller 연결 (상품·룩북·관리자 코디 삭제). */
+    private static void controllers() {
+        ProductService productService = new ProductService();
+        RecommendService recommendService = new RecommendService(productService);
+        Session session = new Session();
+        ProductController product = new ProductController(productService, null);
+        RecommendController recommend = new RecommendController(session, recommendService);
+        AdminController admin = new AdminController(session, productService, recommendService, null, null);
+
+        check(product.countByCategory(Category.HAT) == 30, "카테고리 버튼 상품 수");
+        check(product.suggestKeywords("로파 신발").contains("신발"), "검색 결과 없음 → 비슷한 검색어");
+        check(recommend.occasions().containsAll(List.of("모임", "여행", "일상")) && recommend.seasons().contains("겨울"),
+                "UC-07 상황·계절 필터 값");
+        Lookbook first = recommend.lookbooks(null, null).get(0);
+        check(recommend.lookbookProducts(first.getId()).size() == first.getProductIds().size(), "UC-07 코디 구성 상품");
+        check(recommend.recommendedForMe().isEmpty() && !recommend.hasBodyType(), "UC-08 비회원은 맞춤 추천 없음");
+
+        expectError(() -> admin.deleteLookbook(first.getId()), "UC-17 비회원은 코디 삭제 불가");
+        Member user = new Member();
+        user.setId(1L);
+        session.login(user);
+        expectError(() -> admin.deleteLookbook(first.getId()), "UC-17 일반 회원은 코디 삭제 불가");
+        check(recommend.recommendedForMe().size() == RecommendService.RECOMMEND_LIMIT && !recommend.hasBodyType(),
+                "UC-08 3a 체형 정보 없는 회원");
+
+        Member manager = new Member();
+        manager.setId(2L);
+        manager.setRole(Member.Role.ADMIN);
+        session.login(manager);
+        Lookbook posted = admin.saveLookbook(new Lookbook("새 코디", null, "출근", "봄",
+                List.of(first.getProductIds().get(0), first.getProductIds().get(1))));
+        check(recommend.lookbooks("출근", "봄").size() == 1 && recommend.occasions().contains("출근"), "UC-17 코디 올리기");
+        admin.deleteLookbook(posted.getId());
+        check(recommend.lookbooks("출근", null).isEmpty(), "UC-17 코디 삭제");
+        expectError(() -> admin.deleteLookbook(posted.getId()), "UC-17 없는 코디 삭제");
     }
 
     private static void locker() throws Exception {
@@ -194,6 +248,13 @@ public class DomainSelfCheck {
         service.deleteUpload(outside.toString());
         check(Files.exists(outside), "업로드 폴더 밖 파일은 지우지 않음");
         check(service.deleteUploads(7L) == 1, "NFR-08 남은 업로드 사진 모두 삭제");
+
+        String leftover = service.storeUpload(9L, new byte[]{5});
+        String guestLeftover = service.storeUpload(null, new byte[]{6});
+        TryOnService restarted = new TryOnService(dir); // 합성 중에 프로그램이 꺼진 뒤 다시 켠 경우
+        check(!Files.exists(Path.of(leftover)) && !Files.exists(Path.of(guestLeftover)),
+                "NFR-08 다시 켜면 남아 있던 업로드 사진을 지움");
+        check(restarted.findByMember(7L).size() == 2, "업로드 정리는 보관함 이미지를 건드리지 않음");
     }
 
     private static void dressUp() throws Exception {

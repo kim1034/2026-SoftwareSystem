@@ -71,6 +71,12 @@ public class AdminController {
         return recommendService.saveLookbook(lookbook);
     }
 
+    /** UC-17 코디 삭제 (FR-26). 없는 코디면 AppException. */
+    public void deleteLookbook(Long lookbookId) {
+        session.requireAdmin();
+        recommendService.deleteLookbook(lookbookId);
+    }
+
     /** UC-17 4~5단계 유행 아이템 지정·해제 */
     public void setTrending(Long productId, boolean trending) {
         session.requireAdmin();
