@@ -40,7 +40,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * (인터넷이나 AI 이용 열쇠가 필요 없다. Gemini 연동은 이 PC 에 띄운 가짜 서버로 요청·응답 형식만 확인한다.)
  */
 public class DomainSelfCheck {
-    private static final int DEMO_PRODUCTS = 287;
+    private static final int DEMO_PRODUCTS = 300;
     private static int checks;
 
     public static void main(String[] args) throws Exception {
@@ -55,9 +55,9 @@ public class DomainSelfCheck {
 
     private static void products() {
         ProductService service = new ProductService();
-        check(service.findAll().size() == DEMO_PRODUCTS, "데모 상품 " + DEMO_PRODUCTS + "개 (하의 13개 제외)");
-        check(service.countByCategory(Category.BOTTOM) == 17, "하의 17개");
-        check(service.findAllByCategory(Category.BOTTOM).stream().map(Product::mainImageUrl).distinct().count() == 17,
+        check(service.findAll().size() == DEMO_PRODUCTS, "데모 상품 " + DEMO_PRODUCTS + "개");
+        check(service.countByCategory(Category.BOTTOM) == 30, "하의 30개");
+        check(service.findAllByCategory(Category.BOTTOM).stream().map(Product::mainImageUrl).distinct().count() == 30,
                 "하의 사진이 서로 겹치지 않음");
         check(service.countByCategory(Category.SHOES) == 90, "신발 90개");
         check(service.countByCategory(Category.JEWELRY) == 90, "주얼리 90개");
@@ -80,7 +80,7 @@ public class DomainSelfCheck {
         List<Product> size240 = service.search(new SearchFilter(null, null, null, "240", null, null, null, null));
         check(size240.size() == 90, "UC-05 사이즈 필터 (240 은 신발만)");
         List<Product> pear = service.search(new SearchFilter(null, "50대", "하체발달형", null, null, null, null, null));
-        check(!pear.isEmpty() && pear.size() < 300, "UC-05 연령대·체형 필터");
+        check(!pear.isEmpty() && pear.size() < DEMO_PRODUCTS, "UC-05 연령대·체형 필터");
         check(service.search(new SearchFilter("없는상품이름", null, null, null, null, null, null, null)).isEmpty(), "UC-05 2a 결과 없음");
         check(service.suggestKeywords("로파 신발").contains("신발"), "UC-05 2a 비슷한 검색어");
 
@@ -125,7 +125,7 @@ public class DomainSelfCheck {
         expectError(() -> service.saveLookbook(new Lookbook("제목만", null, "일상", "봄", List.of())), "UC-17 구성 상품 없음");
 
         List<Product> trending = service.findTrendingItems();
-        check(trending.size() == 18, "UC-08 유행 아이템 18개");
+        check(trending.size() == 20, "UC-08 유행 아이템 20개 (세부 카테고리 10개 × 2)");
         Product target = productService.findById(3L);
         service.setTrending(3L, true);
         check(service.findTrendingItems().contains(target), "UC-17 유행 지정");
