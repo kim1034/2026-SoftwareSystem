@@ -1,6 +1,9 @@
 package com.sadamda.view.member;
 
+import com.sadamda.common.AppException;
 import com.sadamda.controller.AppContext;
+import com.sadamda.controller.SignUpForm;
+import com.sadamda.model.member.BodyProfile;
 import com.sadamda.view.MainFrame;
 import com.sadamda.view.ScreenPanel;
 import com.sadamda.view.Theme;
@@ -28,6 +31,7 @@ import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -149,11 +153,56 @@ public class SignUpPanel extends ScreenPanel {
         }
         summaryError.setText("");
 
-        // TODO UC-01 4~5단계: Member 에 생성자가 생기면(백예원) 입력값으로 Member 를 만들어 연결한다.
-        //   context.member.signUp(member, password) 성공 → 가입 완료 안내 후 frame.navigate(HomePanel.NAME)
-        //   이미 가입된 이메일(4a) → emailError 에 "이미 가입된 이메일입니다" 표시
-        //   "선택 안 함" 은 null 로 넘긴다.
-        JOptionPane.showMessageDialog(this, "입력 확인이 끝났습니다.\n가입 처리는 아직 연결되지 않았습니다.");
+        // UC-01 4~5단계 (docs/controller-spec.md). 가입하면 바로 로그인 상태가 된다.
+        SignUpForm form = new SignUpForm(emailField.getText().trim(), new String(passwordField.getPassword()),
+                nameField.getText().trim(), phoneField.getText().trim(), bodyProfile(), agreeBox.isSelected());
+        try {
+            context.member.signUp(form);
+        } catch (UnsupportedOperationException e) {
+            JOptionPane.showMessageDialog(this, "입력 확인이 끝났습니다.\n가입 처리는 아직 연결되지 않았습니다.");
+            return;
+        } catch (AppException e) {
+            // 이미 가입된 이메일(4a) 등. 메시지는 사용자에게 보여줄 문장으로 온다.
+            summaryError.setText(e.getMessage());
+            summaryError.scrollRectToVisible(new Rectangle(summaryError.getSize()));
+            return;
+        }
+
+        JOptionPane.showMessageDialog(this, "가입이 완료되었습니다.\n사담다에 오신 것을 환영합니다!");
+        clearForm(); // 다음에 이 화면을 열 때 이전 입력(특히 비밀번호)이 남지 않게
+        frame.navigate(HomePanel.NAME);
+    }
+
+    /** 선택 입력을 체형 정보로 묶는다. "선택 안 함"·빈칸은 null, 넷 다 비었으면 null. */
+    private BodyProfile bodyProfile() {
+        String ageGroup = selected(ageGroupBox);
+        String height = heightField.getText().trim();
+        Integer heightCm = height.isEmpty() ? null : Integer.valueOf(height); // checkHeight 를 통과한 값
+        String usualSize = selected(sizeBox);
+        String bodyType = selected(bodyTypeBox);
+        if (ageGroup == null && heightCm == null && usualSize == null && bodyType == null) {
+            return null;
+        }
+        return new BodyProfile(ageGroup, heightCm, usualSize, bodyType);
+    }
+
+    private static String selected(JComboBox<String> box) {
+        Object value = box.getSelectedItem();
+        return NOT_SELECTED.equals(value) ? null : (String) value;
+    }
+
+    /** 입력칸과 오류 표시를 처음 상태로 되돌린다. */
+    private void clearForm() {
+        for (JTextComponent field : new JTextComponent[]{emailField, passwordField, passwordConfirmField,
+                nameField, phoneField, heightField}) {
+            field.setText("");
+        }
+        for (JComboBox<String> box : List.of(ageGroupBox, sizeBox, bodyTypeBox)) {
+            box.setSelectedIndex(0);
+        }
+        agreeBox.setSelected(false);
+        errorTargets.forEach((error, input) -> show(error, input, null));
+        summaryError.setText("");
     }
 
     /** 맨 위에 틀린 곳 개수를 알리고, 첫 번째 틀린 칸으로 화면을 옮겨 커서를 둔다. */

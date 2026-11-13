@@ -1,9 +1,12 @@
 package com.sadamda.view.member;
 
+import com.sadamda.common.AppException;
 import com.sadamda.controller.AppContext;
+import com.sadamda.model.member.Member;
 import com.sadamda.view.MainFrame;
 import com.sadamda.view.ScreenPanel;
 import com.sadamda.view.Theme;
+import com.sadamda.view.admin.AdminPanel;
 import com.sadamda.view.recommend.HomePanel;
 
 import javax.swing.JButton;
@@ -84,22 +87,24 @@ public class LoginPanel extends ScreenPanel {
             return;
         }
 
+        Member member;
         try {
-            context.member.login(email, new String(password));
+            member = context.member.login(email, new String(password));
         } catch (UnsupportedOperationException e) {
             JOptionPane.showMessageDialog(this, "로그인 기능은 아직 연결되지 않았습니다.");
             return;
-        } catch (RuntimeException e) {
-            // UC-02 3a. TODO: 백예원과 로그인 실패 예외 종류를 정하면 그 예외만 잡는다.
-            loginError.setText("이메일 또는 비밀번호가 맞지 않습니다");
+        } catch (AppException e) {
+            // UC-02 3a 계정 불일치 등. 메시지는 사용자에게 보여줄 문장으로 온다 (docs/controller-spec.md).
+            loginError.setText(e.getMessage());
             return;
         }
 
         passwordField.setText("");
-        // TODO UC-02 4단계: 로그인 전에 보던 화면으로 돌아가기, 관리자면 AdminPanel 로 이동 (Member getter 필요)
+        // UC-02 4단계: 관리자는 관리자 화면으로.
+        // TODO UC-02 4단계: 일반 회원은 로그인 전에 보던 화면으로 돌아가기 (장바구니 화면을 만들 때 MainFrame 에 추가)
         // TODO FR-02: keepLoginBox 가 체크되면 로그인 상태 유지
         // TODO: 로그인 상태에 따라 상단 메뉴 바꾸기 (MainFrame)
-        frame.navigate(HomePanel.NAME);
+        frame.navigate(member.getRole() == Member.Role.ADMIN ? AdminPanel.NAME : HomePanel.NAME);
     }
 
     /** UC-02 2a: 가입 이메일로 비밀번호 재설정 링크를 보낸다. */
@@ -113,6 +118,8 @@ public class LoginPanel extends ScreenPanel {
             JOptionPane.showMessageDialog(this, "비밀번호 재설정 링크를 이메일로 보냈습니다.\n메일함을 확인해 주세요.");
         } catch (UnsupportedOperationException e) {
             JOptionPane.showMessageDialog(this, "비밀번호 찾기 기능은 아직 연결되지 않았습니다.");
+        } catch (AppException e) {
+            loginError.setText(e.getMessage());
         }
     }
 
