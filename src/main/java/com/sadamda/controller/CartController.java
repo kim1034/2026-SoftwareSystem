@@ -2,10 +2,12 @@ package com.sadamda.controller;
 
 import com.sadamda.model.cart.CartItem;
 import com.sadamda.model.cart.CartService;
+import com.sadamda.model.order.OrderLine;
+import com.sadamda.model.product.Product;
 
 import java.util.List;
 
-/** UC-10 장바구니·찜 관리. */
+/** UC-10 장바구니·찜 관리. 모든 메서드 로그인 필요. */
 public class CartController {
     private final Session session;
     private final CartService cartService;
@@ -17,26 +19,45 @@ public class CartController {
 
     /** UC-10 1~2단계 */
     public List<CartItem> cart() {
-        throw new UnsupportedOperationException("TODO UC-10: session 회원 id 로 cartService.getCart 호출");
+        return cartService.getCart(memberId());
     }
 
-    /** UC-06·UC-07 장바구니 담기. 비회원이면 로그인(UC-02) 후 이어간다. */
-    public void add(Long productId, Long optionId, int quantity) {
-        throw new UnsupportedOperationException("TODO UC-10");
+    /** UC-10 2·4단계 총액 */
+    public int total() {
+        return cartService.getTotal(memberId());
     }
 
-    /** UC-10 3단계 */
+    /** UC-06 4단계 [장바구니]. 비회원이면 LoginRequiredException → 로그인 후 다시 호출 (UC-06 4a). */
+    public void add(OrderLine line) {
+        cartService.add(memberId(), List.of(line));
+    }
+
+    /** UC-07 5~6단계 [코디 전체 담기]. 품절이 섞여 있으면 AppException (6a). */
+    public void addAll(List<OrderLine> lines) {
+        cartService.add(memberId(), lines);
+    }
+
+    /** UC-10 3단계 수량·옵션 변경 */
     public void update(Long cartItemId, Long optionId, int quantity) {
-        cartService.updateItem(cartItemId, optionId, quantity);
+        cartService.updateItem(memberId(), cartItemId, optionId, quantity);
     }
 
-    /** UC-10 3단계 */
+    /** UC-10 3단계 삭제 */
     public void remove(Long cartItemId) {
-        cartService.removeItem(cartItemId);
+        cartService.removeItem(memberId(), cartItemId);
     }
 
-    /** UC-10 1a 찜 */
-    public void toggleWish(Long productId) {
-        throw new UnsupportedOperationException("TODO UC-10 1a");
+    /** UC-10 1a [찜]. 결과가 찜 상태이면 true. */
+    public boolean toggleWish(Long productId) {
+        return cartService.toggleWish(memberId(), productId);
+    }
+
+    /** UC-10 1a 찜 목록 */
+    public List<Product> wishList() {
+        return cartService.getWishList(memberId());
+    }
+
+    private Long memberId() {
+        return session.requireLogin().getId();
     }
 }

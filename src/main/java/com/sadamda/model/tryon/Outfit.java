@@ -1,5 +1,6 @@
 package com.sadamda.model.tryon;
 
+import com.sadamda.common.AppException;
 import com.sadamda.model.product.Product;
 
 import java.util.ArrayList;
@@ -14,7 +15,7 @@ public class Outfit {
     /** 자리에 상품을 입힌다. 그 자리의 카테고리와 다른 상품이면 예외. */
     public void put(DressUpSlot slot, Product product) {
         if (product.getCategory() != slot.category()) {
-            throw new IllegalArgumentException(slot.label() + " 자리에는 " + slot.category().label() + " 상품만 입힐 수 있습니다");
+            throw new AppException(slot.label() + " 자리에는 " + slot.category().label() + " 상품만 입힐 수 있습니다.");
         }
         items.put(slot, product);
     }

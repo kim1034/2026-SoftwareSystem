@@ -22,6 +22,7 @@ import com.sadamda.model.tryon.DressUpSlot;
 import com.sadamda.model.tryon.Outfit;
 import com.sadamda.model.tryon.TryOnImage;
 import com.sadamda.model.tryon.TryOnService;
+import com.sadamda.common.AppException;
 import com.sun.net.httpserver.HttpServer;
 
 import java.awt.image.BufferedImage;
@@ -104,6 +105,13 @@ public class DomainSelfCheck {
         check(service.decreaseStock(created.getId(), optionId, 2) && created.isSoldOut(), "UC-11 재고 차감 → 품절");
         check(service.findPopular(1).get(0) == created, "인기순: 많이 팔린 상품이 먼저");
 
+        Product other = service.findById(2L);
+        service.suspend(2L);
+        check(other.getStatus() == Product.Status.SUSPENDED && !service.search(null).contains(other)
+                && service.findAll().contains(other), "UC-16 3a suspend: 판매 중지 (관리자 목록에는 남음)");
+        other.setStatus(Product.Status.ON_SALE);
+        expectError(() -> service.suspend(99999L), "없는 상품은 판매 중지 불가");
+
         service.setActiveOrderChecker(id -> id == created.getId());
         service.delete(created.getId());
         check(created.getStatus() == Product.Status.SUSPENDED, "UC-16 3a 주문이 있으면 판매 중지");
@@ -148,6 +156,7 @@ public class DomainSelfCheck {
         Product suspended = productService.findById(lookbook.getProductIds().get(0));
         suspended.setStatus(Product.Status.SUSPENDED);
         check(service.lookbookWarnings(lookbook).size() == 1, "UC-17 2a 판매 중지 상품 경고");
+        expectError(() -> service.saveLookbook(lookbook), "UC-17 2a 판매 중지 상품이 든 코디는 저장 안 됨");
         check(!service.recommendFor(member).contains(suspended), "판매 중지 상품은 추천에서 빠짐");
     }
 
@@ -167,6 +176,12 @@ public class DomainSelfCheck {
         TryOnService reopened = new TryOnService(dir);
         check(reopened.findByMember(7L).size() == 2, "프로그램을 다시 켜도 보관함 유지");
         check(reopened.save(7L, 1L, png).id() == 4L, "다시 켠 뒤에도 id 가 겹치지 않음");
+
+        List<String> templates = service.findBackgroundTemplates();
+        check(templates.size() == 4 && templates.contains("흰 스튜디오"), "UC-09 4단계 기본 배경 템플릿 목록");
+        BufferedImage background = RemoteImages.decode(service.loadBackgroundTemplate(templates.get(0)));
+        check(background != null && background.getWidth() == 1024 && background.getHeight() == 1536, "UC-09 배경 템플릿 이미지");
+        expectError(() -> service.loadBackgroundTemplate("없는 배경"), "없는 배경 템플릿");
 
         service.delete(7L, saved.id());
         check(!Files.exists(Path.of(saved.imagePath())) && service.findByMember(7L).size() == 1, "NFR-08 보관함 삭제");
@@ -429,7 +444,7 @@ public class DomainSelfCheck {
         try {
             call.run();
             check(false, name);
-        } catch (IllegalArgumentException | IllegalStateException e) {
+        } catch (AppException e) { // Controller 명세: Model 의 실패는 사용자에게 보여줄 AppException
             check(true, name);
         }
     }

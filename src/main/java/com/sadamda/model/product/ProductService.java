@@ -1,5 +1,7 @@
 package com.sadamda.model.product;
 
+import com.sadamda.common.AppException;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -125,7 +127,7 @@ public class ProductService {
     public synchronized Product findById(Long productId) {
         Product product = productId == null ? null : products.get(productId);
         if (product == null) {
-            throw new IllegalArgumentException("상품을 찾을 수 없습니다");
+            throw new AppException("상품을 찾을 수 없습니다.");
         }
         return product;
     }
@@ -147,7 +149,7 @@ public class ProductService {
     public synchronized Product save(Product product) {
         List<String> missing = new ArrayList<>();
         if (product == null) {
-            throw new IllegalArgumentException("상품 정보가 없습니다");
+            throw new AppException("상품 정보가 없습니다.");
         }
         if (isBlank(product.getName())) {
             missing.add("상품명");
@@ -165,7 +167,7 @@ public class ProductService {
             missing.add("이미지");
         }
         if (!missing.isEmpty()) {
-            throw new IllegalArgumentException("다음 항목을 입력해 주세요: " + String.join(", ", missing));
+            throw new AppException("다음 항목을 입력해 주세요: " + String.join(", ", missing));
         }
         if (product.getId() == null) {
             product.setId(nextProductId++);
@@ -197,6 +199,11 @@ public class ProductService {
         } else {
             products.remove(productId);
         }
+    }
+
+    /** UC-16 3a 판매 중지. 목록·검색·추천에서 빠지지만 주문 내역에서는 계속 보인다. 없는 상품이면 AppException. */
+    public synchronized void suspend(Long productId) {
+        findById(productId).setStatus(Product.Status.SUSPENDED);
     }
 
     /** UC-16 3a: 진행 중인 주문이 있는 상품인지. */

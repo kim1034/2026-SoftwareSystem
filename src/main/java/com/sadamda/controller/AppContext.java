@@ -47,8 +47,8 @@ public class AppContext {
         recommend = new RecommendController(session, recommendService);
         tryOn = new TryOnController(session, aiImageClient, dressUpClient, tryOnService, productService);
         cart = new CartController(session, cartService);
-        order = new OrderController(session, orderService, paymentGateway);
-        review = new ReviewController(reviewService);
+        order = new OrderController(session, orderService, cartService, memberService, paymentGateway);
+        review = new ReviewController(session, reviewService);
         admin = new AdminController(session, productService, recommendService, orderService, paymentGateway);
     }
 }

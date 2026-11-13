@@ -20,8 +20,15 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
-/** UC-09 AI 착용 이미지 생성. 담당: 김대원 */
+/**
+ * UC-09 AI 착용 이미지 생성. 모든 메서드 로그인 필요. 담당: 김대원
+ * 옷 입혀보기(캐릭터에 상품을 입히는 UC-09 확장)는 정우진이 덧붙였다: characterImage, dressUp, productsFor, dressUp* 설정 메서드.
+ */
 public class TryOnController {
+    /** FR-13 업로드 가능한 형식과 최대 용량 (3a). */
+    public static final List<String> ALLOWED_EXTENSIONS = List.of("jpg", "jpeg", "png");
+    public static final long MAX_IMAGE_BYTES = 10L * 1024 * 1024;
+
     /** AI 서비스로 보내는 상품 사진의 긴 변 크기(px). */
     private static final int GARMENT_IMAGE_SIDE = 768;
 
@@ -40,13 +47,20 @@ public class TryOnController {
         this.productService = productService;
     }
 
+    /** UC-09 4단계 기본 배경 템플릿 id 목록 (FR-14). */
+    public List<String> backgroundTemplates() {
+        session.requireLogin();
+        return tryOnService.findBackgroundTemplates();
+    }
+
     /**
-     * UC-09 3~8단계.
-     * TODO: 파일 형식·용량 검증(3a), 타임아웃·재시도·장애 격리(7b, NFR-05·09), 업로드 사진 삭제(NFR-08)
+     * UC-09 5~8단계 합성 이미지를 만든다 (FR-13~15).
+     * 최대 30초 걸리므로(NFR-05) View 는 반드시 SwingWorker 등 별도 스레드에서 호출하고 진행 상태를 표시한다.
+     * AppException 메시지: 동의 안 함(2a), 형식·용량 오류(3a), 인물 인식 실패(7a), 시간 초과·오류(7b).
+     * 7b 이면 View 는 [다시 시도] 버튼을 보여준다.
      */
-    public byte[] generate(byte[] personImage, byte[] backgroundImage, String clothingImageUrl)
-            throws AiImageClient.AiImageException {
-        return aiImageClient.synthesize(personImage, backgroundImage, clothingImageUrl);
+    public byte[] generate(TryOnRequest request) {
+        throw new UnsupportedOperationException("TODO UC-09 (계획 4단계)");
     }
 
     /** 옷을 입히기 전의 캐릭터: 그림체의 기본 캐릭터에 신체 스펙(키·몸무게·체형)을 반영한 이미지. */
@@ -150,25 +164,18 @@ public class TryOnController {
         return session.isLoggedIn();
     }
 
-    /** UC-09 9단계 [보관함에 저장]. 로그인하지 않았으면 예외. productId 는 대표 상품이며 없으면 null. */
+    /** UC-09 9단계 [보관함에 저장] (FR-16). productId 는 대표 상품이며 없으면 null. */
     public TryOnImage saveToLocker(Long productId, byte[] image) {
-        return tryOnService.save(memberId(), productId, image);
+        return tryOnService.save(session.requireLogin().getId(), productId, image);
     }
 
-    /** 내 보관함 목록 (FR-16). */
-    public List<TryOnImage> myLocker() {
-        return tryOnService.findByMember(memberId());
+    /** 보관함 목록 (FR-16). */
+    public List<TryOnImage> locker() {
+        return tryOnService.findByMember(session.requireLogin().getId());
     }
 
-    /** 내 보관함에서 이미지 삭제 (NFR-08). */
-    public void deleteFromLocker(Long imageId) {
-        tryOnService.delete(memberId(), imageId);
-    }
-
-    private Long memberId() {
-        if (!session.isLoggedIn() || session.currentMember().getId() == null) {
-            throw new IllegalStateException("로그인한 뒤에 보관함을 쓸 수 있습니다");
-        }
-        return session.currentMember().getId();
+    /** 보관함에서 삭제 (NFR-08). */
+    public void deleteFromLocker(Long tryOnImageId) {
+        tryOnService.delete(session.requireLogin().getId(), tryOnImageId);
     }
 }

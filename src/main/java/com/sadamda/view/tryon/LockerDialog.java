@@ -83,7 +83,7 @@ class LockerDialog extends JDialog {
 
     private void reload() {
         model.clear();
-        List<TryOnImage> images = tryOn.myLocker();
+        List<TryOnImage> images = tryOn.locker();
         images.forEach(model::addElement);
         summary.setText(images.isEmpty() ? "보관함이 비어 있습니다." : "저장한 그림 " + images.size() + "개");
         deleteButton.setEnabled(false);

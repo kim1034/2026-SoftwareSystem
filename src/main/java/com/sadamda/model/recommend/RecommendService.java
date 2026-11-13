@@ -1,5 +1,6 @@
 package com.sadamda.model.recommend;
 
+import com.sadamda.common.AppException;
 import com.sadamda.model.member.BodyProfile;
 import com.sadamda.model.member.Member;
 import com.sadamda.model.product.Category;
@@ -63,7 +64,7 @@ public class RecommendService {
     public synchronized Lookbook findLookbook(Long lookbookId) {
         Lookbook lookbook = lookbookId == null ? null : lookbooks.get(lookbookId);
         if (lookbook == null) {
-            throw new IllegalArgumentException("코디를 찾을 수 없습니다");
+            throw new AppException("코디를 찾을 수 없습니다.");
         }
         return lookbook;
     }
@@ -148,20 +149,24 @@ public class RecommendService {
     }
 
     /**
-     * UC-17 코디 등록·수정 (FR-26). 제목이나 구성 상품이 없거나, 없는 상품이 들어 있으면 예외.
-     * 판매 중지 상품 경고(2a)는 저장을 막지 않는다. 저장 전에 lookbookWarnings 로 확인해 보여준다.
+     * UC-17 코디 등록·수정 (FR-26). 실패하면 AppException:
+     * 제목이나 구성 상품이 없을 때, 없는 상품이 들어 있을 때, 판매 중지 상품이 들어 있을 때 (2a, 메시지가 곧 경고 문구).
      */
     public synchronized Lookbook saveLookbook(Lookbook lookbook) {
         if (lookbook == null || isBlank(lookbook.getTitle())) {
-            throw new IllegalArgumentException("코디 제목을 입력해 주세요");
+            throw new AppException("코디 제목을 입력해 주세요.");
         }
         if (lookbook.getProductIds().isEmpty()) {
-            throw new IllegalArgumentException("구성 상품을 1개 이상 골라 주세요");
+            throw new AppException("구성 상품을 1개 이상 골라 주세요.");
         }
         for (Long productId : lookbook.getProductIds()) {
             if (productService.findByIdOrNull(productId) == null) {
-                throw new IllegalArgumentException("구성 상품 중 없는 상품이 있습니다");
+                throw new AppException("구성 상품 중 없는 상품이 있습니다.");
             }
+        }
+        List<String> warnings = lookbookWarnings(lookbook);
+        if (!warnings.isEmpty()) {
+            throw new AppException(String.join("\n", warnings) + "\n판매 중지된 상품을 빼고 다시 저장해 주세요.");
         }
         if (lookbook.getId() == null) {
             lookbook.setId(nextLookbookId++);

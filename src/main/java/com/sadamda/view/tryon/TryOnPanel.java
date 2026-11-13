@@ -1,9 +1,11 @@
 package com.sadamda.view.tryon;
 
+import com.sadamda.common.LoginRequiredException;
 import com.sadamda.controller.AppContext;
 import com.sadamda.external.AiImageClient;
 import com.sadamda.external.DressUpSettings;
 import com.sadamda.external.RemoteImages;
+import com.sadamda.model.order.OrderLine;
 import com.sadamda.model.product.Product;
 import com.sadamda.model.product.ProductOption;
 import com.sadamda.model.tryon.CharacterSpec;
@@ -39,7 +41,9 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
@@ -424,17 +428,23 @@ public class TryOnPanel extends ScreenPanel {
 
     /** UC-09 9단계 [장바구니 담기]: 입힌 옷을 재고가 있는 첫 옵션으로 1개씩 담는다. 사이즈는 장바구니에서 바꾼다. */
     private void addToCart() {
-        int added = 0;
-        try {
-            for (Product product : outfit.products()) {
-                ProductOption option = product.getOptions().stream()
-                        .filter(candidate -> candidate.stock() > 0).findFirst().orElse(null);
-                if (option != null) {
-                    context.cart.add(product.getId(), option.id(), 1);
-                    added++;
-                }
+        List<OrderLine> lines = new ArrayList<>();
+        for (Product product : outfit.products()) {
+            ProductOption option = product.getOptions().stream()
+                    .filter(candidate -> candidate.stock() > 0).findFirst().orElse(null);
+            if (option != null) {
+                lines.add(new OrderLine(product.getId(), option.id(), 1));
             }
-            setStatus(added + "개 상품을 장바구니에 담았습니다. 사이즈는 장바구니에서 바꿀 수 있습니다.");
+        }
+        if (lines.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "담을 수 있는 상품이 없습니다. 모두 품절입니다.");
+            return;
+        }
+        try {
+            context.cart.addAll(lines); // Controller 명세: 여러 상품은 addAll(List<OrderLine>)
+            setStatus(lines.size() + "개 상품을 장바구니에 담았습니다. 사이즈는 장바구니에서 바꿀 수 있습니다.");
+        } catch (LoginRequiredException e) {
+            JOptionPane.showMessageDialog(this, "장바구니는 로그인한 뒤에 쓸 수 있습니다.");
         } catch (UnsupportedOperationException e) {
             JOptionPane.showMessageDialog(this, "장바구니는 아직 준비 중입니다.");
         } catch (RuntimeException e) {
