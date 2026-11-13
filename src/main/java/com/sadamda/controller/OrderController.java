@@ -1,5 +1,6 @@
 package com.sadamda.controller;
 
+import com.sadamda.common.AppException;
 import com.sadamda.external.PaymentGateway;
 import com.sadamda.model.cart.CartService;
 import com.sadamda.model.member.MemberService;
@@ -32,12 +33,29 @@ public class OrderController {
 
     /** UC-10 5단계 [주문하기] → UC-11 2단계 장바구니 전체로 주문서를 만든다. */
     public OrderSheet prepareFromCart() {
-        throw new UnsupportedOperationException("TODO UC-11 (계획 3단계)");
+        Long memberId = session.requireLogin().getId();
+        List<OrderLine> lines = cartService.getCart(memberId).stream()
+                .map(item -> new OrderLine(item.productId(), item.optionId(), item.quantity()))
+                .toList();
+        if (lines.isEmpty()) {
+            throw new AppException("장바구니가 비어 있습니다.");
+        }
+        return sheet(memberId, lines, true);
     }
 
     /** UC-06 4단계 [바로 구매] → UC-11 2단계 상품 하나로 주문서를 만든다. */
     public OrderSheet prepareDirect(OrderLine line) {
-        throw new UnsupportedOperationException("TODO UC-11 (계획 3단계)");
+        Long memberId = session.requireLogin().getId();
+        if (line.quantity() < 1) {
+            throw new AppException("수량을 1개 이상 골라 주세요.");
+        }
+        return sheet(memberId, List.of(line), false);
+    }
+
+    private OrderSheet sheet(Long memberId, List<OrderLine> lines, boolean fromCart) {
+        // 세션의 회원 정보는 오래됐을 수 있어 기본 배송지는 새로 읽는다.
+        String defaultAddress = memberService.findById(memberId).getDefaultAddress();
+        return new OrderSheet(lines, defaultAddress, orderService.calculateTotal(lines), fromCart);
     }
 
     /**
