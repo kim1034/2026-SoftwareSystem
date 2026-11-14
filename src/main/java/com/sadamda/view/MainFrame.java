@@ -55,14 +55,18 @@ public class MainFrame extends JFrame {
     /** 로그인 화면으로 오기 직전의 화면. 로그인 후 돌아갈 곳 (UC-02 4단계). */
     private String screenBeforeLogin;
 
+    /** 상품 상세 화면. 어떤 상품을 보여줄지 openProduct 로 알려준다. */
+    private final ProductDetailPanel productDetail;
+
     public MainFrame(AppContext context) {
         super("사담다");
         this.context = context;
         FontSize.load().apply();
+        productDetail = new ProductDetailPanel(context, this);
 
         addScreen(HomePanel.NAME, new HomePanel(context, this));
         addScreen(ProductListPanel.NAME, new ProductListPanel(context, this));
-        addScreen(ProductDetailPanel.NAME, new ProductDetailPanel(context, this));
+        addScreen(ProductDetailPanel.NAME, productDetail);
         addScreen(LookbookPanel.NAME, new LookbookPanel(context, this));
         addScreen(TryOnPanel.NAME, new TryOnPanel(context, this));
         addScreen(CartPanel.NAME, new CartPanel(context, this));
@@ -98,6 +102,12 @@ public class MainFrame extends JFrame {
         cards.show(content, name);
         currentScreen = name;
         updateMenu(name);
+    }
+
+    /** 상품 목록·룩북·추천에서 상품을 고르면 그 상품의 상세 화면을 연다 (UC-06 1단계). */
+    public void openProduct(Long productId) {
+        productDetail.showProduct(productId);
+        navigate(ProductDetailPanel.NAME);
     }
 
     /** 로그인 성공 후 일반 회원을 로그인 전에 보던 화면으로 돌려보낸다. 기억한 화면이 없으면 홈. */

@@ -292,8 +292,24 @@ public final class Theme {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = smooth(g);
+                RoundRectangle2D pill = new RoundRectangle2D.Float(0.5f, 0.5f, getWidth() - 1, getHeight() - 1,
+                        getHeight(), getHeight());
+                if (!isEnabled()) {
+                    // 고를 수 없음 (예: 품절): 흰 바탕 + 테두리 + 회색 글씨. 기본 흐린 글씨는 대비가 부족해 직접 그린다.
+                    g2.setColor(CARD);
+                    g2.fill(pill);
+                    g2.setColor(LINE);
+                    g2.draw(pill);
+                    g2.setColor(HINT);
+                    g2.setFont(getFont());
+                    FontMetrics fm = g2.getFontMetrics();
+                    g2.drawString(getText(), (getWidth() - fm.stringWidth(getText())) / 2,
+                            (getHeight() - fm.getHeight()) / 2 + fm.getAscent());
+                    g2.dispose();
+                    return;
+                }
                 g2.setColor(isSelected() ? PRIMARY : SECONDARY);
-                g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), getHeight(), getHeight()));
+                g2.fill(pill);
                 g2.dispose();
                 super.paintComponent(g);
                 paintFocusRing(this, g);

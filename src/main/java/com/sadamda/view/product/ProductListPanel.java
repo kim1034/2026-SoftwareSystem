@@ -415,8 +415,7 @@ public class ProductListPanel extends ScreenPanel {
 
     private void addCards(List<ProductItem> items) {
         for (ProductItem item : items) {
-            // TODO UC-06 상세 화면이 생기면 item.id() 를 넘긴다. 지금은 화면 이동만 한다.
-            grid.add(new ProductCard(item, () -> frame.navigate(ProductDetailPanel.NAME)));
+            grid.add(new ProductCard(item, () -> frame.openProduct(item.id()))); // UC-06 상세로
         }
     }
 
