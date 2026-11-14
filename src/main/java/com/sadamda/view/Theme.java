@@ -1,5 +1,6 @@
 package com.sadamda.view;
 
+import javax.swing.AbstractButton;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.Icon;
@@ -12,6 +13,7 @@ import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
+import javax.swing.JToggleButton;
 import javax.swing.SwingConstants;
 import javax.swing.UIManager;
 import javax.swing.border.AbstractBorder;
@@ -19,6 +21,7 @@ import javax.swing.plaf.basic.BasicArrowButton;
 import javax.swing.plaf.basic.BasicButtonUI;
 import javax.swing.plaf.basic.BasicCheckBoxUI;
 import javax.swing.plaf.basic.BasicComboBoxUI;
+import javax.swing.plaf.basic.BasicToggleButtonUI;
 import javax.swing.text.JTextComponent;
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
@@ -273,6 +276,38 @@ public final class Theme {
         return button;
     }
 
+    /**
+     * 여러 개 중 하나를 고르는 알약 모양 버튼 (예: 상품 카테고리). 고른 것은 검정, 나머지는 연한 회색.
+     * ButtonGroup 으로 묶어 하나만 선택되게 쓴다. 높이 48px 이상 (NFR-02).
+     */
+    public static JToggleButton chip(String text) {
+        JToggleButton chip = new JToggleButton(text) {
+            @Override
+            public void updateUI() {
+                setUI(new BasicToggleButtonUI());
+                Font base = UIManager.getFont("Button.font");
+                setFont(base.deriveFont(Font.BOLD, base.getSize2D() + 2));
+            }
+
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = smooth(g);
+                g2.setColor(isSelected() ? PRIMARY : SECONDARY);
+                g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), getHeight(), getHeight()));
+                g2.dispose();
+                super.paintComponent(g);
+                paintFocusRing(this, g);
+            }
+        };
+        chip.setForeground(TEXT);
+        chip.addItemListener(e -> chip.setForeground(chip.isSelected() ? Color.WHITE : TEXT));
+        chip.setContentAreaFilled(false);
+        chip.setFocusPainted(false);
+        chip.setBorder(BorderFactory.createEmptyBorder(14, 32, 14, 32));
+        chip.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        return chip;
+    }
+
     /** 글씨 크기에 맞춰 커지는 체크박스. macOS 기본 체크박스는 너무 작다 (NFR-02). */
     public static JCheckBox checkBox(String text) {
         JCheckBox box = new JCheckBox(text) {
@@ -335,7 +370,7 @@ public final class Theme {
      * 키보드로 포커스가 왔을 때 버튼 안쪽에 글자색 테두리를 그린다.
      * 글자색은 배경 대비 4.5:1 이상이라 테두리도 잘 보인다.
      */
-    private static void paintFocusRing(JButton button, Graphics g) {
+    private static void paintFocusRing(AbstractButton button, Graphics g) {
         if (!button.isFocusOwner()) {
             return;
         }
