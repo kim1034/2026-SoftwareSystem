@@ -1,10 +1,13 @@
 package com.sadamda.view.product;
 
 import com.sadamda.model.product.Category;
+import com.sadamda.model.product.SearchFilter;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 임시 목업 데이터. Product 에 getter 가 생기면 이 파일을 지우고
@@ -61,6 +64,42 @@ final class MockProducts {
             Category.DRESS, List.of(),
             Category.OUTER, List.of());
 
+    /** 필터·정렬에 쓰는 임시 속성. 실제로는 Product 의 태그·옵션·판매 수에서 온다. 값은 임의로 붙였다. */
+    private record Attributes(Set<String> ageGroups, Set<String> bodyTypes, Set<String> sizes,
+                              String color, int sales, int newness) {
+    }
+
+    private static final String SMALL = "S (55)/M (66)/L (77)";
+    private static final String WIDE = "S (55)/M (66)/L (77)/XL (88)/XXL (99)";
+
+    private static final Map<Long, Attributes> ATTRIBUTES = Map.ofEntries(
+            attributes(1L, "50대/60대", "보통 체형/통통한 체형", WIDE, "베이지·브라운", 820, 3),
+            attributes(2L, "40대/50대", "마른 체형/보통 체형", SMALL, "베이지·브라운", 640, 12),
+            attributes(3L, "50대/60대", "마른 체형/상체 발달형", SMALL, "화이트·아이보리", 510, 18),
+            attributes(4L, "40대/50대", "보통 체형/상체 발달형", WIDE, "베이지·브라운", 300, 20),
+            attributes(5L, "40대", "마른 체형/보통 체형", SMALL, "베이지·브라운", 950, 9),
+            attributes(6L, "50대/60대", "통통한 체형/하체 발달형", WIDE, "네이비", 270, 6),
+            attributes(7L, "40대/50대", "보통 체형", SMALL, "화이트·아이보리", 430, 15),
+            attributes(8L, "50대/60대", "통통한 체형/하체 발달형", WIDE, "베이지·브라운", 150, 19),
+            attributes(9L, "40대/50대/60대", "보통 체형/통통한 체형", WIDE, "네이비", 1200, 2),
+            attributes(10L, "40대", "마른 체형", SMALL, "화이트·아이보리", 380, 14),
+            attributes(11L, "50대/60대", "하체 발달형/보통 체형", WIDE, "화이트·아이보리", 210, 17),
+            attributes(12L, "40대/50대", "마른 체형/보통 체형", SMALL, "블랙", 560, 8),
+            attributes(13L, "50대/60대", "하체 발달형/통통한 체형", WIDE, "화이트·아이보리", 690, 5),
+            attributes(14L, "40대/50대", "보통 체형/하체 발달형", WIDE, "네이비", 720, 11),
+            attributes(15L, "40대", "마른 체형/보통 체형", SMALL, "블랙", 330, 16),
+            attributes(16L, "50대/60대", "통통한 체형/하체 발달형", WIDE, "그레이", 480, 13),
+            attributes(17L, "40대/50대/60대", "보통 체형/하체 발달형", WIDE, "블랙", 1100, 1),
+            attributes(18L, "40대/50대", "마른 체형/보통 체형", SMALL, "네이비", 600, 10),
+            attributes(19L, "50대/60대", "보통 체형/통통한 체형", WIDE, "그레이", 870, 7),
+            attributes(20L, "50대/60대", "통통한 체형/하체 발달형", WIDE, "네이비", 400, 4));
+
+    private static Map.Entry<Long, Attributes> attributes(Long id, String ages, String bodyTypes, String sizes,
+                                                         String color, int sales, int newness) {
+        return Map.entry(id, new Attributes(Set.of(ages.split("/")), Set.of(bodyTypes.split("/")),
+                Set.of(sizes.split("/")), color, sales, newness));
+    }
+
     private MockProducts() {
     }
 
@@ -72,6 +111,47 @@ final class MockProducts {
             return List.of();
         }
         return all.subList(from, Math.min(from + PAGE_SIZE, all.size()));
+    }
+
+    /**
+     * ProductController.search(filter) 를 흉내 낸다 (FR-06, FR-07). null 인 조건은 적용하지 않는다.
+     * 검색어: 띄어 쓴 낱말이 모두 상품명이나 카테고리 이름에 들어 있으면 찾은 것으로 본다.
+     * 가격: minPrice 이상, maxPrice 이하. 정렬: ProductListPanel 의 SORT_* 값.
+     */
+    static List<ProductItem> search(SearchFilter filter) {
+        List<ProductItem> result = new ArrayList<>();
+        for (Category category : Category.values()) {
+            for (ProductItem item : BY_CATEGORY.get(category)) {
+                if (matches(item, category, filter)) {
+                    result.add(item);
+                }
+            }
+        }
+        Comparator<ProductItem> order = switch (filter.sort() == null ? "" : filter.sort()) {
+            case ProductListPanel.SORT_NEWEST -> Comparator.comparingInt(item -> -ATTRIBUTES.get(item.id()).newness());
+            case ProductListPanel.SORT_PRICE_LOW -> Comparator.comparingInt(ProductItem::price);
+            case ProductListPanel.SORT_PRICE_HIGH -> Comparator.comparingInt(item -> -item.price());
+            default -> Comparator.comparingInt(item -> -ATTRIBUTES.get(item.id()).sales()); // 인기순
+        };
+        result.sort(order);
+        return result;
+    }
+
+    private static boolean matches(ProductItem item, Category category, SearchFilter filter) {
+        if (filter.keyword() != null) {
+            for (String word : filter.keyword().trim().split("\\s+")) {
+                if (!item.name().contains(word) && !category.label().contains(word)) {
+                    return false;
+                }
+            }
+        }
+        Attributes attributes = ATTRIBUTES.get(item.id());
+        return (filter.ageGroup() == null || attributes.ageGroups().contains(filter.ageGroup()))
+                && (filter.bodyType() == null || attributes.bodyTypes().contains(filter.bodyType()))
+                && (filter.size() == null || attributes.sizes().contains(filter.size()))
+                && (filter.color() == null || attributes.color().equals(filter.color()))
+                && (filter.minPrice() == null || item.price() >= filter.minPrice())
+                && (filter.maxPrice() == null || item.price() <= filter.maxPrice());
     }
 
     /** ProductController.popular() 와 같은 역할. 상의·하의 앞쪽 상품을 섞어 보여준다. */

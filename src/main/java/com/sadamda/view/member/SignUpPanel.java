@@ -40,10 +40,11 @@ public class SignUpPanel extends ScreenPanel {
     public static final String NAME = "signUp";
 
     // 내 정보 화면(MyInfoPanel)도 같은 선택지·검사 규칙을 쓴다.
-    static final String NOT_SELECTED = "선택 안 함";
-    static final String[] AGE_GROUPS = {NOT_SELECTED, "40대", "50대", "60대"};
-    static final String[] SIZES = {NOT_SELECTED, "S (55)", "M (66)", "L (77)", "XL (88)", "XXL (99)"};
-    static final String[] BODY_TYPES = {NOT_SELECTED, "마른 체형", "보통 체형", "통통한 체형", "하체 발달형", "상체 발달형"};
+    // 상품 검색 필터(ProductListPanel)도 같은 연령대·체형·사이즈 값을 써서 회원 체형 정보와 바로 맞춘다 (UC-05 3a).
+    public static final String NOT_SELECTED = "선택 안 함";
+    public static final String[] AGE_GROUPS = {NOT_SELECTED, "40대", "50대", "60대"};
+    public static final String[] SIZES = {NOT_SELECTED, "S (55)", "M (66)", "L (77)", "XL (88)", "XXL (99)"};
+    public static final String[] BODY_TYPES = {NOT_SELECTED, "마른 체형", "보통 체형", "통통한 체형", "하체 발달형", "상체 발달형"};
     private static final Pattern EMAIL = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
     private static final Pattern PHONE = Pattern.compile("^01[016789]-?\\d{3,4}-?\\d{4}$");
 
