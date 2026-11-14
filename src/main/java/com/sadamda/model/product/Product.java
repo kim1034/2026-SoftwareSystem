@@ -7,30 +7,7 @@ import java.util.List;
 public class Product {
     public enum Status { ON_SALE, SUSPENDED } // UC-16 3a 판매 중지
 
-    private Long id;
-    private String code;               // 데모 데이터의 상품ID (예: TOP-KR-01). 직접 등록한 상품은 null
-    private String brand;
-    private String country;            // 브랜드 국가
-    private String subCategory;        // 세부 카테고리 (예: 신발(로퍼/플랫))
-    private String description;        // 코디·트렌드 포인트
-    private String productUrl;         // 공식몰 판매 페이지
-    private int salesCount;            // 누적 판매 수량. 인기순 정렬에 쓴다
-    private String name;
-    private Category category;
-    private int price;
-    private String material;
-    private List<ProductOption> options = new ArrayList<>();
-    private List<String> imageUrls = new ArrayList<>();    // 중장년 모델 착용 사진 포함
-    private List<String> ageGroupTags = new ArrayList<>(); // 추천 연령대 태그
-    private List<String> bodyTypeTags = new ArrayList<>(); // 추천 체형 태그
-    private boolean trending;          // 유행 아이템 지정 여부 (UC-17)
-    private Status status = Status.ON_SALE;
-
-    /** UC-09 AI 합성에 보낼 대표 의류 이미지. 이미지가 없으면 null. (Controller 명세에서 사용) */
-    public String getMainImageUrl() {
-        return imageUrls == null || imageUrls.isEmpty() ? null : imageUrls.get(0);
-    }
-
+    // 메서드를 필드보다 앞에 둔 것은 feat/tryon 이 필드 바로 뒤에 getMainImageUrl 을 넣기 때문이다 (합칠 때 충돌 방지).
     /** 대표 이미지. 없으면 null. */
     public String mainImageUrl() {
         return imageUrls.isEmpty() ? null : imageUrls.get(0);
@@ -111,5 +88,29 @@ public class Product {
     @Override
     public String toString() {
         return "[" + (category == null ? "" : category.label()) + "] " + name;
+    }
+
+    private Long id;
+    private String code;               // 데모 데이터의 상품ID (예: TOP-KR-01). 직접 등록한 상품은 null
+    private String brand;
+    private String country;            // 브랜드 국가
+    private String subCategory;        // 세부 카테고리 (예: 신발(로퍼/플랫))
+    private String description;        // 코디·트렌드 포인트
+    private String productUrl;         // 공식몰 판매 페이지
+    private int salesCount;            // 누적 판매 수량. 인기순 정렬에 쓴다
+    private String name;
+    private Category category;
+    private int price;
+    private String material;
+    private List<ProductOption> options = new ArrayList<>();
+    private List<String> imageUrls = new ArrayList<>();    // 중장년 모델 착용 사진 포함
+    private List<String> ageGroupTags = new ArrayList<>(); // 추천 연령대 태그
+    private List<String> bodyTypeTags = new ArrayList<>(); // 추천 체형 태그
+    private boolean trending;          // 유행 아이템 지정 여부 (UC-17)
+    private Status status = Status.ON_SALE;
+
+    /** UC-09 AI 합성에 보낼 대표 의류 이미지. 이미지가 없으면 null. (Controller 명세에서 사용) */
+    public String getMainImageUrl() {
+        return imageUrls == null || imageUrls.isEmpty() ? null : imageUrls.get(0);
     }
 }
