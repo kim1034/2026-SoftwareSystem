@@ -5,6 +5,7 @@ import com.sadamda.model.member.BodyProfile;
 import com.sadamda.model.member.Member;
 import com.sadamda.model.product.Category;
 import com.sadamda.model.product.Product;
+import com.sadamda.model.product.ProductTags;
 import com.sadamda.model.product.ProductService;
 
 import java.util.ArrayList;
@@ -96,8 +97,8 @@ public class RecommendService {
      */
     public List<Product> recommendFor(Member member) {
         BodyProfile profile = member == null ? null : member.getBodyProfile();
-        String ageGroup = profile == null ? null : profile.ageGroup();
-        String bodyType = profile == null ? null : profile.bodyType();
+        String ageGroup = profile == null ? null : ProductTags.ageGroup(profile.ageGroup());
+        String bodyType = profile == null ? null : ProductTags.bodyType(profile.bodyType());
 
         List<Product> candidates = productService.findAll().stream()
                 .filter(Product::isOnSale)
@@ -145,7 +146,7 @@ public class RecommendService {
 
     /** UC-08 3a: 체형 정보를 등록한 회원인지. 아니면 화면에서 체형 정보 입력(UC-03)을 권한다. */
     public boolean hasBodyType(Member member) {
-        return member != null && member.getBodyProfile() != null && !isBlank(member.getBodyProfile().bodyType());
+        return member != null && member.getBodyProfile() != null && ProductTags.bodyType(member.getBodyProfile().bodyType()) != null;
     }
 
     /**

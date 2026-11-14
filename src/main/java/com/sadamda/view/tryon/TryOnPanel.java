@@ -2,7 +2,7 @@ package com.sadamda.view.tryon;
 
 import com.sadamda.common.LoginRequiredException;
 import com.sadamda.controller.AppContext;
-import com.sadamda.external.AiImageClient;
+import com.sadamda.external.DressUpException;
 import com.sadamda.external.DressUpSettings;
 import com.sadamda.external.RemoteImages;
 import com.sadamda.model.order.OrderLine;
@@ -87,7 +87,7 @@ public class TryOnPanel extends ScreenPanel {
     public TryOnPanel(AppContext context, MainFrame frame) {
         super(context, frame, "AI 입어보기", "UC-09 AI 착용 이미지 생성");
         removeAll(); // 공통 부모가 넣어 둔 "TODO" 안내를 걷어내고 실제 화면을 넣는다
-        spec = context.tryOn.initialSpec();
+        spec = context.dressUp.initialSpec();
 
         add(header(), BorderLayout.NORTH);
         add(characterColumn(), BorderLayout.CENTER);
@@ -98,7 +98,7 @@ public class TryOnPanel extends ScreenPanel {
         showSpec();
         showBaseCharacter();
         refreshSlots();
-        setStatus(context.tryOn.dressUpConnected()
+        setStatus(context.dressUp.dressUpConnected()
                 ? "옷을 고르고 [입혀보기]를 눌러 주세요."
                 : "그림 만드는 곳(AI)에 연결되지 않았습니다. [AI 연결 설정]에서 이용 열쇠를 넣어 주세요.");
     }
@@ -198,7 +198,7 @@ public class TryOnPanel extends ScreenPanel {
         resultImage = null;
         retryButton.setVisible(false);
         try {
-            characterView.setImage(context.tryOn.characterImage(style, spec));
+            characterView.setImage(context.dressUp.characterImage(style, spec));
         } catch (RuntimeException e) {
             characterView.setImage(null);
             characterView.setMessage("캐릭터 그림을 불러오지 못했습니다");
@@ -207,7 +207,7 @@ public class TryOnPanel extends ScreenPanel {
     }
 
     private void showService() {
-        serviceLabel.setText("그림 만드는 곳: " + context.tryOn.dressUpServiceName());
+        serviceLabel.setText("그림 만드는 곳: " + context.dressUp.dressUpServiceName());
     }
 
     /** 자리 칸을 누르면 그 카테고리 상품을 고르는 창을 연다. */
@@ -216,7 +216,7 @@ public class TryOnPanel extends ScreenPanel {
             return;
         }
         ProductPickerDialog dialog = new ProductPickerDialog(SwingUtilities.getWindowAncestor(this), slot,
-                context.tryOn.productsFor(slot), outfit.get(slot) != null);
+                context.dressUp.productsFor(slot), outfit.get(slot) != null);
         dialog.setVisible(true);
         if (dialog.takeOff()) {
             outfit.remove(slot);
@@ -289,7 +289,7 @@ public class TryOnPanel extends ScreenPanel {
 
     /** [AI 연결 설정]: 이용 열쇠·서비스 주소·모델을 이 PC 에만 저장한다. */
     private void editSettings() {
-        DressUpSettings saved = context.tryOn.dressUpSettings();
+        DressUpSettings saved = context.dressUp.dressUpSettings();
         JPasswordField key = new JPasswordField(saved.apiKey() == null ? "" : saved.apiKey(), 28);
         JTextField baseUrl = new JTextField(saved.baseUrl() == null ? "" : saved.baseUrl(), 28);
         JTextField model = new JTextField(saved.model() == null ? "" : saved.model(), 28);
@@ -301,7 +301,7 @@ public class TryOnPanel extends ScreenPanel {
         form.add(baseUrl);
         form.add(new JLabel("모델 이름 (비우면 기본 모델)"));
         form.add(model);
-        form.add(new JLabel(context.tryOn.dressUpKeyFromEnvironment()
+        form.add(new JLabel(context.dressUp.dressUpKeyFromEnvironment()
                 ? "지금은 환경 변수에 넣은 열쇠가 먼저 쓰입니다."
                 : "이 PC 에만 저장되고, 다른 사람에게 보내는 파일에는 들어가지 않습니다."));
 
@@ -309,9 +309,9 @@ public class TryOnPanel extends ScreenPanel {
         int answer = JOptionPane.showOptionDialog(this, form, "AI 연결 설정",
                 JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null, choices, choices[0]);
         if (answer == 0) {
-            context.tryOn.configureDressUp(new String(key.getPassword()), baseUrl.getText(), model.getText());
+            context.dressUp.configureDressUp(new String(key.getPassword()), baseUrl.getText(), model.getText());
             showService();
-            setStatus(context.tryOn.dressUpConnected()
+            setStatus(context.dressUp.dressUpConnected()
                     ? "AI 연결 설정을 저장했습니다. [입혀보기]를 눌러 확인해 주세요."
                     : "이용 열쇠가 비어 있어 아직 연결되지 않았습니다.");
             updateButtons();
@@ -323,10 +323,10 @@ public class TryOnPanel extends ScreenPanel {
         if (working) {
             return;
         }
-        if (!context.tryOn.dressUpConnected()) {
+        if (!context.dressUp.dressUpConnected()) {
             setStatus("그림 만드는 곳(AI)에 연결되지 않았습니다. 이용 열쇠를 넣어 주세요.");
             editSettings();
-            if (!context.tryOn.dressUpConnected()) {
+            if (!context.dressUp.dressUpConnected()) {
                 return;
             }
         }
@@ -334,7 +334,7 @@ public class TryOnPanel extends ScreenPanel {
         retryButton.setVisible(false);
         progress.setVisible(true);
         setStatus("캐릭터에게 옷을 입히는 중입니다. 잠시만 기다려 주세요 (최대 "
-                + context.tryOn.dressUpTimeoutSeconds() + "초)");
+                + context.dressUp.dressUpTimeoutSeconds() + "초)");
         updateButtons();
 
         CharacterStyle requestedStyle = style;
@@ -343,7 +343,7 @@ public class TryOnPanel extends ScreenPanel {
         new SwingWorker<byte[], Void>() {
             @Override
             protected byte[] doInBackground() throws Exception {
-                return context.tryOn.dressUp(requestedStyle, requestedSpec, requestedOutfit);
+                return context.dressUp.dressUp(requestedStyle, requestedSpec, requestedOutfit);
             }
 
             @Override
@@ -354,15 +354,15 @@ public class TryOnPanel extends ScreenPanel {
                     byte[] image = get();
                     BufferedImage decoded = RemoteImages.decode(image);
                     if (decoded == null) {
-                        throw new AiImageClient.AiImageException("받은 그림을 열 수 없습니다. 다시 시도해 주세요.");
+                        throw new DressUpException("받은 그림을 열 수 없습니다. 다시 시도해 주세요.");
                     }
                     resultImage = image;
                     characterView.setImage(decoded);
                     setStatus("다 입혔습니다. 옷을 바꿔 가며 계속 입혀 보세요.");
                 } catch (ExecutionException e) {
-                    fail(e.getCause() instanceof AiImageClient.AiImageException
+                    fail(e.getCause() instanceof DressUpException
                             ? e.getCause().getMessage() : "그림을 만드는 중에 문제가 생겼습니다.");
-                } catch (AiImageClient.AiImageException e) {
+                } catch (DressUpException e) {
                     fail(e.getMessage());
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
@@ -380,7 +380,7 @@ public class TryOnPanel extends ScreenPanel {
 
     /** UC-09 9단계 [보관함에 저장] */
     private void saveToLocker() {
-        if (!context.tryOn.isLoggedIn()) {
+        if (!context.dressUp.isLoggedIn()) {
             JOptionPane.showMessageDialog(this,
                     "보관함은 로그인한 뒤에 쓸 수 있습니다.\n지금은 [내 컴퓨터에 저장]을 이용해 주세요.");
             return;
@@ -396,7 +396,7 @@ public class TryOnPanel extends ScreenPanel {
 
     /** FR-16 보관함 보기·지우기 (NFR-08: 사용자가 언제든 삭제 가능) */
     private void openLocker() {
-        if (!context.tryOn.isLoggedIn()) {
+        if (!context.dressUp.isLoggedIn()) {
             JOptionPane.showMessageDialog(this, "보관함은 로그인한 뒤에 쓸 수 있습니다.");
             return;
         }

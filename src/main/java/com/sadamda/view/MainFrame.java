@@ -67,7 +67,6 @@ public class MainFrame extends JFrame {
         bar.add(menuButton("홈", HomePanel.NAME));
         bar.add(menuButton("상품", ProductListPanel.NAME));
         bar.add(menuButton("룩북", LookbookPanel.NAME));
-        bar.add(menuButton("옷 입혀보기", TryOnPanel.NAME));
         bar.add(menuButton("장바구니", CartPanel.NAME));
         bar.add(menuButton("주문 내역", OrderHistoryPanel.NAME));
         bar.add(menuButton("내 정보", MyInfoPanel.NAME));

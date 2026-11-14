@@ -17,8 +17,9 @@ public record CharacterSpec(int heightCm, int weightKg, String bodyType, String 
     public CharacterSpec {
         heightCm = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, heightCm));
         weightKg = Math.max(MIN_WEIGHT, Math.min(MAX_WEIGHT, weightKg));
-        if (bodyType == null || !BODY_TYPES.contains(bodyType)) {
-            bodyType = "보통형";
+        bodyType = ProductTags.bodyType(bodyType); // 예전 값("보통형")도 받아 준다
+        if (bodyType == null) {
+            bodyType = "보통 체형";
         }
         if (ageGroup == null || !AGE_GROUPS.contains(ageGroup)) {
             ageGroup = "40대";
@@ -26,7 +27,7 @@ public record CharacterSpec(int heightCm, int weightKg, String bodyType, String 
     }
 
     public static CharacterSpec defaults() {
-        return new CharacterSpec(160, 56, "보통형", "40대");
+        return new CharacterSpec(160, 56, "보통 체형", "40대");
     }
 
     /** 회원이 등록한 체형 정보로 시작한다. 몸무게는 회원 정보에 없어서 키에 맞는 보통 몸무게로 둔다. */

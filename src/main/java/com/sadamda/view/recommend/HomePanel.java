@@ -15,6 +15,7 @@ import com.sadamda.view.product.CategoryBar;
 import com.sadamda.view.product.ProductGrid;
 import com.sadamda.view.product.ProductListPanel;
 import com.sadamda.view.product.ShopUi;
+import com.sadamda.view.tryon.TryOnPanel;
 
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
@@ -90,6 +91,10 @@ public class HomePanel extends ScreenPanel {
                 linkButton("코디 모두 보기", () -> frame.navigate(LookbookPanel.NAME))), 40);
         lookbookRow.setOpaque(false);
         block(lookbookRow, 12);
+
+        // 옷 입혀보기 메뉴는 상단 메뉴(MainFrame, 강준서 담당)에 아직 없어서 홈에서 들어가게 한다.
+        block(ShopUi.sectionHeader("옷 입혀보기", "내 체형의 캐릭터에 상품을 입혀 미리 볼 수 있어요.",
+                linkButton("옷 입혀보기", () -> frame.navigate(TryOnPanel.NAME))), 40);
 
         block(ShopUi.sectionHeader("새로 들어온 상품", "최근에 등록된 상품이에요.",
                 linkButton("상품 더 보기", () -> openCategory(null))), 40);
@@ -213,20 +218,17 @@ public class HomePanel extends ScreenPanel {
 
     /** UC-04 1단계: 카테고리 버튼 → 상품 목록 화면에서 그 카테고리를 보여준다. null 이면 전체 상품. */
     private void openCategory(Category category) {
-        ProductListPanel list = ShopUi.findScreen(frame, ProductListPanel.class);
-        if (list != null) {
-            list.showCategory(category);
-        }
+        // 상품 목록 화면은 강준서 담당. 그 화면에 openCategory(Category) 가 있으면 고른 카테고리로 연다.
+        ShopUi.callIfPresent(ShopUi.findScreen(frame, ProductListPanel.class), "openCategory", Category.class, category);
         categoryBar.setSelected(null); // 홈으로 돌아왔을 때 눌린 채로 남지 않게
         frame.navigate(ProductListPanel.NAME);
     }
 
     /** UC-05 1단계: 검색어 → 상품 목록 화면의 검색 결과. */
     private void search() {
-        ProductListPanel list = ShopUi.findScreen(frame, ProductListPanel.class);
-        if (list != null) {
-            list.showSearch(searchField.getText());
-        }
+        // 상품 목록 화면에 openSearch(String) 가 있으면 검색 결과로 연다.
+        ShopUi.callIfPresent(ShopUi.findScreen(frame, ProductListPanel.class), "openSearch", String.class,
+                searchField.getText());
         searchField.setText("");
         frame.navigate(ProductListPanel.NAME);
     }

@@ -116,3 +116,47 @@ java -cp "target/classes;target/test-classes" com.sadamda.DomainSelfCheck
 - 업로드 사진 삭제: `feat/tryon`의 `TryOnController.generate`는 인물 사진을 파일로 남기지 않고 메모리에서만 씁니다. 파일로 잠시 보관하는 방식으로 바뀌면 `storeUpload` → 합성 → `deleteUpload`(finally)로 지우면 됩니다. 프로그램이 합성 중에 꺼져 남은 사진은 다음 실행 때 `deleteLeftoverUploads`가 지웁니다.
 - 로그인(회원 도메인)이 구현되기 전까지 보관함, 장바구니 담기, 맞춤 추천, 관리자 코디 올리기는 화면에서 쓸 수 없습니다.
 - 데모 데이터는 판매 수량이 모두 0이라 인기순이 "유행 아이템 → 등록 순"으로 정해집니다. 그래서 홈에는 인기 상품 대신 새로 들어온 상품을 보여줍니다.
+
+---
+
+## 다른 브랜치와 합칠 준비 — 2026-11-14
+
+브랜치를 아직 합치지 않고, **나중에 합칠 때 충돌·컴파일 오류가 나지 않도록** 이 브랜치만 고쳤습니다.
+기준: `feat/product-view`(강준서, 상품 목록·검색·상세 View), `feat/member-model`·`feat/myinfo-view`·`feat/auth-view`·`feat/member`, `feat/tryon`·`feat/order-manage(-v2)`·`feat/order-payment`(김대원).
+
+### 다른 담당자 파일은 건드리지 않음
+
+| 파일 | 처리 |
+|---|---|
+| `view/MainFrame.java` | main 그대로 되돌림 (강준서 님이 새로 짬). [옷 입혀보기]는 홈 화면의 링크로 들어감 |
+| `view/product/ProductListPanel.java` | main 그대로 되돌림 (강준서 님 화면이 들어올 자리) |
+| `view/product/ProductCard.java` | 내 카드는 `ShopProductCard`로 이름 바꿈 (강준서 님 `ProductCard`와 같은 이름 충돌 방지) |
+| `view/product/ProductImages.java` | `ProductThumbnails`로 이름 바꿈 (강준서 님 `view/ProductImages`와 헷갈림 방지) |
+| `controller/TryOnController.java` | main 그대로 되돌림 (김대원 님 담당). 옷 입혀보기 기능은 새 `DressUpController`로 옮김 → `context.dressUp` |
+| `controller/AppContext.java` | `dressUp` 줄만 추가. `tryOn` 생성 줄은 main 그대로 (feat/tryon 이 바꾸는 줄) |
+| `external/AiImageClient` 예외 | 옷 입혀보기는 새 `DressUpException`을 씀 (feat/tryon 이 `AiImageException` 생성자를 바꿈) |
+| `model/member/Member.java` | feat/member-model 과 글자 하나까지 같게 맞춤 |
+| `model/product/Product.java` | feat/tryon 이 추가한 `getMainImageUrl()`을 같은 자리·같은 내용으로 넣음 |
+
+### 강준서 님 화면이 보내는 값과 맞춤 (Model)
+
+| 항목 | 내용 |
+|---|---|
+| 한 페이지 상품 수 | `ProductService.PAGE_SIZE` = **8** |
+| 정렬 | `POPULAR`·`NEWEST`·`PRICE_LOW`·`PRICE_HIGH`도 받음 (한글 값도 그대로) |
+| 체형 | 회원가입과 같은 값: 마른 체형, 보통 체형, 통통한 체형, 하체 발달형, 상체 발달형. 예전 값("보통형")도 받음 |
+| 사이즈 | 옷 옵션 `S (55)`~`XL (88)`. `"66"`과 `"M (66)"`은 같은 사이즈 |
+| "선택 안 함" | 조건 없음 |
+| 색상 | "화이트·아이보리"처럼 `·`로 묶은 색은 하나만 맞아도 됨 |
+| 가격 | `minPrice`·`maxPrice` 둘 다 포함 |
+| 화면 색 | `ShopUi` 색을 `Theme`(흑백)과 같은 값으로 |
+
+### 합친 뒤 자동으로 이어지는 것
+
+- 홈·룩북에서 상품을 누르면: `MainFrame.openProduct(Long)`가 있으면 상품 상세 화면, 없으면(합치기 전) 임시 `ProductInfoDialog`.
+- 홈의 카테고리 버튼·검색창: `ProductListPanel`에 `public openCategory(Category)`·`public openSearch(String)`이 있으면 그 카테고리·검색 결과로, 없으면 상품 화면만 엽니다. → **강준서 님께 두 메서드 추가를 부탁드릴 것.**
+
+### 합친 뒤 할 일 (선택)
+
+- `ProductListPanel`·`ProductDetailPanel`의 `MockProducts` 호출을 `context.product`로 바꾸기 (강준서 님 문서 4번).
+- 상단 메뉴에 [옷 입혀보기] 추가 (`TryOnPanel.NAME`).

@@ -18,8 +18,8 @@ public class UnconnectedDressUpClient implements DressUpImageClient {
     }
 
     @Override
-    public byte[] dressUp(Request request) throws AiImageClient.AiImageException {
-        throw new AiImageClient.AiImageException(
+    public byte[] dressUp(Request request) throws DressUpException {
+        throw new DressUpException(
                 "그림 만드는 곳(AI)에 아직 연결되지 않았습니다. [AI 연결 설정]에서 이용 열쇠를 넣어 주세요.");
     }
 }

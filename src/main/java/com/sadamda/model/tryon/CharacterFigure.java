@@ -219,20 +219,20 @@ public final class CharacterFigure {
 
     private static double upperFactor(String bodyType) {
         return switch (bodyType) {
-            case "마른형" -> 0.96;
-            case "통통형" -> 1.05;
-            case "상체발달형" -> 1.08;
-            case "하체발달형" -> 0.97;
+            case "마른 체형" -> 0.96;
+            case "통통한 체형" -> 1.05;
+            case "상체 발달형" -> 1.08;
+            case "하체 발달형" -> 0.97;
             default -> 1.0;
         };
     }
 
     private static double lowerFactor(String bodyType) {
         return switch (bodyType) {
-            case "마른형" -> 0.96;
-            case "통통형" -> 1.05;
-            case "상체발달형" -> 0.97;
-            case "하체발달형" -> 1.10;
+            case "마른 체형" -> 0.96;
+            case "통통한 체형" -> 1.05;
+            case "상체 발달형" -> 0.97;
+            case "하체 발달형" -> 1.10;
             default -> 1.0;
         };
     }

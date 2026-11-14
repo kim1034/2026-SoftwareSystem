@@ -11,7 +11,12 @@ import java.util.Set;
  */
 public final class ProductTags {
     public static final List<String> AGE_GROUPS = List.of("40대", "50대", "60대");
-    public static final List<String> BODY_TYPES = List.of("마른형", "보통형", "통통형", "상체발달형", "하체발달형");
+    /** 회원가입·내 정보·상품 검색 화면(view/member/SignUpPanel)과 같은 문자열. */
+    public static final List<String> BODY_TYPES = List.of("마른 체형", "보통 체형", "통통한 체형", "하체 발달형", "상체 발달형");
+    /** 옷(상의·하의·원피스·아우터) 옵션 사이즈. 회원가입의 "평소 사이즈"와 같은 문자열. */
+    public static final List<String> CLOTHING_SIZES = List.of("S (55)", "M (66)", "L (77)", "XL (88)", "XXL (99)");
+    /** 화면에서 "선택 안 함"을 고르면 이 값이 온다. 조건 없음으로 본다. */
+    public static final String NOT_SELECTED = "선택 안 함";
 
     private ProductTags() {
     }
@@ -27,17 +32,17 @@ public final class ProductTags {
         }
         String source = text == null ? "" : text;
         Set<String> tags = new LinkedHashSet<>();
-        tags.add("보통형");
+        tags.add("보통 체형");
         if (containsAny(source, "와이드", "A라인", "플레어", "밴딩", "스트레이트", "일자", "H라인")) {
-            tags.add("하체발달형");
-            tags.add("통통형");
+            tags.add("하체 발달형");
+            tags.add("통통한 체형");
         }
         if (containsAny(source, "박시", "루즈", "오버", "여유", "드레이프", "흐르", "체형", "커버")) {
-            tags.add("통통형");
-            tags.add("상체발달형");
+            tags.add("통통한 체형");
+            tags.add("상체 발달형");
         }
         if (containsAny(source, "슬림", "크롭", "타이트", "피트", "테일러")) {
-            tags.add("마른형");
+            tags.add("마른 체형");
         }
         return new ArrayList<>(tags);
     }
@@ -63,6 +68,57 @@ public final class ProductTags {
             tags.add("60대");
         }
         return tags.isEmpty() ? AGE_GROUPS : tags;
+    }
+
+    /**
+     * 체형 이름을 BODY_TYPES 의 값으로 맞춘다. 예전 값("보통형", "하체발달형")이나 띄어쓰기가 달라도 같은 체형으로 본다.
+     * 비었거나 "선택 안 함"이거나 모르는 값이면 null.
+     */
+    public static String bodyType(String value) {
+        if (value == null || value.isBlank() || NOT_SELECTED.equals(value.trim())) {
+            return null;
+        }
+        String key = value.replace(" ", "");
+        for (String each : BODY_TYPES) {
+            String compact = each.replace(" ", "");
+            if (compact.equals(key) || compact.replace("한체형", "형").replace("체형", "형").equals(key)) {
+                return each;
+            }
+        }
+        return null;
+    }
+
+    /** 연령대. "선택 안 함"·빈 값이면 null. */
+    public static String ageGroup(String value) {
+        return value == null || value.isBlank() || NOT_SELECTED.equals(value.trim()) ? null : value.trim();
+    }
+
+    /**
+     * 사이즈가 같은지 본다. "M (66)", "66", "m" 처럼 표기가 달라도 같은 사이즈면 true.
+     * 신발(235)·FREE 처럼 괄호가 없는 사이즈는 글자 그대로 비교한다.
+     */
+    public static boolean sameSize(String a, String b) {
+        if (a == null || b == null) {
+            return false;
+        }
+        if (a.trim().equalsIgnoreCase(b.trim())) {
+            return true;
+        }
+        String[] left = sizeKeys(a);
+        String[] right = sizeKeys(b);
+        for (String x : left) {
+            for (String y : right) {
+                if (!x.isEmpty() && x.equalsIgnoreCase(y)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** "M (66)" → [M, 66], "66" → [66] */
+    private static String[] sizeKeys(String size) {
+        return size.replace(")", "").split("\\s*\\(\\s*|\\s+");
     }
 
     private static boolean containsAny(String source, String... words) {

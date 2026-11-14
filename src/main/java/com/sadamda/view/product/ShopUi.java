@@ -42,21 +42,21 @@ import java.util.Locale;
 /**
  * 상품·룩북·홈 화면이 함께 쓰는 화면 도구: 색, 글씨, 버튼, 상품 열기, 오류 표시.
  *
- * 색 값은 공통 디자인(view/Theme, feat/auth-view 브랜치)과 같게 맞췄다.
- * 그 브랜치가 합쳐지면 아래 색 상수를 Theme 상수로 바꿔도 화면은 그대로다.
+ * 색 값은 공통 디자인(view/Theme, 강준서 feat/product-view 의 흑백 테마)과 같은 값으로 맞췄다.
+ * 브랜치를 합친 뒤 아래 색 상수를 Theme 상수로 바꿔도 화면은 그대로다.
  * 글씨 크기 조절(UC-15) 때 updateComponentTreeUI 가 UI 를 다시 깔기 때문에, 글꼴은 updateUI 에서 정한다.
  */
 public final class ShopUi {
-    public static final Color PAGE = new Color(0xE8F0FA);      // 화면 배경
+    public static final Color PAGE = new Color(0xF2F2F2);      // 화면 배경
     public static final Color CARD = Color.WHITE;
-    public static final Color TEXT = new Color(0x1F2937);      // 흰 배경 대비 14.7:1 (NFR-01)
-    public static final Color HINT = new Color(0x6B7280);      // 흰 배경 대비 4.8:1
-    public static final Color LINE = new Color(0xD1D5DB);
-    public static final Color PRIMARY = new Color(0x1565C0);   // 흰 글씨 대비 5.75:1
-    public static final Color PRIMARY_SOFT = new Color(0xDCE8F8);
-    public static final Color SECONDARY = new Color(0xF2C94C);
+    public static final Color TEXT = new Color(0x1F1F1F);      // 흰 배경 대비 16.6:1 (NFR-01)
+    public static final Color HINT = new Color(0x666666);      // 흰 배경 대비 5.7:1
+    public static final Color LINE = new Color(0xD4D4D4);
+    public static final Color PRIMARY = new Color(0x262626);   // 흰 글씨 대비 15.1:1
+    public static final Color PRIMARY_SOFT = new Color(0xE6E6E6);
+    public static final Color SECONDARY = new Color(0xE6E6E6);
     public static final Color ERROR = new Color(0xC62828);
-    public static final Color TREND = new Color(0xB4235A);     // "유행" 표시 (흰 글씨 대비 6.4:1)
+    public static final Color TREND = new Color(0x262626);     // "유행" 표시. 흑백 테마라 검정
 
     /** 버튼·누르는 영역 최소 높이 (NFR-02). */
     public static final int MIN_TOUCH = 48;
@@ -308,15 +308,47 @@ public final class ShopUi {
     }
 
     /**
-     * 상품 카드를 눌렀을 때 상품 정보를 연다 (UC-06).
-     * 상품 상세 화면(ProductDetailPanel)이 완성되면 이 메서드만 그 화면으로 이동하도록 바꾸면 된다.
+     * 상품 카드를 눌렀을 때 상품 상세를 연다 (UC-06).
+     * 상품 상세 화면(ProductDetailPanel)은 강준서 담당이고, 그 브랜치의 MainFrame 에 openProduct(Long) 가 있다.
+     * 브랜치를 합치기 전에는 그 메서드가 없으므로 임시 상품 정보 창(ProductInfoDialog)을 연다.
+     * 이렇게 하면 이 파일을 고치지 않고도 합친 뒤 자동으로 상세 화면이 열린다.
      */
     public static void openProduct(MainFrame frame, AppContext context, Product product) {
+        if (callIfPresent(frame, "openProduct", Long.class, product.getId())) {
+            return;
+        }
         try {
             Product fresh = context.product.detail(product.getId());
             new ProductInfoDialog(frame, context, fresh).setVisible(true);
         } catch (RuntimeException e) {
             showError(frame, frame, e);
+        }
+    }
+
+    /**
+     * 다른 담당자의 화면에 public 메서드 name(type) 이 있으면 부르고 true. 없으면 아무것도 하지 않고 false.
+     * 브랜치를 합치기 전·후 모두 컴파일되도록, 아직 없는 메서드를 직접 부르지 않을 때 쓴다.
+     */
+    public static boolean callIfPresent(Object target, String name, Class<?> type, Object arg) {
+        if (target == null) {
+            return false;
+        }
+        java.lang.reflect.Method method;
+        try {
+            method = target.getClass().getMethod(name, type);
+        } catch (NoSuchMethodException e) {
+            return false;
+        }
+        try {
+            method.invoke(target, arg);
+            return true;
+        } catch (java.lang.reflect.InvocationTargetException e) {
+            if (e.getCause() instanceof RuntimeException runtime) {
+                throw runtime;
+            }
+            throw new IllegalStateException(e.getCause());
+        } catch (IllegalAccessException e) {
+            return false;
         }
     }
 

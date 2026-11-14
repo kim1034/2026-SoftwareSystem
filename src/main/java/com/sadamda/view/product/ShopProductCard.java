@@ -28,7 +28,7 @@ import java.util.function.Consumer;
  * 큰 이미지 상품 카드 (FR-05): 사진, 브랜드, 상품명, 가격, [유행]·[품절] 표시.
  * 누르거나 키보드로 고르고 Enter/Space 를 누르면 onOpen 을 부른다.
  */
-public class ProductCard extends JPanel {
+public class ShopProductCard extends JPanel {
     public static final int IMAGE_WIDTH = 220;
     public static final int IMAGE_HEIGHT = 250;
 
@@ -36,7 +36,7 @@ public class ProductCard extends JPanel {
     private final JLabel image = new JLabel();
     private boolean hover;
 
-    public ProductCard(Product product, Consumer<Product> onOpen) {
+    public ShopProductCard(Product product, Consumer<Product> onOpen) {
         super(new BorderLayout(0, 10));
         this.product = product;
         setOpaque(false);
@@ -96,8 +96,8 @@ public class ProductCard extends JPanel {
     }
 
     private void loadImage() {
-        image.setIcon(ProductImages.get(product.mainImageUrl(), IMAGE_WIDTH, IMAGE_HEIGHT, () ->
-                image.setIcon(ProductImages.get(product.mainImageUrl(), IMAGE_WIDTH, IMAGE_HEIGHT, null))));
+        image.setIcon(ProductThumbnails.get(product.mainImageUrl(), IMAGE_WIDTH, IMAGE_HEIGHT, () ->
+                image.setIcon(ProductThumbnails.get(product.mainImageUrl(), IMAGE_WIDTH, IMAGE_HEIGHT, null))));
     }
 
     private JPanel texts() {

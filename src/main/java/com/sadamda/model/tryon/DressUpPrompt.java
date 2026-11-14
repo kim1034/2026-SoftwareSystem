@@ -21,11 +21,11 @@ import java.util.Map;
  */
 public final class DressUpPrompt {
     private static final Map<String, String> SHAPE = Map.of(
-            "마른형", "a slender frame",
-            "보통형", "balanced proportions",
-            "통통형", "a soft, rounded figure",
-            "상체발달형", "a fuller upper body with slimmer legs",
-            "하체발달형", "fuller hips and thighs with a slimmer upper body");
+            "마른 체형", "a slender frame",
+            "보통 체형", "balanced proportions",
+            "통통한 체형", "a soft, rounded figure",
+            "상체 발달형", "a fuller upper body with slimmer legs",
+            "하체 발달형", "fuller hips and thighs with a slimmer upper body");
 
     private DressUpPrompt() {
     }

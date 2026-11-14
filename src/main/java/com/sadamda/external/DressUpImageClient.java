@@ -13,12 +13,12 @@ import java.util.Map;
 /**
  * 옷 입혀보기(UC-09 확장)용 외부 AI 이미지 합성 연동 인터페이스.
  * 신체 스펙이 반영된 기본 캐릭터 이미지에 모자·상의·하의·주얼리·신발을 입힌 이미지를 만든다.
- * 실패 규칙은 AiImageClient 와 같다: 시간 초과·오류이면 AiImageException (UC-09 7b).
+ * 실패 규칙은 AiImageClient 와 같다: 시간 초과·오류이면 DressUpException (UC-09 7b).
  */
 public interface DressUpImageClient {
 
     /** 합성 결과 이미지(PNG 또는 JPEG 파일 내용). */
-    byte[] dressUp(Request request) throws AiImageClient.AiImageException;
+    byte[] dressUp(Request request) throws DressUpException;
 
     /** 화면에 보여줄 서비스 이름. */
     String name();

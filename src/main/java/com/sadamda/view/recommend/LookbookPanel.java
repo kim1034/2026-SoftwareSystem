@@ -7,7 +7,7 @@ import com.sadamda.model.product.ProductOption;
 import com.sadamda.model.recommend.Lookbook;
 import com.sadamda.view.MainFrame;
 import com.sadamda.view.ScreenPanel;
-import com.sadamda.view.product.ProductImages;
+import com.sadamda.view.product.ProductThumbnails;
 import com.sadamda.view.product.ShopUi;
 
 import javax.swing.BorderFactory;
@@ -289,8 +289,8 @@ public class LookbookPanel extends ScreenPanel {
         row.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 
         JLabel image = new JLabel();
-        image.setIcon(ProductImages.get(product.mainImageUrl(), 96, 110, () ->
-                image.setIcon(ProductImages.get(product.mainImageUrl(), 96, 110, null))));
+        image.setIcon(ProductThumbnails.get(product.mainImageUrl(), 96, 110, () ->
+                image.setIcon(ProductThumbnails.get(product.mainImageUrl(), 96, 110, null))));
         row.add(image, BorderLayout.WEST);
 
         JPanel texts = new JPanel(new GridLayout(0, 1, 0, 2));

@@ -22,7 +22,7 @@ import java.util.concurrent.Executors;
  * 상품·룩북 사진을 화면 스레드 밖에서 내려받아 원하는 크기의 그림으로 만든다.
  * 한 번 만든 그림은 메모리에 두고, 받지 못한 사진은 "사진 준비 중" 기본 그림으로 보여준다.
  */
-public final class ProductImages {
+public final class ProductThumbnails {
     private static final Map<String, ImageIcon> ICONS = new ConcurrentHashMap<>();
     private static final Map<String, List<Runnable>> WAITERS = new HashMap<>();
     private static final ExecutorService LOADER = Executors.newFixedThreadPool(6, runnable -> {
@@ -31,7 +31,7 @@ public final class ProductImages {
         return thread;
     });
 
-    private ProductImages() {
+    private ProductThumbnails() {
     }
 
     /**

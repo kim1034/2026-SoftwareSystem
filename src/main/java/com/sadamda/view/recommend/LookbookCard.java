@@ -2,7 +2,7 @@ package com.sadamda.view.recommend;
 
 import com.sadamda.model.product.Product;
 import com.sadamda.model.recommend.Lookbook;
-import com.sadamda.view.product.ProductImages;
+import com.sadamda.view.product.ProductThumbnails;
 import com.sadamda.view.product.ShopUi;
 
 import javax.swing.BorderFactory;
@@ -157,8 +157,8 @@ class LookbookCard extends JPanel {
     private static JLabel image(String url, int width, int height) {
         JLabel label = new JLabel();
         label.setHorizontalAlignment(SwingConstants.CENTER);
-        label.setIcon(ProductImages.get(url, width, height, () ->
-                label.setIcon(ProductImages.get(url, width, height, null))));
+        label.setIcon(ProductThumbnails.get(url, width, height, () ->
+                label.setIcon(ProductThumbnails.get(url, width, height, null))));
         return label;
     }
 

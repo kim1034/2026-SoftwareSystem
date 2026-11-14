@@ -1,6 +1,5 @@
 package com.sadamda.external;
 
-import com.sadamda.external.AiImageClient.AiImageException;
 
 import java.io.IOException;
 import java.net.URI;
@@ -52,7 +51,7 @@ public class GeminiDressUpClient implements DressUpImageClient {
     }
 
     @Override
-    public byte[] dressUp(Request request) throws AiImageException {
+    public byte[] dressUp(Request request) throws DressUpException {
         HttpRequest httpRequest = HttpRequest.newBuilder(URI.create(endpoint))
                 .timeout(Duration.ofSeconds(timeoutSeconds))
                 .header("Content-Type", "application/json")
@@ -63,19 +62,19 @@ public class GeminiDressUpClient implements DressUpImageClient {
         try {
             response = http.send(httpRequest, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
         } catch (HttpTimeoutException e) {
-            throw new AiImageException(timeoutSeconds + "초 안에 그림이 오지 않았습니다. 다시 시도해 주세요.");
+            throw new DressUpException(timeoutSeconds + "초 안에 그림이 오지 않았습니다. 다시 시도해 주세요.");
         } catch (IOException e) {
-            throw new AiImageException("그림 만드는 곳에 연결하지 못했습니다. 인터넷 연결을 확인해 주세요.");
+            throw new DressUpException("그림 만드는 곳에 연결하지 못했습니다. 인터넷 연결을 확인해 주세요.");
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new AiImageException("그림 만들기를 멈췄습니다.");
+            throw new DressUpException("그림 만들기를 멈췄습니다.");
         }
         if (response.statusCode() != 200) {
-            throw new AiImageException(errorMessage(response.statusCode(), response.body()));
+            throw new DressUpException(errorMessage(response.statusCode(), response.body()));
         }
         byte[] image = lastImage(response.body());
         if (image == null) {
-            throw new AiImageException("그림을 받지 못했습니다. 옷을 바꾸거나 다시 시도해 주세요.");
+            throw new DressUpException("그림을 받지 못했습니다. 옷을 바꾸거나 다시 시도해 주세요.");
         }
         return image;
     }

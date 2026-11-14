@@ -1,6 +1,5 @@
 package com.sadamda.external;
 
-import com.sadamda.external.AiImageClient.AiImageException;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -90,7 +89,7 @@ public class OpenAiDressUpClient implements DressUpImageClient {
     }
 
     @Override
-    public byte[] dressUp(Request request) throws AiImageException {
+    public byte[] dressUp(Request request) throws DressUpException {
         String prompt = request.prompt();
         List<byte[]> images = request.images();
         HttpRequest httpRequest = api.equals(API_CHAT) ? chatRequest(prompt, images) : editRequest(prompt, images);
@@ -142,34 +141,34 @@ public class OpenAiDressUpClient implements DressUpImageClient {
                 .header("Authorization", "Bearer " + apiKey);
     }
 
-    private String send(HttpRequest request) throws AiImageException {
+    private String send(HttpRequest request) throws DressUpException {
         HttpResponse<String> response;
         try {
             response = http.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
         } catch (HttpTimeoutException e) {
-            throw new AiImageException(timeoutSeconds + "초 안에 그림이 오지 않았습니다. 다시 시도해 주세요.");
+            throw new DressUpException(timeoutSeconds + "초 안에 그림이 오지 않았습니다. 다시 시도해 주세요.");
         } catch (IOException e) {
-            throw new AiImageException("그림 만드는 곳에 연결하지 못했습니다. 인터넷 연결과 서비스 주소를 확인해 주세요.");
+            throw new DressUpException("그림 만드는 곳에 연결하지 못했습니다. 인터넷 연결과 서비스 주소를 확인해 주세요.");
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new AiImageException("그림 만들기를 멈췄습니다.");
+            throw new DressUpException("그림 만들기를 멈췄습니다.");
         } catch (IllegalArgumentException e) {
-            throw new AiImageException("서비스 주소가 올바르지 않습니다.");
+            throw new DressUpException("서비스 주소가 올바르지 않습니다.");
         }
         if (response.statusCode() != 200) {
-            throw new AiImageException(GeminiDressUpClient.errorMessage(response.statusCode(), response.body()));
+            throw new DressUpException(GeminiDressUpClient.errorMessage(response.statusCode(), response.body()));
         }
         return response.body();
     }
 
     /** b64_json 이 있으면 풀고, 없으면 url 의 그림을 내려받는다. */
-    byte[] parse(String body) throws AiImageException {
+    byte[] parse(String body) throws DressUpException {
         Matcher b64 = B64.matcher(body);
         if (b64.find()) {
             try {
                 return Base64.getDecoder().decode(b64.group(1).replace("\\/", "/").replace("\\n", ""));
             } catch (IllegalArgumentException e) {
-                throw new AiImageException("받은 그림을 열 수 없습니다. 다시 시도해 주세요.");
+                throw new DressUpException("받은 그림을 열 수 없습니다. 다시 시도해 주세요.");
             }
         }
         Matcher url = URL.matcher(body);
@@ -185,7 +184,7 @@ public class OpenAiDressUpClient implements DressUpImageClient {
             }
         }
         Matcher message = ERROR_MESSAGE.matcher(body);
-        throw new AiImageException("그림을 받지 못했습니다. 옷을 바꾸거나 다시 시도해 주세요."
+        throw new DressUpException("그림을 받지 못했습니다. 옷을 바꾸거나 다시 시도해 주세요."
                 + (message.find() ? " (" + message.group(1) + ")" : ""));
     }
 

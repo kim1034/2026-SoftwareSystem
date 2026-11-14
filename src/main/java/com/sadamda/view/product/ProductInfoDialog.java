@@ -67,8 +67,8 @@ public class ProductInfoDialog extends JDialog {
 
     private JComponent imagePanel() {
         JLabel image = new JLabel();
-        image.setIcon(ProductImages.get(product.mainImageUrl(), IMAGE_WIDTH, IMAGE_HEIGHT, () ->
-                image.setIcon(ProductImages.get(product.mainImageUrl(), IMAGE_WIDTH, IMAGE_HEIGHT, null))));
+        image.setIcon(ProductThumbnails.get(product.mainImageUrl(), IMAGE_WIDTH, IMAGE_HEIGHT, () ->
+                image.setIcon(ProductThumbnails.get(product.mainImageUrl(), IMAGE_WIDTH, IMAGE_HEIGHT, null))));
         image.setVerticalAlignment(JLabel.TOP);
         return image;
     }
@@ -86,10 +86,10 @@ public class ProductInfoDialog extends JDialog {
         JPanel badges = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
         badges.setOpaque(false);
         if (product.isTrending()) {
-            badges.add(ProductCard.badge("이번 시즌 유행", ShopUi.TREND));
+            badges.add(ShopProductCard.badge("이번 시즌 유행", ShopUi.TREND));
         }
         if (product.isSoldOut()) {
-            badges.add(ProductCard.badge("품절", ShopUi.HINT));
+            badges.add(ShopProductCard.badge("품절", ShopUi.HINT));
         }
         String path = product.getCategory().label()
                 + (product.getSubCategory() == null ? "" : "  ›  " + product.getSubCategory());

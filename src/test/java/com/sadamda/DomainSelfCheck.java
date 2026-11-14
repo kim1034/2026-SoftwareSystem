@@ -1,6 +1,6 @@
 package com.sadamda;
 
-import com.sadamda.external.AiImageClient;
+import com.sadamda.external.DressUpException;
 import com.sadamda.external.DressUpImageClient;
 import com.sadamda.external.GeminiDressUpClient;
 import com.sadamda.external.RemoteImages;
@@ -67,8 +67,8 @@ public class DomainSelfCheck {
                 "하의 사진이 서로 겹치지 않음");
         check(service.countByCategory(Category.SHOES) == 90, "신발 90개");
         check(service.countByCategory(Category.JEWELRY) == 90, "주얼리 90개");
-        check(service.findByCategory(Category.TOP, 0).size() == ProductService.PAGE_SIZE, "UC-04 첫 쪽 12개");
-        check(service.findByCategory(Category.TOP, 2).size() == 6, "UC-04 셋째 쪽 6개 (30개 중)");
+        check(service.findByCategory(Category.TOP, 0).size() == ProductService.PAGE_SIZE, "UC-04 첫 쪽 8개");
+        check(service.findByCategory(Category.TOP, 3).size() == 6, "UC-04 넷째 쪽 6개 (30개 중)");
         check(service.findByCategory(Category.DRESS, 0).isEmpty(), "UC-04 2a 원피스는 준비 중");
         check(service.findPopular(8).size() == 8, "UC-04 2a 인기 상품");
 
@@ -85,13 +85,30 @@ public class DomainSelfCheck {
         check(!navy.isEmpty(), "UC-05 색상 필터");
         List<Product> size240 = service.search(new SearchFilter(null, null, null, "240", null, null, null, null));
         check(size240.size() == 90, "UC-05 사이즈 필터 (240 은 신발만)");
-        List<Product> pear = service.search(new SearchFilter(null, "50대", "하체발달형", null, null, null, null, null));
+        List<Product> pear = service.search(new SearchFilter(null, "50대", "하체 발달형", null, null, null, null, null));
         check(!pear.isEmpty() && pear.size() < DEMO_PRODUCTS, "UC-05 연령대·체형 필터");
         check(service.findAll().stream().anyMatch(p -> p.getAgeGroupTags().size() < 3)
                 && service.findAll().stream().allMatch(p -> !p.getAgeGroupTags().isEmpty()), "연령대 태그가 상품마다 다름 (빈 태그 없음)");
         int forties = service.search(new SearchFilter(null, "40대", null, null, null, null, null, null)).size();
         int sixties = service.search(new SearchFilter(null, "60대", null, null, null, null, null, null)).size();
         check(forties > 0 && sixties > 0 && forties != sixties && forties < DEMO_PRODUCTS, "UC-05 연령대 필터가 결과를 바꿈");
+        // 상품 목록 화면(강준서, ProductListPanel)이 보내는 값과 맞는지
+        List<Product> byCode = service.search(new SearchFilter(null, null, null, null, null, null, null, "PRICE_LOW"));
+        check(byCode.get(0).getPrice() <= byCode.get(byCode.size() - 1).getPrice(), "화면 정렬 코드 PRICE_LOW");
+        List<Product> byCodeHigh = service.search(new SearchFilter(null, null, null, null, null, null, null, "PRICE_HIGH"));
+        check(byCodeHigh.get(0).getPrice() >= byCodeHigh.get(byCodeHigh.size() - 1).getPrice(), "화면 정렬 코드 PRICE_HIGH");
+        check(service.search(new SearchFilter(null, null, null, null, null, null, null, "NEWEST")).get(0).getId()
+                > service.search(new SearchFilter(null, null, null, null, null, null, null, "NEWEST")).get(1).getId(), "화면 정렬 코드 NEWEST");
+        int m66 = service.search(new SearchFilter(null, null, null, "M (66)", null, null, null, null)).size();
+        check(m66 > 0 && m66 == service.search(new SearchFilter(null, null, null, "66", null, null, null, null)).size(),
+                "화면 사이즈 값 M (66)");
+        check(service.search(new SearchFilter(null, null, "보통 체형", null, null, null, null, null)).size()
+                == service.search(new SearchFilter(null, null, "보통형", null, null, null, null, null)).size(), "체형 예전 값도 받음");
+        check(service.search(new SearchFilter(null, "선택 안 함", "선택 안 함", "선택 안 함", null, null, null, null)).size()
+                == DEMO_PRODUCTS, "선택 안 함은 조건 없음");
+        check(!service.search(new SearchFilter(null, null, null, null, null, null, "화이트·아이보리", null)).isEmpty(), "묶은 색상 화이트·아이보리");
+        check(service.search(new SearchFilter(null, null, null, null, 100001, 300000, null, null)).stream()
+                .allMatch(p -> p.getPrice() >= 100001 && p.getPrice() <= 300000), "화면 가격대 10~30만원");
         check(service.search(new SearchFilter("없는상품이름", null, null, null, null, null, null, null)).isEmpty(), "UC-05 2a 결과 없음");
         check(service.suggestKeywords("로파 신발").contains("신발"), "UC-05 2a 비슷한 검색어");
 
@@ -154,18 +171,18 @@ public class DomainSelfCheck {
         member.setId(7L);
         check(service.recommendFor(member).size() == RecommendService.RECOMMEND_LIMIT, "UC-08 3a 체형 정보 없음 → 인기 상품");
         check(!service.hasBodyType(member), "UC-08 3a 체형 입력 권유 대상");
-        member.setBodyProfile(new BodyProfile("50대", 158, "66", "하체발달형"));
+        member.setBodyProfile(new BodyProfile("50대", 158, "66", "하체 발달형"));
         List<Product> forMe = service.recommendFor(member);
         check(forMe.size() == RecommendService.RECOMMEND_LIMIT, "UC-08 맞춤 추천 12개");
         check(forMe.stream().filter(p -> p.getCategory() == Category.TOP || p.getCategory() == Category.BOTTOM)
-                .allMatch(p -> p.getBodyTypeTags().contains("하체발달형")), "UC-08 옷은 체형 태그가 맞는 것만");
+                .allMatch(p -> p.getBodyTypeTags().contains("하체 발달형")), "UC-08 옷은 체형 태그가 맞는 것만");
         check(forMe.get(0).getCategory() == Category.TOP || forMe.get(0).getCategory() == Category.BOTTOM,
                 "UC-08 체형이 맞는 옷이 먼저");
         check(forMe.stream().map(Product::getCategory).distinct().count() >= 4, "UC-08 카테고리가 고르게");
         Member younger = new Member();
-        younger.setBodyProfile(new BodyProfile("40대", 158, "66", "하체발달형"));
+        younger.setBodyProfile(new BodyProfile("40대", 158, "66", "하체 발달형"));
         Member older = new Member();
-        older.setBodyProfile(new BodyProfile("60대", 158, "66", "하체발달형"));
+        older.setBodyProfile(new BodyProfile("60대", 158, "66", "하체 발달형"));
         check(!service.recommendFor(younger).equals(service.recommendFor(older)), "UC-08 연령대가 다르면 추천도 다름");
         check(service.recommendFor(older).stream().limit(3).allMatch(p -> p.getAgeGroupTags().contains("60대")),
                 "UC-08 연령대가 맞는 상품이 먼저");
@@ -302,7 +319,7 @@ public class DomainSelfCheck {
         try {
             byte[] garment = new byte[]{(byte) 0xFF, (byte) 0xD8, 1, 2, 3};
             DressUpImageClient.Request request = new DressUpImageClient.Request(CharacterStyle.DISNEY,
-                    new CharacterSpec(165, 80, "통통형", "50대"), outfit, Map.of(DressUpSlot.TOP, garment), pixel);
+                    new CharacterSpec(165, 80, "통통한 체형", "50대"), outfit, Map.of(DressUpSlot.TOP, garment), pixel);
 
             byte[] result = new GeminiDressUpClient("test-key", null, base + "/ok", 5).dressUp(request);
             check(result.length == 300, "Gemini 응답에서 이미지 꺼내기");
@@ -436,32 +453,32 @@ public class DomainSelfCheck {
         check(standard.heightCm() == 160 && standard.weightKg() == 56, "기본 스펙 160cm 56kg");
         check(Math.abs(new CharacterSpec(160, 64, null, null).bmi() - 25.0) < 0.01, "체질량지수 계산");
         check(CharacterSpec.standardWeight(170) == 64, "키에 맞는 보통 몸무게");
-        check(new CharacterSpec(300, 5, "?", "?").equals(new CharacterSpec(185, 35, "보통형", "40대")), "범위를 벗어난 값은 고쳐 담음");
+        check(new CharacterSpec(300, 5, "?", "?").equals(new CharacterSpec(185, 35, "보통 체형", "40대")), "범위를 벗어난 값은 고쳐 담음");
 
         for (CharacterStyle style : CharacterStyle.values()) {
             BufferedImage base = CharacterFigure.base(style);
             check(base.getWidth() == 896 && base.getHeight() == 1200, style.label() + " 기본 캐릭터 이미지");
             for (int height : new int[]{185, 160, 140}) {
-                CharacterSpec spec = new CharacterSpec(height, CharacterSpec.standardWeight(height), "보통형", "40대");
+                CharacterSpec spec = new CharacterSpec(height, CharacterSpec.standardWeight(height), "보통 체형", "40대");
                 double[] extent = CharacterFigure.figureExtent(CharacterFigure.shaped(style, spec));
                 check(Math.abs(extent[0] - CharacterFigure.headTop(spec)) < 0.006 && Math.abs(extent[1] - 0.97) < 0.006,
                         style.label() + " " + height + "cm: 머리끝 " + Math.round(extent[0] * 1000) / 10.0 + "%, 발끝 97%");
             }
         }
         // 키 25cm 차이 = 화면 속 키 25/185 차이
-        double tall = CharacterFigure.headTop(new CharacterSpec(185, 70, "보통형", "40대"));
-        double small = CharacterFigure.headTop(new CharacterSpec(160, 56, "보통형", "40대"));
+        double tall = CharacterFigure.headTop(new CharacterSpec(185, 70, "보통 체형", "40대"));
+        double small = CharacterFigure.headTop(new CharacterSpec(160, 56, "보통 체형", "40대"));
         check(Math.abs((small - tall) - 0.92 * 25 / 185) < 0.001, "화면 속 키가 실제 키에 비례");
 
-        BufferedImage light = CharacterFigure.shaped(CharacterStyle.ANIME, new CharacterSpec(160, 50, "보통형", "40대"));
-        BufferedImage heavy = CharacterFigure.shaped(CharacterStyle.ANIME, new CharacterSpec(160, 85, "보통형", "40대"));
+        BufferedImage light = CharacterFigure.shaped(CharacterStyle.ANIME, new CharacterSpec(160, 50, "보통 체형", "40대"));
+        BufferedImage heavy = CharacterFigure.shaped(CharacterStyle.ANIME, new CharacterSpec(160, 85, "보통 체형", "40대"));
         int lightWidth = widthAt(light, 0.58);
         int heavyWidth = widthAt(heavy, 0.58);
         check(heavyWidth > lightWidth * 1.25, "같은 키에서 85kg 이 50kg 보다 넓음 (" + lightWidth + " → " + heavyWidth + "px)");
 
         // AI 가 캐릭터를 더 크게 그려 온 경우: 185cm 모습을 150cm 스펙으로 바로잡는다
-        CharacterSpec target = new CharacterSpec(150, 50, "보통형", "40대");
-        BufferedImage tooTall = CharacterFigure.shaped(CharacterStyle.REAL, new CharacterSpec(185, 75, "보통형", "40대"));
+        CharacterSpec target = new CharacterSpec(150, 50, "보통 체형", "40대");
+        BufferedImage tooTall = CharacterFigure.shaped(CharacterStyle.REAL, new CharacterSpec(185, 75, "보통 체형", "40대"));
         double[] fixed = CharacterFigure.figureExtent(CharacterFigure.fitHeight(tooTall, target, false));
         check(Math.abs(fixed[0] - CharacterFigure.headTop(target)) < 0.01 && Math.abs(fixed[1] - 0.97) < 0.01,
                 "AI 결과의 화면 속 키 바로잡기");
@@ -489,14 +506,14 @@ public class DomainSelfCheck {
     }
 
     private interface AiCall {
-        void run() throws AiImageClient.AiImageException;
+        void run() throws DressUpException;
     }
 
     private static void expectAiError(AiCall call, String expectedWord, String name) {
         try {
             call.run();
             check(false, name);
-        } catch (AiImageClient.AiImageException e) {
+        } catch (DressUpException e) {
             check(e.getMessage().contains(expectedWord), name + " [" + e.getMessage() + "]");
         }
     }

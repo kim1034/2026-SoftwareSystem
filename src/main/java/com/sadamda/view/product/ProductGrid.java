@@ -21,7 +21,7 @@ public class ProductGrid extends JPanel {
     private final Consumer<Product> onOpen;
 
     public ProductGrid(Consumer<Product> onOpen) {
-        super(new ResponsiveGridLayout(ProductCard.IMAGE_WIDTH + 24, 16, 4));
+        super(new ResponsiveGridLayout(ShopProductCard.IMAGE_WIDTH + 24, 16, 4));
         this.onOpen = onOpen;
         setOpaque(false);
     }
@@ -35,7 +35,7 @@ public class ProductGrid extends JPanel {
     /** [더 보기]: 지금 카드 뒤에 이어 붙인다. */
     public void addProducts(List<Product> products) {
         for (Product product : products) {
-            add(new ProductCard(product, onOpen));
+            add(new ShopProductCard(product, onOpen));
         }
         revalidate();
         repaint();

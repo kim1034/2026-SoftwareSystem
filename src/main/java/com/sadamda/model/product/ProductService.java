@@ -19,14 +19,23 @@ import java.util.stream.Stream;
  * DB 스키마가 정해지기 전까지 메모리에 보관한다. 시작할 때 데모 데이터 300개를 읽는다.
  */
 public class ProductService {
-    /** UC-04 [더 보기] 한 번에 보여주는 상품 수. */
-    public static final int PAGE_SIZE = 12;
+    /**
+     * UC-04 [더 보기] 한 번에 보여주는 상품 수.
+     * 상품 목록 화면(ProductListPanel)은 받은 수가 이보다 적으면 마지막 페이지로 보고 [더 보기]를 감춘다.
+     */
+    public static final int PAGE_SIZE = 8;
 
     public static final String SORT_POPULAR = "인기순";
     public static final String SORT_NEWEST = "신상품순";
     public static final String SORT_PRICE_ASC = "낮은가격순";
     public static final String SORT_PRICE_DESC = "높은가격순";
     public static final List<String> SORTS = List.of(SORT_POPULAR, SORT_NEWEST, SORT_PRICE_ASC, SORT_PRICE_DESC);
+
+    /** 상품 목록 화면(ProductListPanel)이 SearchFilter.sort 로 보내는 값. 위의 한글 값과 같은 뜻이다. */
+    public static final String SORT_CODE_POPULAR = "POPULAR";
+    public static final String SORT_CODE_NEWEST = "NEWEST";
+    public static final String SORT_CODE_PRICE_LOW = "PRICE_LOW";
+    public static final String SORT_CODE_PRICE_HIGH = "PRICE_HIGH";
 
     private final Map<Long, Product> products = new LinkedHashMap<>();
     private long nextProductId = 1;
@@ -70,18 +79,28 @@ public class ProductService {
     /**
      * UC-05 상품 검색 및 필터 (FR-06, FR-07).
      * keyword 는 띄어쓰기로 나눈 모든 단어가 상품명·브랜드·카테고리(세부 카테고리 포함) 중 어딘가에 있어야 한다.
-     * sort 는 SORTS 중 하나 ("가격순"은 낮은가격순). null 이면 인기순.
+     * sort 는 SORTS 중 하나 또는 화면의 코드(POPULAR·NEWEST·PRICE_LOW·PRICE_HIGH). "가격순"은 낮은가격순. null 이면 인기순.
+     * color 는 "화이트·아이보리"처럼 비슷한 색을 '·'로 묶을 수 있다. 그중 하나라도 맞으면 된다.
      */
     public synchronized List<Product> search(SearchFilter filter) {
         if (filter == null) {
             return onSale().sorted(comparator(SORT_POPULAR)).collect(Collectors.toList());
         }
+        // 화면은 회원가입과 같은 값("보통 체형", "M (66)")을 보낸다. "선택 안 함"·모르는 값은 조건 없음.
+        String ageGroup = ProductTags.ageGroup(filter.ageGroup());
+        String bodyType = isBlank(filter.bodyType()) ? null : ProductTags.bodyType(filter.bodyType());
+        boolean unknownBodyType = !isBlank(filter.bodyType()) && bodyType == null
+                && !ProductTags.NOT_SELECTED.equals(filter.bodyType().trim());
+        if (unknownBodyType) {
+            return List.of(); // 모르는 체형이면 맞는 상품이 없다
+        }
+        String size = isBlank(filter.size()) || ProductTags.NOT_SELECTED.equals(filter.size().trim()) ? null : filter.size().trim();
         return onSale()
                 .filter(product -> matchesKeyword(product, filter.keyword()))
-                .filter(product -> isBlank(filter.ageGroup()) || product.getAgeGroupTags().contains(filter.ageGroup()))
-                .filter(product -> isBlank(filter.bodyType()) || product.getBodyTypeTags().contains(filter.bodyType()))
-                .filter(product -> isBlank(filter.size()) || product.getOptions().stream()
-                        .anyMatch(option -> option.stock() > 0 && option.size().equalsIgnoreCase(filter.size().trim())))
+                .filter(product -> ageGroup == null || product.getAgeGroupTags().contains(ageGroup))
+                .filter(product -> bodyType == null || product.getBodyTypeTags().contains(bodyType))
+                .filter(product -> size == null || product.getOptions().stream()
+                        .anyMatch(option -> option.stock() > 0 && ProductTags.sameSize(option.size(), size)))
                 .filter(product -> filter.minPrice() == null || product.getPrice() >= filter.minPrice())
                 .filter(product -> filter.maxPrice() == null || product.getPrice() <= filter.maxPrice())
                 .filter(product -> matchesColor(product, filter.color()))
@@ -243,13 +262,13 @@ public class ProductService {
 
     private static Comparator<Product> comparator(String sort) {
         Comparator<Product> newest = Comparator.comparing(Product::getId, Comparator.reverseOrder());
-        if (SORT_NEWEST.equals(sort)) {
+        if (SORT_NEWEST.equals(sort) || SORT_CODE_NEWEST.equals(sort)) {
             return newest;
         }
-        if (SORT_PRICE_ASC.equals(sort) || "가격순".equals(sort)) {
+        if (SORT_PRICE_ASC.equals(sort) || SORT_CODE_PRICE_LOW.equals(sort) || "가격순".equals(sort)) {
             return Comparator.comparingInt(Product::getPrice).thenComparing(Product::getId);
         }
-        if (SORT_PRICE_DESC.equals(sort)) {
+        if (SORT_PRICE_DESC.equals(sort) || SORT_CODE_PRICE_HIGH.equals(sort)) {
             return Comparator.comparingInt(Product::getPrice).reversed().thenComparing(Product::getId);
         }
         // 인기순: 많이 팔린 순 → 유행 아이템 → 등록 순
@@ -273,13 +292,23 @@ public class ProductService {
         return true;
     }
 
+    /** "화이트·아이보리" → 화이트 또는 아이보리. 옵션 색 이름이나 소재·색상 문구에 들어 있으면 맞는 것으로 본다. */
     private static boolean matchesColor(Product product, String color) {
         if (isBlank(color)) {
             return true;
         }
-        String key = normalize(color);
-        return product.getOptions().stream().anyMatch(option -> normalize(option.color()).contains(key))
-                || normalize(nullToEmpty(product.getMaterial())).contains(key);
+        for (String part : color.split("[·/,]")) {
+            if (part.isBlank()) {
+                continue;
+            }
+            String key = normalize(part.trim());
+            boolean matched = product.getOptions().stream().anyMatch(option -> normalize(option.color()).contains(key))
+                    || normalize(nullToEmpty(product.getMaterial())).contains(key);
+            if (matched) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static int sharedChars(String a, String b) {

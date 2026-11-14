@@ -78,7 +78,7 @@ public final class ProductSeedLoader {
     /** 옵션 id 는 저장할 때 ProductService 가 붙인다. */
     private static List<ProductOption> demoOptions(Category category, String material) {
         List<String> sizes = switch (category) {
-            case TOP, BOTTOM, DRESS, OUTER -> List.of("55", "66", "77", "88");
+            case TOP, BOTTOM, DRESS, OUTER -> ProductTags.CLOTHING_SIZES.subList(0, 4); // S (55) ~ XL (88)
             case SHOES -> List.of("230", "235", "240", "245", "250");
             default -> List.of("FREE");
         };
