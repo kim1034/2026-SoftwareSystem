@@ -12,6 +12,7 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.JToggleButton;
 import javax.swing.SwingConstants;
@@ -37,6 +38,7 @@ import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.awt.KeyboardFocusManager;
 import java.awt.RenderingHints;
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
@@ -169,6 +171,32 @@ public final class Theme {
         };
         repaintOnFocus(field);
         return field;
+    }
+
+    /**
+     * 여러 줄 입력칸 (예: 리뷰 내용). 둥근 테두리·안내 문구는 textField 와 같고, 폭에 맞춰 줄이 바뀐다.
+     * Tab 은 글자 대신 다음 칸으로 이동한다 (키보드 사용자).
+     */
+    public static JTextArea textArea(String hint, int rows) {
+        JTextArea area = new JTextArea(rows, 20) {
+            @Override
+            public void updateUI() {
+                super.updateUI();
+                styleInput(this);
+                setLineWrap(true);
+                setWrapStyleWord(true);
+            }
+
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                paintHint(this, g, hint);
+            }
+        };
+        area.setFocusTraversalKeys(KeyboardFocusManager.FORWARD_TRAVERSAL_KEYS, null);
+        area.setFocusTraversalKeys(KeyboardFocusManager.BACKWARD_TRAVERSAL_KEYS, null);
+        repaintOnFocus(area);
+        return area;
     }
 
     public static JPasswordField passwordField(String hint) {

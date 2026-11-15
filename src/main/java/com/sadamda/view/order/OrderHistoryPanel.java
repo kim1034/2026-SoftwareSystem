@@ -314,8 +314,7 @@ public class OrderHistoryPanel extends ScreenPanel {
             }
             case DELIVERED -> {
                 JButton review = Theme.primaryButton("리뷰 쓰기");
-                // TODO UC-14 리뷰 작성 화면이 생기면 그 화면으로 연결한다.
-                review.addActionListener(e -> JOptionPane.showMessageDialog(this, "리뷰 쓰기는 준비 중이에요."));
+                review.addActionListener(e -> frame.openReview(order.id())); // UC-14
                 JButton change = Theme.secondaryButton("교환·반품 신청");
                 change.addActionListener(e -> openReturnDialog(order));
                 JPanel buttons = new JPanel(new GridLayout(1, 2, 12, 0));

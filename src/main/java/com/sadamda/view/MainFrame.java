@@ -12,6 +12,7 @@ import com.sadamda.view.order.OrderPanel;
 import com.sadamda.view.product.ProductDetailPanel;
 import com.sadamda.view.product.ProductListPanel;
 import com.sadamda.view.recommend.HomePanel;
+import com.sadamda.view.review.ReviewWritePanel;
 import com.sadamda.view.recommend.LookbookPanel;
 import com.sadamda.view.tryon.TryOnPanel;
 
@@ -22,7 +23,9 @@ import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.UIManager;
+import javax.swing.text.JTextComponent;
 import javax.swing.plaf.basic.BasicButtonUI;
+import java.awt.AWTEvent;
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
@@ -32,7 +35,10 @@ import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
+import java.awt.Toolkit;
+import java.awt.event.FocusEvent;
 import java.awt.geom.RoundRectangle2D;
+import java.awt.im.InputContext;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -60,13 +66,17 @@ public class MainFrame extends JFrame {
     private final ProductDetailPanel productDetail;
     /** 주문서 화면. 어떤 주문서를 보여줄지 openOrder 로 알려준다. */
     private final OrderPanel orderPanel;
+    /** 리뷰 쓰기 화면. 어떤 주문의 리뷰를 쓸지 openReview 로 알려준다. */
+    private final ReviewWritePanel reviewWrite;
 
     public MainFrame(AppContext context) {
         super("사담다");
         this.context = context;
         FontSize.load().apply();
+        installInputMethodGuard();
         productDetail = new ProductDetailPanel(context, this);
         orderPanel = new OrderPanel(context, this);
+        reviewWrite = new ReviewWritePanel(context, this);
 
         addScreen(HomePanel.NAME, new HomePanel(context, this));
         addScreen(ProductListPanel.NAME, new ProductListPanel(context, this));
@@ -79,6 +89,7 @@ public class MainFrame extends JFrame {
         addScreen(SignUpPanel.NAME, new SignUpPanel(context, this));
         addScreen(LoginPanel.NAME, new LoginPanel(context, this));
         addScreen(MyInfoPanel.NAME, new MyInfoPanel(context, this));
+        addScreen(ReviewWritePanel.NAME, reviewWrite);
         addScreen(AdminPanel.NAME, new AdminPanel(context, this));
 
         createMenuBar();
@@ -108,6 +119,32 @@ public class MainFrame extends JFrame {
         updateMenu(name);
     }
 
+    private static boolean inputMethodGuardInstalled;
+
+    /**
+     * 한글 입력 중이던 입력칸이 포커스를 잃으면, 그 순간 입력기의 조합(마지막 글자가 아직 확정 안 된 상태)을 끝낸다.
+     *
+     * macOS 에서 조합 중인 입력칸이 포커스를 잃으면 Java 는 입력기와의 연결만 끊고 macOS 쪽 "조합 중" 상태는 그대로 둔다.
+     * 그 상태에서 안내 창(모달)이 떴다 닫혀 메인 창이 다시 활성화되면, 입력기가 마우스 누름 신호를 Java 로 넘기지 않아
+     * 모든 버튼이 눌리지 않게 된다 (떼는 신호만 도착함. 한/영 키로 입력 언어를 바꾸면 풀림).
+     * Java 가 연결을 끊기 전에 끝내야 해서, 입력기 처리보다 먼저 도는 AWT 이벤트 감시자를 쓴다 (앱 전체에 한 번만).
+     */
+    private static void installInputMethodGuard() {
+        if (inputMethodGuardInstalled) {
+            return;
+        }
+        inputMethodGuardInstalled = true;
+        Toolkit.getDefaultToolkit().addAWTEventListener(event -> {
+            if (event instanceof FocusEvent focus && focus.getID() == FocusEvent.FOCUS_LOST && !focus.isTemporary()
+                    && focus.getComponent() instanceof JTextComponent text) {
+                InputContext input = text.getInputContext();
+                if (input != null) {
+                    input.endComposition();
+                }
+            }
+        }, AWTEvent.FOCUS_EVENT_MASK);
+    }
+
     /** 상품 목록·룩북·추천에서 상품을 고르면 그 상품의 상세 화면을 연다 (UC-06 1단계). */
     public void openProduct(Long productId) {
         productDetail.showProduct(productId);
@@ -118,6 +155,18 @@ public class MainFrame extends JFrame {
     public void openOrder(OrderSheet sheet) {
         orderPanel.showSheet(sheet);
         navigate(OrderPanel.NAME);
+    }
+
+    /** 주문 내역 [리뷰 쓰기]로 이 주문의 리뷰 쓰기 화면을 연다 (UC-14 1단계). */
+    public void openReview(Long orderId) {
+        reviewWrite.showOrder(orderId);
+        navigate(ReviewWritePanel.NAME);
+    }
+
+    /** 리뷰를 등록한 뒤 그 상품의 상세 화면을 열고 리뷰가 보이게 내린다 (UC-14 4단계). */
+    public void openProductReviews(Long productId) {
+        openProduct(productId);
+        productDetail.scrollToReviews();
     }
 
     /** 로그인 성공 후 일반 회원을 로그인 전에 보던 화면으로 돌려보낸다. 기억한 화면이 없으면 홈. */

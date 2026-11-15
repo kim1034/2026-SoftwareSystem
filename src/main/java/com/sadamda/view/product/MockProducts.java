@@ -153,8 +153,8 @@ public final class MockProducts {
                 List.of(item.imageUrl()), options);
     }
 
-    /** ProductController.reviews(productId) 와 같은 역할. 몇 상품에만 리뷰가 있다. */
-    static List<Review> reviews(Long productId) {
+    /** 데모 리뷰. 몇 상품에만 있다. 새로 쓴 리뷰는 view.review.MockReviews 가 합쳐서 돌려준다. */
+    public static List<Review> reviews(Long productId) {
         return REVIEWS.stream().filter(review -> review.productId().equals(productId)).toList();
     }
 

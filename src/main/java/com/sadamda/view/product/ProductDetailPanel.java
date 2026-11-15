@@ -15,6 +15,7 @@ import com.sadamda.view.cart.CartPanel;
 import com.sadamda.view.cart.MockCart;
 import com.sadamda.view.member.LoginPanel;
 import com.sadamda.view.order.MockOrders;
+import com.sadamda.view.review.MockReviews;
 import com.sadamda.view.tryon.TryOnPanel;
 
 import javax.swing.BorderFactory;
@@ -128,7 +129,17 @@ public class ProductDetailPanel extends ScreenPanel {
 
     // TODO ReviewService 가 구현되면 context.product.reviews(productId) 로 바꾼다.
     private List<Review> fetchReviews(Long productId) {
-        return MockProducts.reviews(productId);
+        return MockReviews.reviews(productId); // 데모 리뷰 + 리뷰 쓰기(UC-14)로 새로 쓴 리뷰
+    }
+
+    /** 리뷰 쓰기(UC-14 4단계)를 마치고 왔을 때 리뷰 목록이 보이게 내린다. */
+    public void scrollToReviews() {
+        SwingUtilities.invokeLater(() -> SwingUtilities.invokeLater(() -> {
+            if (reviewSection != null) {
+                reviewSection.scrollRectToVisible(
+                        new Rectangle(0, 0, reviewSection.getWidth(), scroll.getViewport().getHeight()));
+            }
+        }));
     }
 
     private void rebuild() {
