@@ -107,8 +107,10 @@ Controller·Model 은 실패를 아래 예외로 알립니다 (`com.sadamda.comm
 | `cancel(Long orderId, String reason)` | UC-13 4~5 | `Order` (취소됨) | 배송 중(4a) |
 | `requestExchangeOrReturn(Long orderId, OrderStatus requested, String reason)` | UC-13 6 | `Order` | |
 
-- `OrderSheet(lines, defaultAddress, totalPrice)` — 주문서 화면에 그대로 표시
-- `CheckoutRequest(lines, shippingAddress, paymentMethod, giftInfo)` — [선물로 보내기]를 고르면 `giftInfo`를 채움 (UC-12), 아니면 `null`
+- `OrderSheet(lines, defaultAddress, totalPrice, fromCart)` — 주문서 화면에 그대로 표시
+- `CheckoutRequest(lines, shippingAddress, paymentMethod, giftInfo, fromCart)`
+  - [선물로 보내기]를 고르면 `giftInfo`를 채움 (UC-12), 아니면 `null`
+  - `fromCart`는 `OrderSheet.fromCart()`를 그대로 넘김. true 면 결제 후 주문한 상품을 장바구니에서 비움 ([바로 구매]는 false)
 
 ### ReviewController — UC-14 (로그인 필요)
 

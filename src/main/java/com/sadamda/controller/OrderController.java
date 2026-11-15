@@ -1,20 +1,39 @@
 package com.sadamda.controller;
 
+import com.sadamda.common.AppException;
 import com.sadamda.external.PaymentGateway;
 import com.sadamda.model.cart.CartService;
 import com.sadamda.model.member.MemberService;
+import com.sadamda.model.order.GiftInfo;
 import com.sadamda.model.order.Order;
 import com.sadamda.model.order.OrderLine;
 import com.sadamda.model.order.OrderService;
 import com.sadamda.model.order.OrderStatus;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * UC-11 주문 및 결제, UC-12 선물하기, UC-13 주문·배송 조회 및 취소·교환·반품.
  * 모든 메서드 로그인 필요 (UC-11 «include» 로그인). 담당: 김대원
  */
 public class OrderController {
+    static final String MSG_NO_LINES = "주문할 상품이 없습니다.";
+    static final String MSG_NO_ADDRESS = "배송지를 입력해 주세요.";
+    static final String MSG_NO_PAYMENT_METHOD = "결제 수단을 골라 주세요.";
+    static final String MSG_GIFT_MISSING = "받는 분의 이름, 연락처, 주소를 모두 입력해 주세요.";
+    static final String MSG_GIFT_BAD_PHONE = "받는 분 연락처를 숫자로 정확히 입력해 주세요.";
+    static final String MSG_DECLINED_PREFIX = "결제가 완료되지 않았습니다. ";
+    static final String MSG_GATEWAY_DOWN = "결제 시스템에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+    static final String MSG_PAYMENT_CANCELED_SUFFIX = " 결제는 취소되었습니다.";
+    static final String MSG_SAVE_FAILED = "주문을 저장하지 못해 결제를 취소했습니다.";
+    static final String MSG_CANCEL_FAILED = "결제 취소에 실패했습니다. 고객센터로 연락해 주세요.";
+    static final String MSG_IN_PROGRESS = "결제가 진행 중입니다. 잠시만 기다려 주세요.";
+
+    private static final System.Logger LOG = System.getLogger(OrderController.class.getName());
+
+    /** [결제하기] 중복 실행 방지. */
+    private final AtomicBoolean checkoutInProgress = new AtomicBoolean(false);
     private final Session session;
     private final OrderService orderService;
     private final CartService cartService;
@@ -32,12 +51,29 @@ public class OrderController {
 
     /** UC-10 5단계 [주문하기] → UC-11 2단계 장바구니 전체로 주문서를 만든다. */
     public OrderSheet prepareFromCart() {
-        throw new UnsupportedOperationException("TODO UC-11 (계획 3단계)");
+        Long memberId = session.requireLogin().getId();
+        List<OrderLine> lines = cartService.getCart(memberId).stream()
+                .map(item -> new OrderLine(item.productId(), item.optionId(), item.quantity()))
+                .toList();
+        if (lines.isEmpty()) {
+            throw new AppException("장바구니가 비어 있습니다.");
+        }
+        return sheet(memberId, lines, true);
     }
 
     /** UC-06 4단계 [바로 구매] → UC-11 2단계 상품 하나로 주문서를 만든다. */
     public OrderSheet prepareDirect(OrderLine line) {
-        throw new UnsupportedOperationException("TODO UC-11 (계획 3단계)");
+        Long memberId = session.requireLogin().getId();
+        if (line.quantity() < 1) {
+            throw new AppException("수량을 1개 이상 골라 주세요.");
+        }
+        return sheet(memberId, List.of(line), false);
+    }
+
+    private OrderSheet sheet(Long memberId, List<OrderLine> lines, boolean fromCart) {
+        // 세션의 회원 정보는 오래됐을 수 있어 기본 배송지는 새로 읽는다.
+        String defaultAddress = memberService.findById(memberId).getDefaultAddress();
+        return new OrderSheet(lines, defaultAddress, orderService.calculateTotal(lines), fromCart);
     }
 
     /**
@@ -47,7 +83,111 @@ public class OrderController {
      * 결제 시스템 응답을 기다리므로 View 는 별도 스레드에서 호출한다.
      */
     public Order checkout(CheckoutRequest request) {
-        throw new UnsupportedOperationException("TODO UC-11, UC-12 (계획 3단계)");
+        Long memberId = session.requireLogin().getId();
+        String shippingAddress = validate(request);
+        if (!checkoutInProgress.compareAndSet(false, true)) {
+            throw new AppException(MSG_IN_PROGRESS);
+        }
+        try {
+            int total = orderService.calculateTotal(request.lines());
+            String paymentId = approve(total, request.paymentMethod());
+            Order order = placeOrCancel(memberId, request, shippingAddress, paymentId);
+            if (request.fromCart()) {
+                clearCartQuietly(memberId, request);
+            }
+            return order;
+        } finally {
+            checkoutInProgress.set(false);
+        }
+    }
+
+    /** 입력을 검증하고 실제 배송지(선물이면 받는 분 주소)를 돌려준다. */
+    private static String validate(CheckoutRequest request) {
+        if (request.lines() == null || request.lines().isEmpty()) {
+            throw new AppException(MSG_NO_LINES);
+        }
+        GiftInfo gift = request.giftInfo();
+        if (gift == null && isBlank(request.shippingAddress())) {
+            throw new AppException(MSG_NO_ADDRESS);
+        }
+        if (isBlank(request.paymentMethod())) {
+            throw new AppException(MSG_NO_PAYMENT_METHOD);
+        }
+        if (gift == null) {
+            return request.shippingAddress();
+        }
+        if (isBlank(gift.recipientName()) || isBlank(gift.recipientPhone()) || isBlank(gift.recipientAddress())) {
+            throw new AppException(MSG_GIFT_MISSING);
+        }
+        if (!isValidPhone(gift.recipientPhone())) {
+            throw new AppException(MSG_GIFT_BAD_PHONE);
+        }
+        return gift.recipientAddress();
+    }
+
+    private String approve(int total, String paymentMethod) {
+        PaymentGateway.PaymentResult result;
+        try {
+            result = paymentGateway.approve(total, paymentMethod);
+        } catch (RuntimeException e) {
+            LOG.log(System.Logger.Level.WARNING, "결제 승인 요청 실패", e);
+            throw new AppException(MSG_GATEWAY_DOWN);
+        }
+        if (!result.approved()) {
+            throw new AppException(MSG_DECLINED_PREFIX + result.message());
+        }
+        return result.paymentId();
+    }
+
+    /** 주문을 저장한다. 어떤 이유로든 실패하면 결제를 취소한다 (UC-11 7a). */
+    private Order placeOrCancel(Long memberId, CheckoutRequest request, String shippingAddress, String paymentId) {
+        try {
+            return orderService.placeOrder(memberId, request.lines(), shippingAddress, request.giftInfo(), paymentId);
+        } catch (RuntimeException placeFailure) {
+            if (!cancelPayment(paymentId)) {
+                LOG.log(System.Logger.Level.ERROR, "주문 저장 실패 후 결제 취소 실패: paymentId={0}, memberId={1}",
+                        paymentId, memberId);
+                throw new AppException(MSG_CANCEL_FAILED);
+            }
+            if (placeFailure instanceof AppException) {
+                throw new AppException(placeFailure.getMessage() + MSG_PAYMENT_CANCELED_SUFFIX);
+            }
+            LOG.log(System.Logger.Level.ERROR, "주문 저장 실패, 결제 취소함: paymentId=" + paymentId, placeFailure);
+            throw new AppException(MSG_SAVE_FAILED);
+        }
+    }
+
+    /**
+     * 결제와 주문은 이미 끝났으므로 장바구니 비우기 실패는 기록만 한다.
+     * 여기서 예외를 내면 사용자가 결제 실패로 알고 다시 결제할 수 있다.
+     */
+    private void clearCartQuietly(Long memberId, CheckoutRequest request) {
+        try {
+            orderService.clearOrderedFromCart(memberId, request.lines());
+        } catch (RuntimeException e) {
+            LOG.log(System.Logger.Level.WARNING, "주문 완료 후 장바구니 비우기 실패: memberId=" + memberId, e);
+        }
+    }
+
+    private boolean cancelPayment(String paymentId) {
+        try {
+            return paymentGateway.cancel(paymentId).approved();
+        } catch (RuntimeException e) {
+            LOG.log(System.Logger.Level.WARNING, "결제 취소 요청 실패", e);
+            return false;
+        }
+    }
+
+    private static boolean isValidPhone(String phone) {
+        if (!phone.matches("[0-9-]+")) {
+            return false;
+        }
+        int digits = phone.replace("-", "").length();
+        return digits >= 10 && digits <= 11;
+    }
+
+    private static boolean isBlank(String s) {
+        return s == null || s.isBlank();
     }
 
     /** UC-13 1~2단계 내 주문 목록, 최신순. */
