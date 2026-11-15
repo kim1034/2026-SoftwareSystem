@@ -12,6 +12,7 @@ import com.sadamda.view.ScreenPanel;
 import com.sadamda.view.Theme;
 import com.sadamda.view.WrapLayout;
 import com.sadamda.view.cart.CartPanel;
+import com.sadamda.view.cart.MockCart;
 import com.sadamda.view.member.LoginPanel;
 import com.sadamda.view.order.OrderPanel;
 import com.sadamda.view.tryon.TryOnPanel;
@@ -370,15 +371,10 @@ public class ProductDetailPanel extends ScreenPanel {
             return;
         }
         try {
-            context.cart.add(new OrderLine(product.id(), option.id(), 1));
-        } catch (LoginRequiredException e) {
-            frame.navigate(LoginPanel.NAME);
-            return;
+            // TODO CartService 가 구현되면 context.cart.add(line) 으로 바꾼다. 지금은 목업 장바구니에 담는다.
+            MockCart.add(context.member.currentMember().getId(), new OrderLine(product.id(), option.id(), 1));
         } catch (AppException e) {
-            actionError.setText(e.getMessage()); // 예: 그사이 품절됨
-            return;
-        } catch (UnsupportedOperationException e) {
-            JOptionPane.showMessageDialog(this, "장바구니 담기는 아직 연결되지 않았습니다.");
+            actionError.setText(e.getMessage()); // 예: 재고보다 많이 담음, 그사이 품절됨
             return;
         }
         String[] choices = {"장바구니로 가기", "계속 쇼핑하기"};

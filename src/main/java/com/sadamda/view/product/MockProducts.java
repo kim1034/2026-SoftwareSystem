@@ -17,7 +17,7 @@ import java.util.Set;
  * ProductListPanel·ProductDetailPanel 의 fetch… 메서드를 context.product 의 같은 이름 메서드로 바꾼다 (docs/product-view.md 4번).
  * 사진 주소는 팀 데모 데이터(products.tsv)에서 빌려 왔다. 원피스·아우터는 일부러 비워 UC-04 2a 를 확인한다.
  */
-final class MockProducts {
+public final class MockProducts {
     /** 한 번에 보여주는 상품 수. [더 보기]를 누를 때마다 이만큼 더 가져온다. */
     static final int PAGE_SIZE = 8;
 
@@ -129,8 +129,8 @@ final class MockProducts {
     private MockProducts() {
     }
 
-    /** ProductController.detail(productId) 와 같은 역할. 없는 번호면 null. */
-    static ProductDetail detail(Long productId) {
+    /** ProductController.detail(productId) 와 같은 역할. 없는 번호면 null. 목업 장바구니(view.cart.MockCart)도 쓴다. */
+    public static ProductDetail detail(Long productId) {
         ProductItem item = BY_CATEGORY.values().stream().flatMap(List::stream)
                 .filter(each -> each.id().equals(productId)).findFirst().orElse(null);
         if (item == null) {
