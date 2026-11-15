@@ -31,6 +31,7 @@ import javax.swing.JTextField;
 import javax.swing.JToggleButton;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
+import javax.swing.SwingWorker;
 import javax.swing.UIManager;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -46,11 +47,12 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutionException;
 
 /**
  * UC-11 주문 및 결제 + UC-12 선물하기: 배송 주소(내가 받기 / 선물로 보내기), 주문 상품, 결제 방법,
  * 최종 주문정보, 아래 고정 [결제하기]. 결제가 끝나면 같은 화면이 주문 완료로 바뀐다 (UC-11 8단계).
- * 열 때는 MainFrame.openOrder(sheet, fromCart) 를 쓴다.
+ * 열 때는 MainFrame.openOrder(sheet) 를 쓴다. 장바구니에서 왔는지는 sheet.fromCart() 가 알려 준다.
  */
 public class OrderPanel extends ScreenPanel {
     public static final String NAME = "order";
@@ -71,7 +73,6 @@ public class OrderPanel extends ScreenPanel {
 
     /** 지금 작성 중인 주문서. 결제가 끝나면 null (같은 주문을 두 번 결제하지 않게). */
     private OrderSheet sheet;
-    private boolean fromCart;
     private MockOrders.MockOrder completed;
 
     // 배송 주소
@@ -153,10 +154,9 @@ public class OrderPanel extends ScreenPanel {
         });
     }
 
-    /** UC-11 2단계: 주문서를 연다. 장바구니에서 왔으면 결제 후 주문한 상품을 장바구니에서 뺀다. */
-    public void showSheet(OrderSheet newSheet, boolean newFromCart) {
+    /** UC-11 2단계: 주문서를 연다. 장바구니에서 왔으면(sheet.fromCart()) 결제 후 주문한 상품을 장바구니에서 뺀다. */
+    public void showSheet(OrderSheet newSheet) {
         sheet = newSheet;
-        fromCart = newFromCart;
         completed = null;
         Member member = context.member.currentMember();
         selfChip.setSelected(true);
@@ -323,21 +323,48 @@ public class OrderPanel extends ScreenPanel {
         String address = gift == null ? addressField.getText().trim() : gift.recipientAddress();
         String method = paymentChips.stream().filter(JToggleButton::isSelected)
                 .map(JToggleButton::getText).findFirst().orElse(PAYMENT_METHODS[0]);
-        CheckoutRequest request = new CheckoutRequest(sheet.lines(), address, method, gift);
-        try {
-            completed = fetchCheckout(request);
-        } catch (AppException e) {
-            // 6a 결제 실패, 7a 재고 소진: 주문을 만들지 않고 이유를 알린 뒤 주문서에 남는다.
-            JOptionPane.showMessageDialog(this, e.getMessage(), "결제하지 못했어요", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-        sheet = null;
-        render();
+        CheckoutRequest request = new CheckoutRequest(sheet.lines(), address, method, gift, sheet.fromCart());
+        Long memberId = context.member.currentMember().getId();
+
+        // 결제 시스템 응답을 기다리므로 화면 스레드가 아닌 곳에서 부른다 (docs/controller-spec.md).
+        // 기다리는 동안 버튼을 막아 두 번 결제하지 않게 하고, 무엇을 하는지 알려 준다.
+        String payText = payButton.getText();
+        payButton.setEnabled(false);
+        payButton.setText("결제 중…");
+        new SwingWorker<MockOrders.MockOrder, Void>() {
+            @Override
+            protected MockOrders.MockOrder doInBackground() {
+                return fetchCheckout(memberId, request);
+            }
+
+            @Override
+            protected void done() {
+                payButton.setEnabled(true);
+                payButton.setText(payText);
+                try {
+                    completed = get();
+                } catch (ExecutionException e) {
+                    // 6a 결제 실패, 7a 재고 소진 등: 주문을 만들지 않고 이유를 알린 뒤 주문서에 남는다.
+                    String message = e.getCause() instanceof AppException
+                            ? e.getCause().getMessage()
+                            : "결제 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요.";
+                    JOptionPane.showMessageDialog(OrderPanel.this, message, "결제하지 못했어요",
+                            JOptionPane.WARNING_MESSAGE);
+                    return;
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+                sheet = null;
+                render();
+            }
+        }.execute();
     }
 
-    // TODO OrderController.checkout 이 구현되면 context.order.checkout(request) 로 바꾼다.
-    private MockOrders.MockOrder fetchCheckout(CheckoutRequest request) {
-        return MockOrders.checkout(context.member.currentMember().getId(), request, SHIPPING_FEE, fromCart);
+    // TODO OrderService·CartService 가 구현되면 context.order.checkout(request) 로 바꾼다.
+    //  (OrderController.checkout 은 구현됐지만 안에서 부르는 Model 이 아직 TODO)
+    private static MockOrders.MockOrder fetchCheckout(Long memberId, CheckoutRequest request) {
+        return MockOrders.checkout(memberId, request, SHIPPING_FEE);
     }
 
     private boolean checkAddress() {

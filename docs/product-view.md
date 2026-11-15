@@ -148,7 +148,7 @@ Model·Controller 코드는 **수정하지 않았습니다.**
 
 | 버튼 | 부르는 것 | 결과 |
 |---|---|---|
-| [바로 구매] | `context.order.prepareDirect(OrderLine)` | 이 상품 하나로 주문서 화면을 엽니다. **지금은 Controller가 TODO라 목업 주문서(`MockOrders`)를 엽니다** ([docs/order-view.md](order-view.md)) |
+| [바로 구매] | `context.order.prepareDirect(OrderLine)` | 이 상품 하나로 주문서 화면을 엽니다. **Controller는 구현됐지만 주문 Model이 TODO라 지금은 목업 주문서(`MockOrders`)를 엽니다** ([docs/order-view.md](order-view.md)) |
 | [장바구니 담기] | `context.cart.add(OrderLine)` | "장바구니에 담았어요"와 [장바구니로 가기] [계속 쇼핑하기]. **지금은 Model이 TODO라 목업 장바구니(`MockCart`)에 담습니다** ([docs/order-view.md](order-view.md)) |
 | [AI로 입어보기] | (화면 이동만) | AI 입어보기 화면으로 이동. 사이즈·색상은 고르지 않아도 됨 |
 
@@ -264,7 +264,7 @@ group.add(chip);
 ### 김대원 님 (Controller)
 
 - 명세의 `listByCategory(category, page)`, `popular()`, `search(filter)`, `detail(id)`, `reviews(id)` 그대로 연결할 예정입니다.
-- [바로 구매]는 `order.prepareDirect(OrderLine)`를 부릅니다. 지금 이 메서드는 로그인 확인 없이 TODO라서, 화면이 먼저 로그인을 확인합니다 (UC-06 4a). 주문서 화면에 `OrderSheet`를 넘기는 방법은 주문서 화면을 만들 때 함께 정하겠습니다.
+- [바로 구매]는 `order.prepareDirect(OrderLine)` 자리에 연결합니다. 비회원이면 화면이 먼저 로그인 화면으로 보냅니다 (UC-06 4a). 주문서는 `frame.openOrder(sheet)`로 엽니다 ([docs/order-view.md](order-view.md)).
 - `SearchFilter`에 카테고리 조건이 없어서 필터는 검색 결과에서만 보이게 했습니다. 카테고리 목록에서도 필터를 쓰려면 `SearchFilter`에 카테고리를 추가해 주셔야 합니다 (지금은 필요 없음).
 
 ---

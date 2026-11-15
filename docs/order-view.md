@@ -38,11 +38,11 @@
 | `view/order/OrderPanel.java` | 주문서·주문 완료 화면 (TODO 문구만 있던 파일을 구현) |
 | `view/order/MockOrders.java` (새 파일) | **임시 목업 주문** (주문서 만들기, 결제). `OrderController`가 구현되면 지울 파일 |
 | `view/ProductThumbnail.java` (새 파일) | 장바구니·주문서의 작은 상품 사진 (장바구니에 있던 것을 공통 부품으로 꺼냄) |
-| `view/MainFrame.java` | 주문서를 여는 `openOrder(sheet, fromCart)` 추가 |
+| `view/MainFrame.java` | 주문서를 여는 `openOrder(sheet)` 추가 |
 | `view/member/SignUpPanel.java` | 연락처 검사(`phoneMessage`)를 `public`으로 바꿈. 선물 받는 분 연락처 검사에 같이 씀 |
 | `view/product/MockProducts.java`, `ProductDetail.java` | 장바구니가 상품 정보를 읽을 수 있게 `public`으로 바꿈 (내용은 그대로) |
 
-Model·Controller 코드는 **수정하지 않았습니다.**
+Model·Controller 코드는 **수정하지 않았습니다.** 김대원 님의 `feat/order-payment`(주문서·결제 Controller)를 이 브랜치에 merge해서, 화면을 바뀐 `OrderSheet`·`CheckoutRequest` 모양에 맞췄습니다 (5번 "목업 주문" 참고).
 
 ---
 
@@ -91,7 +91,7 @@ Model·Controller 코드는 **수정하지 않았습니다.**
 
 ## 4. 주문서가 동작하는 방식 (UC-11, UC-12)
 
-장바구니의 주문 버튼이나 상품 상세의 [바로 구매]를 누르면 `frame.openOrder(주문서, 장바구니에서 왔는지)`로 열립니다. 비회원이면 로그인 화면으로 가고, 로그인하면 이 주문서로 돌아옵니다 (1a).
+장바구니의 주문 버튼이나 상품 상세의 [바로 구매]를 누르면 `frame.openOrder(주문서)`로 열립니다. 장바구니에서 왔는지는 주문서가 `OrderSheet.fromCart()`로 들고 있습니다. 비회원이면 로그인 화면으로 가고, 로그인하면 이 주문서로 돌아옵니다 (1a).
 
 | 영역 | 내용 |
 |---|---|
@@ -116,13 +116,16 @@ Model·Controller 코드는 **수정하지 않았습니다.**
 
 ### 결제 (4~8단계, 6a, 7a)
 
-[결제하기]를 누르면 `CheckoutRequest(상품, 배송지, 결제 방법, 선물 정보)`를 만들어 결제합니다. 선물이면 배송지는 받는 분 주소, `giftInfo`가 채워집니다.
+[결제하기]를 누르면 `CheckoutRequest(상품, 배송지, 결제 방법, 선물 정보, 장바구니에서 왔는지)`를 만들어 결제합니다. 선물이면 배송지는 받는 분 주소, `giftInfo`가 채워집니다.
+
+결제 시스템 응답을 기다리는 동안 화면이 멈추지 않도록 **결제는 화면 스레드가 아닌 곳에서** 부릅니다. 그동안 아래 버튼은 **"결제 중…"**으로 바뀌고 눌리지 않아, 같은 주문을 두 번 결제하지 않습니다.
 
 | 결과 | 화면 동작 |
 |---|---|
 | 성공 | 같은 화면이 **주문 완료**로 바뀜: "주문이 완료되었어요"(선물이면 "선물 주문이 완료되었어요"와 **선물 주문** 표시), 주문번호, 주문 일시, 결제 방법, 결제 금액, 배송지(선물이면 받는 분·선물 메시지). 아래에 [쇼핑 계속하기] [주문 내역 보기]. 장바구니에서 온 주문이면 주문한 상품을 장바구니에서 뺌 |
 | 결제 거절 (6a) | "결제하지 못했어요" 창에 이유를 보여 주고 **주문서에 그대로 남음** (입력한 내용 유지) |
 | 재고 소진 (7a) | 같은 창에 "'상품명'이(가) 품절되어 결제를 취소했어요" |
+| 그 밖의 실패 | Controller가 보낸 `AppException` 문장(예: "결제 시스템에 연결하지 못했습니다…")을 그대로, 예상하지 못한 오류면 "결제 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요." |
 
 결제가 끝나면 주문서를 비워서, 뒤로 돌아와도 같은 주문을 두 번 결제하지 않습니다.
 
@@ -149,11 +152,13 @@ Model·Controller 코드는 **수정하지 않았습니다.**
 
 ### 목업 주문 (`MockOrders`)
 
+`OrderController`의 `prepareFromCart`·`prepareDirect`·`checkout`은 김대원 님이 구현했고(`feat/order-payment`, 이 브랜치에 merge됨), 26개 테스트가 통과합니다. 하지만 안에서 부르는 **`OrderService`(주문 Model)와 `CartService`가 아직 TODO**라서, 실제로 부르면 "구현 안 됨" 오류가 납니다. 그래서 Model이 준비될 때까지 화면은 목업을 씁니다.
+
 | `MockOrders` | 바꿀 Controller 메서드 | 쓰는 곳 |
 |---|---|---|
 | `prepareFromCart(memberId, 기본 배송지)` | `context.order.prepareFromCart()` | 장바구니 `order()` |
 | `prepareDirect(line, 기본 배송지)` | `context.order.prepareDirect(line)` | 상세 `buyNow()` |
-| `checkout(memberId, request, 배송비, fromCart)` | `context.order.checkout(request)` | 주문서 `fetchCheckout()` |
+| `checkout(memberId, request, 배송비)` — `request.fromCart()`면 장바구니에서 뺌 | `context.order.checkout(request)` | 주문서 `fetchCheckout()` |
 
 - 결제는 늘 승인된 것으로 봅니다. 재고가 모자라면 7a 문장으로 실패합니다. (6a는 테스트에서만 일부러 실패시켜 확인했습니다)
 - 지금 `Order`에는 생성자와 getter가 거의 없어서, 완료 화면은 화면용 `MockOrders.MockOrder`(주문번호, 금액, 배송지, 선물 정보 등)로 그립니다. `Order` getter가 생기면 바꿉니다.
@@ -175,8 +180,8 @@ Model·Controller 코드는 **수정하지 않았습니다.**
 
 ### 김대원 님 (주문)
 
-- 장바구니 [주문하기]는 `prepareFromCart()`, 상세 [바로 구매]는 `prepareDirect(line)`, 주문서 [결제하기]는 `checkout(request)` 자리에 연결할 예정입니다. 실패는 `AppException`에 보여 줄 문장을 담아 주세요 (6a 결제 거절, 7a 품절).
-- `prepareDirect`·`prepareFromCart`에 아직 로그인 확인이 없어서, 화면이 먼저 로그인을 확인합니다.
+- `feat/order-payment`를 이 브랜치에 merge하고, 화면을 새 `OrderSheet`·`CheckoutRequest`(`fromCart` 추가)에 맞췄습니다. `checkout`은 안내대로 별도 스레드에서 부릅니다.
+- 장바구니 [주문하기]는 `prepareFromCart()`, 상세 [바로 구매]는 `prepareDirect(line)`, 주문서 [결제하기]는 `checkout(request)` 자리에 연결할 예정입니다. Model(`OrderService`·`CartService`)이 구현되면 목업 자리만 바꾸겠습니다.
 - **배송비**: `OrderSheet.totalPrice`에 배송비를 넣을지 정해 주세요. 지금 화면은 상품 금액만 들어온다고 보고 3,000원을 더합니다.
 - **결제 수단 값**: `paymentMethod`에 "카드 결제", "계좌이체", "휴대폰 결제" 문자열을 그대로 보냅니다. 결제 시스템에 맞는 코드가 필요하면 알려 주세요.
 - 주문 완료 화면을 실제 `Order`로 그리려면 주문번호·금액·배송지·결제 방법·주문 일시·선물 정보 getter가 필요합니다 (Model 담당과 함께).

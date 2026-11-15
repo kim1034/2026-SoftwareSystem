@@ -163,7 +163,7 @@ public class CartPanel extends ScreenPanel {
             JOptionPane.showMessageDialog(this, e.getMessage()); // 예: 품절 상품이 섞여 있음
             return;
         }
-        frame.openOrder(sheet, true);
+        frame.openOrder(sheet);
     }
 
     // ── 카드 ──

@@ -46,21 +46,21 @@ public final class MockOrders {
         if (lines.isEmpty()) {
             throw new AppException("장바구니가 비어 있어요.");
         }
-        return new OrderSheet(lines, defaultAddress, productTotal(lines));
+        return new OrderSheet(lines, defaultAddress, productTotal(lines), true);
     }
 
     /** OrderController.prepareDirect(line) — 상세의 [바로 구매] 한 상품으로 주문서를 만든다. */
     public static OrderSheet prepareDirect(OrderLine line, String defaultAddress) {
         checkStock(List.of(line));
-        return new OrderSheet(List.of(line), defaultAddress, productTotal(List.of(line)));
+        return new OrderSheet(List.of(line), defaultAddress, productTotal(List.of(line)), false);
     }
 
     /**
      * OrderController.checkout(request) — 결제하고 주문을 만든다.
      * 결제가 거절되면 주문을 만들지 않는다 (6a). 재고가 모자라면 결제를 취소하고 품절을 알린다 (7a).
-     * 장바구니에서 온 주문이면 주문한 줄을 장바구니에서 뺀다.
+     * 장바구니에서 온 주문(request.fromCart())이면 주문한 줄을 장바구니에서 뺀다.
      */
-    public static MockOrder checkout(Long memberId, CheckoutRequest request, int shippingFee, boolean fromCart) {
+    public static MockOrder checkout(Long memberId, CheckoutRequest request, int shippingFee) {
         if (failNextPayment) {
             failNextPayment = false;
             throw new AppException("결제가 승인되지 않았어요. 결제 정보를 확인하고 다시 시도해 주세요.");
@@ -73,7 +73,7 @@ public final class MockOrders {
                 request.paymentMethod(), productTotal(request.lines()), shippingFee, request.giftInfo(),
                 OrderStatus.PAID, now);
         ORDERS.add(order);
-        if (fromCart) {
+        if (request.fromCart()) {
             for (CartItem item : MockCart.cart(memberId)) {
                 if (request.lines().stream().anyMatch(line -> line.optionId().equals(item.optionId()))) {
                     MockCart.remove(memberId, item.id());

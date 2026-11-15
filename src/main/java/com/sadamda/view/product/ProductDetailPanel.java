@@ -401,7 +401,7 @@ public class ProductDetailPanel extends ScreenPanel {
             actionError.setText(e.getMessage()); // 예: 그사이 품절됨
             return;
         }
-        frame.openOrder(sheet, false);
+        frame.openOrder(sheet);
     }
 
     /** [AI로 입어보기]: 사이즈·색상과 상관없이 이 상품으로 입어 본다 (UC-09). */

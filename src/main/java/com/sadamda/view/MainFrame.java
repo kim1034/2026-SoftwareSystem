@@ -114,9 +114,9 @@ public class MainFrame extends JFrame {
         navigate(ProductDetailPanel.NAME);
     }
 
-    /** 장바구니 [주문하기]·상세 [바로 구매]로 만든 주문서를 연다 (UC-11 2단계). fromCart 면 결제 후 장바구니에서 뺀다. */
-    public void openOrder(OrderSheet sheet, boolean fromCart) {
-        orderPanel.showSheet(sheet, fromCart);
+    /** 장바구니 [주문하기]·상세 [바로 구매]로 만든 주문서를 연다 (UC-11 2단계). */
+    public void openOrder(OrderSheet sheet) {
+        orderPanel.showSheet(sheet);
         navigate(OrderPanel.NAME);
     }
 
