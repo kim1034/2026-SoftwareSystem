@@ -1,6 +1,7 @@
 package com.sadamda.view.order;
 
 import com.sadamda.common.AppException;
+import com.sadamda.common.RetryableException;
 import com.sadamda.controller.CheckoutRequest;
 import com.sadamda.controller.OrderSheet;
 import com.sadamda.model.cart.CartItem;
@@ -14,25 +15,37 @@ import com.sadamda.view.product.ProductDetail;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
- * 임시 목업 주문. OrderController 의 prepareFromCart / prepareDirect / checkout 이 구현되면 이 파일을 지운다.
- * 결제는 늘 승인된 것으로 본다. 앱을 켜 둔 동안만 주문을 기억한다 (주문 내역 UC-13 에서 쓸 예정).
+ * 임시 목업 주문. OrderService 가 구현되면 이 파일을 지우고 context.order 의 같은 이름 메서드로 바꾼다.
+ * (OrderController 의 prepare*·checkout·cancel·requestExchangeOrReturn 은 구현됐지만 안에서 부르는 Model 이 TODO)
+ * 결제·결제 취소는 늘 승인된 것으로 본다. 앱을 켜 둔 동안만 주문을 기억한다.
  */
 public final class MockOrders {
     /** 테스트용: true 면 다음 결제 한 번을 "승인 거절"로 만든다 (UC-11 6a 확인). */
     static boolean failNextPayment;
+    /** 테스트용: true 면 다음 주문 취소 한 번을 "결제 취소 실패"로 만든다 (RetryableException 확인). */
+    static boolean failNextCancel;
 
     private static final List<MockOrder> ORDERS = new ArrayList<>();
+    /** 시연용 예전 주문을 이미 넣어 준 회원. */
+    private static final Set<Long> SEEDED = new HashSet<>();
     private static long nextId = 1;
 
     /** 완료된 주문. 실제 Order 는 생성자·getter 가 아직 없어서 화면용으로 따로 둔다. */
     public record MockOrder(Long id, String orderNumber, Long memberId, List<OrderLine> lines, String shippingAddress,
                             String paymentMethod, int productTotal, int shippingFee, GiftInfo giftInfo,
-                            OrderStatus status, LocalDateTime orderedAt) {
+                            OrderStatus status, LocalDateTime orderedAt, String trackingNumber) {
         public int totalPrice() {
             return productTotal + shippingFee;
+        }
+
+        MockOrder withStatus(OrderStatus newStatus) {
+            return new MockOrder(id, orderNumber, memberId, lines, shippingAddress, paymentMethod, productTotal,
+                    shippingFee, giftInfo, newStatus, orderedAt, trackingNumber);
         }
     }
 
@@ -66,13 +79,8 @@ public final class MockOrders {
             throw new AppException("결제가 승인되지 않았어요. 결제 정보를 확인하고 다시 시도해 주세요.");
         }
         checkStock(request.lines());
-        long id = nextId++;
-        LocalDateTime now = LocalDateTime.now();
-        String number = String.format("SD%1$tY%1$tm%1$td-%2$04d", now, id);
-        MockOrder order = new MockOrder(id, number, memberId, request.lines(), request.shippingAddress(),
-                request.paymentMethod(), productTotal(request.lines()), shippingFee, request.giftInfo(),
-                OrderStatus.PAID, now);
-        ORDERS.add(order);
+        MockOrder order = add(memberId, request.lines(), request.shippingAddress(), request.paymentMethod(),
+                shippingFee, request.giftInfo(), OrderStatus.PAID, LocalDateTime.now(), null);
         if (request.fromCart()) {
             for (CartItem item : MockCart.cart(memberId)) {
                 if (request.lines().stream().anyMatch(line -> line.optionId().equals(item.optionId()))) {
@@ -83,10 +91,84 @@ public final class MockOrders {
         return order;
     }
 
-    /** 이 회원의 주문, 최신순. (UC-13 에서 쓸 예정) */
+    /** OrderController.myOrders() — 이 회원의 주문, 최신순. 처음 부르면 시연용 예전 주문 2건을 넣는다. */
     public static List<MockOrder> ordersOf(Long memberId) {
+        seed(memberId);
         return ORDERS.stream().filter(order -> order.memberId().equals(memberId))
-                .sorted((a, b) -> b.id().compareTo(a.id())).toList();
+                .sorted((a, b) -> b.orderedAt().compareTo(a.orderedAt())).toList();
+    }
+
+    /** OrderController.orderDetail(orderId) — 본인 주문만. */
+    public static MockOrder orderDetail(Long memberId, Long orderId) {
+        return owned(memberId, orderId);
+    }
+
+    /**
+     * OrderController.cancel(orderId, reason) — 배송 전이면 결제를 취소하고 "취소됨"으로 바꾼다 (UC-13 4~5).
+     * 배송 중·배송 완료면 AppException (4a). 결제 취소가 실패하면 주문은 그대로 두고 RetryableException.
+     */
+    public static MockOrder cancel(Long memberId, Long orderId, String reason) {
+        MockOrder order = owned(memberId, orderId);
+        if (order.status() == OrderStatus.SHIPPING || order.status() == OrderStatus.DELIVERED) {
+            throw new AppException("이미 배송 중인 주문은 취소할 수 없어요. 받으신 뒤 반품을 신청해 주세요.");
+        }
+        if (order.status() != OrderStatus.PAID && order.status() != OrderStatus.PREPARING) {
+            throw new AppException("취소할 수 없는 주문이에요.");
+        }
+        if (failNextCancel) {
+            failNextCancel = false;
+            throw new RetryableException("결제 취소에 실패했어요. 잠시 후 다시 시도해 주세요.");
+        }
+        return replace(order.withStatus(OrderStatus.CANCELED));
+    }
+
+    /**
+     * OrderController.requestExchangeOrReturn(orderId, requested, reason) — 배송 완료된 주문의
+     * 교환·반품을 "신청됨"으로 등록한다 (UC-13 6). 관리자 화면(UC-18)에서 처리한다.
+     */
+    public static MockOrder requestExchangeOrReturn(Long memberId, Long orderId, OrderStatus requested, String reason) {
+        MockOrder order = owned(memberId, orderId);
+        if (order.status() != OrderStatus.DELIVERED) {
+            throw new AppException("배송이 끝난 주문만 교환·반품을 신청할 수 있어요.");
+        }
+        return replace(order.withStatus(requested));
+    }
+
+    private static MockOrder owned(Long memberId, Long orderId) {
+        return ORDERS.stream().filter(order -> order.id().equals(orderId) && order.memberId().equals(memberId))
+                .findFirst().orElseThrow(() -> new AppException("주문을 찾을 수 없어요."));
+    }
+
+    private static MockOrder replace(MockOrder updated) {
+        for (int i = 0; i < ORDERS.size(); i++) {
+            if (ORDERS.get(i).id().equals(updated.id())) {
+                ORDERS.set(i, updated);
+            }
+        }
+        return updated;
+    }
+
+    /** 배송 중·배송 완료 화면을 볼 수 있게 예전 주문 2건을 넣는다 (시연용). */
+    private static void seed(Long memberId) {
+        if (!SEEDED.add(memberId)) {
+            return;
+        }
+        LocalDateTime now = LocalDateTime.now();
+        add(memberId, List.of(new OrderLine(2L, 201L, 1)), "서울시 종로구 세종대로 1, 101동 101호",
+                "카드 결제", OrderPanel.SHIPPING_FEE, null, OrderStatus.SHIPPING, now.minusDays(2), "6012-3456-7890");
+        add(memberId, List.of(new OrderLine(13L, 1301L, 1), new OrderLine(19L, 1902L, 1)),
+                "서울시 종로구 세종대로 1, 101동 101호", "계좌이체", OrderPanel.SHIPPING_FEE, null,
+                OrderStatus.DELIVERED, now.minusDays(9), "6012-1111-2222");
+    }
+
+    private static MockOrder add(Long memberId, List<OrderLine> lines, String address, String method, int shippingFee,
+                                 GiftInfo gift, OrderStatus status, LocalDateTime orderedAt, String trackingNumber) {
+        long id = nextId++;
+        String number = String.format("SD%1$tY%1$tm%1$td-%2$04d", orderedAt, id);
+        MockOrder order = new MockOrder(id, number, memberId, lines, address, method, productTotal(lines),
+                shippingFee, gift, status, orderedAt, trackingNumber);
+        ORDERS.add(order);
+        return order;
     }
 
     private static int productTotal(List<OrderLine> lines) {

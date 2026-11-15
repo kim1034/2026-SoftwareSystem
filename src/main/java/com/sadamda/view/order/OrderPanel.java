@@ -279,7 +279,7 @@ public class OrderPanel extends ScreenPanel {
     }
 
     /** [사진] 상품명 / 옵션 · 수량 ... 금액 */
-    private JPanel itemRow(OrderLine line) {
+    static JPanel itemRow(OrderLine line) {
         ProductDetail product = MockProducts.detail(line.productId());
         ProductOption option = product.options().stream()
                 .filter(o -> o.id().equals(line.optionId())).findFirst().orElseThrow();
@@ -456,20 +456,20 @@ public class OrderPanel extends ScreenPanel {
         payBar.setVisible(false);
     }
 
-    // ── 작은 부품 ──
+    // ── 작은 부품 (주문 내역 화면 OrderHistoryPanel 도 같이 쓴다) ──
 
-    private static int columnWidth() {
+    static int columnWidth() {
         float fontSize = UIManager.getFont("Label.font").getSize2D();
         return Math.max(640, Math.round(fontSize * 40));
     }
 
-    private static JPanel whiteCard() {
+    static JPanel whiteCard() {
         JPanel card = Theme.card();
         card.setBorder(BorderFactory.createEmptyBorder(24, 24, 24, 24));
         return card;
     }
 
-    private static JPanel sectionHeader(String title) {
+    static JPanel sectionHeader(String title) {
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
         header.add(Theme.label(title, 1.2f, Font.BOLD, Theme.TEXT), BorderLayout.WEST);
@@ -489,7 +489,7 @@ public class OrderPanel extends ScreenPanel {
         table.add(value, c);
     }
 
-    private static JPanel amountRow(String name, String value, boolean emphasize) {
+    static JPanel amountRow(String name, String value, boolean emphasize) {
         JPanel row = new JPanel(new BorderLayout(24, 0));
         row.setOpaque(false);
         row.add(Theme.label(name, emphasize ? 1.1f : 1f, emphasize ? Font.BOLD : Font.PLAIN,
@@ -499,21 +499,21 @@ public class OrderPanel extends ScreenPanel {
         return row;
     }
 
-    private static JComponent line() {
+    static JComponent line() {
         JPanel line = new JPanel();
         line.setBackground(Theme.LINE);
         line.setPreferredSize(new Dimension(1, 1));
         return line;
     }
 
-    private static JPanel centered(JComponent component) {
+    static JPanel centered(JComponent component) {
         JPanel row = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
         row.setOpaque(false);
         row.add(component);
         return row;
     }
 
-    private static String price(int won) {
+    static String price(int won) {
         return NumberFormat.getNumberInstance(Locale.KOREA).format(won) + "원";
     }
 }
