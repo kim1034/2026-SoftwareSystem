@@ -1,17 +1,18 @@
 package com.sadamda.view.cart;
 
 import com.sadamda.common.AppException;
-import com.sadamda.common.LoginRequiredException;
 import com.sadamda.controller.AppContext;
+import com.sadamda.controller.OrderSheet;
 import com.sadamda.model.cart.CartItem;
 import com.sadamda.model.member.Member;
 import com.sadamda.model.product.ProductOption;
 import com.sadamda.view.MainFrame;
-import com.sadamda.view.ProductImages;
+import com.sadamda.view.ProductThumbnail;
 import com.sadamda.view.ScreenPanel;
 import com.sadamda.view.Theme;
 import com.sadamda.view.WrapLayout;
 import com.sadamda.view.member.LoginPanel;
+import com.sadamda.view.order.MockOrders;
 import com.sadamda.view.order.OrderPanel;
 import com.sadamda.view.product.MockProducts;
 import com.sadamda.view.product.ProductDetail;
@@ -36,19 +37,13 @@ import java.awt.Dialog;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
-import java.awt.FontMetrics;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
 import java.awt.Insets;
-import java.awt.RenderingHints;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.KeyEvent;
-import java.awt.geom.RoundRectangle2D;
-import java.awt.image.BufferedImage;
 import java.text.NumberFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -134,7 +129,7 @@ public class CartPanel extends ScreenPanel {
                 Theme.addToCard(column, itemCard(item, product), 16);
             }
             Theme.addToCard(column, summaryCard(total), 24);
-            orderButton.setText(price(total) + " · 총 " + items.size() + "건 주문하기");
+            orderButton.setText(price(total + OrderPanel.SHIPPING_FEE) + " · 총 " + items.size() + "건 주문하기");
             orderBar.setVisible(true);
         }
         // 카드 폭을 글씨 크기에 맞춰 정한다. (길이가 다른 상품명 때문에 카드마다 폭이 달라지지 않게)
@@ -155,19 +150,20 @@ public class CartPanel extends ScreenPanel {
 
     /** UC-10 5단계: 장바구니 전체로 주문서를 만든다 (UC-11). */
     private void order() {
-        try {
-            context.order.prepareFromCart();
-        } catch (LoginRequiredException e) {
+        Member member = context.member.currentMember();
+        if (member == null) {
             frame.navigate(LoginPanel.NAME);
             return;
+        }
+        OrderSheet sheet;
+        try {
+            // TODO OrderController 가 구현되면 context.order.prepareFromCart() 로 바꾼다.
+            sheet = MockOrders.prepareFromCart(member.getId(), member.getDefaultAddress());
         } catch (AppException e) {
             JOptionPane.showMessageDialog(this, e.getMessage()); // 예: 품절 상품이 섞여 있음
             return;
-        } catch (UnsupportedOperationException e) {
-            JOptionPane.showMessageDialog(this, "주문하기는 아직 연결되지 않았습니다.");
-            return;
         }
-        frame.navigate(OrderPanel.NAME); // TODO 주문서 화면이 생기면 OrderSheet 를 넘긴다.
+        frame.openOrder(sheet, true);
     }
 
     // ── 카드 ──
@@ -177,7 +173,7 @@ public class CartPanel extends ScreenPanel {
         ProductOption option = option(product, item.optionId());
         JPanel card = whiteCard();
         card.setLayout(new BorderLayout(20, 0));
-        card.add(new Thumbnail(product.imageUrls().get(0)), BorderLayout.WEST);
+        card.add(new ProductThumbnail(product.imageUrls().get(0)), BorderLayout.WEST);
 
         JPanel info = new JPanel(new GridBagLayout());
         info.setOpaque(false);
@@ -288,8 +284,9 @@ public class CartPanel extends ScreenPanel {
         Theme.addToCard(card, Theme.label("주문 정보", 1.2f, Font.BOLD, Theme.TEXT), 0);
         Theme.addToCard(card, line(), 16);
         Theme.addToCard(card, amountRow("총 상품금액", price(total), false), 16);
+        Theme.addToCard(card, amountRow("배송비", price(OrderPanel.SHIPPING_FEE), false), 12);
         Theme.addToCard(card, line(), 16);
-        Theme.addToCard(card, amountRow("총 결제 예정금액", price(total), true), 16);
+        Theme.addToCard(card, amountRow("총 결제 예정금액", price(total + OrderPanel.SHIPPING_FEE), true), 16);
         return card;
     }
 
@@ -458,48 +455,5 @@ public class CartPanel extends ScreenPanel {
 
     private static String price(int won) {
         return NumberFormat.getNumberInstance(Locale.KOREA).format(won) + "원";
-    }
-
-    /** 장바구니 줄의 작은 사진 (3:4, 칸에 꽉 차게). */
-    private static final class Thumbnail extends JComponent {
-        private final String url;
-
-        Thumbnail(String url) {
-            this.url = url;
-            ProductImages.request(url, this::repaint);
-        }
-
-        @Override
-        public Dimension getPreferredSize() {
-            int width = Math.round(UIManager.getFont("Label.font").getSize2D() * 6);
-            return new Dimension(width, Math.round(width * 4f / 3));
-        }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
-            Dimension size = getPreferredSize();
-            RoundRectangle2D box = new RoundRectangle2D.Float(0, 0, size.width, size.height, 12, 12);
-            g2.setColor(Theme.PAGE);
-            g2.fill(box);
-            BufferedImage image = ProductImages.get(url);
-            if (image != null) {
-                double scale = Math.max(size.width / (double) image.getWidth(), size.height / (double) image.getHeight());
-                int w = (int) Math.round(image.getWidth() * scale);
-                int h = (int) Math.round(image.getHeight() * scale);
-                g2.clip(box);
-                g2.drawImage(image, (size.width - w) / 2, (size.height - h) / 2, w, h, null);
-            } else {
-                String text = ProductImages.failed(url) ? "사진 없음" : "…";
-                g2.setColor(Theme.HINT);
-                g2.setFont(UIManager.getFont("Label.font"));
-                FontMetrics fm = g2.getFontMetrics();
-                g2.drawString(text, (size.width - fm.stringWidth(text)) / 2,
-                        (size.height - fm.getHeight()) / 2 + fm.getAscent());
-            }
-            g2.dispose();
-        }
     }
 }

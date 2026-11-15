@@ -311,7 +311,7 @@ public class SignUpPanel extends ScreenPanel {
         return Arrays.equals(password, confirm) ? null : "비밀번호가 서로 다릅니다";
     }
 
-    static String phoneMessage(String phone) {
+    public static String phoneMessage(String phone) {
         if (phone.isEmpty()) {
             return "연락처를 입력해 주세요";
         }

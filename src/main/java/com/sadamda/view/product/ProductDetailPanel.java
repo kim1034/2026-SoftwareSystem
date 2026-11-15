@@ -1,8 +1,8 @@
 package com.sadamda.view.product;
 
 import com.sadamda.common.AppException;
-import com.sadamda.common.LoginRequiredException;
 import com.sadamda.controller.AppContext;
+import com.sadamda.controller.OrderSheet;
 import com.sadamda.model.member.BodyProfile;
 import com.sadamda.model.order.OrderLine;
 import com.sadamda.model.product.ProductOption;
@@ -14,7 +14,7 @@ import com.sadamda.view.WrapLayout;
 import com.sadamda.view.cart.CartPanel;
 import com.sadamda.view.cart.MockCart;
 import com.sadamda.view.member.LoginPanel;
-import com.sadamda.view.order.OrderPanel;
+import com.sadamda.view.order.MockOrders;
 import com.sadamda.view.tryon.TryOnPanel;
 
 import javax.swing.BorderFactory;
@@ -392,19 +392,16 @@ public class ProductDetailPanel extends ScreenPanel {
         if (option == null || !loggedIn()) {
             return;
         }
+        OrderSheet sheet;
         try {
-            context.order.prepareDirect(new OrderLine(product.id(), option.id(), 1));
-        } catch (LoginRequiredException e) {
-            frame.navigate(LoginPanel.NAME);
-            return;
+            // TODO OrderController 가 구현되면 context.order.prepareDirect(line) 으로 바꾼다.
+            sheet = MockOrders.prepareDirect(new OrderLine(product.id(), option.id(), 1),
+                    context.member.currentMember().getDefaultAddress());
         } catch (AppException e) {
-            actionError.setText(e.getMessage());
-            return;
-        } catch (UnsupportedOperationException e) {
-            JOptionPane.showMessageDialog(this, "바로 구매는 아직 연결되지 않았습니다.");
+            actionError.setText(e.getMessage()); // 예: 그사이 품절됨
             return;
         }
-        frame.navigate(OrderPanel.NAME); // TODO 주문서 화면이 생기면 OrderSheet 를 넘긴다.
+        frame.openOrder(sheet, false);
     }
 
     /** [AI로 입어보기]: 사이즈·색상과 상관없이 이 상품으로 입어 본다 (UC-09). */

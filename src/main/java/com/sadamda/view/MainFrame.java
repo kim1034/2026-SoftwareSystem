@@ -1,6 +1,7 @@
 package com.sadamda.view;
 
 import com.sadamda.controller.AppContext;
+import com.sadamda.controller.OrderSheet;
 import com.sadamda.view.admin.AdminPanel;
 import com.sadamda.view.cart.CartPanel;
 import com.sadamda.view.member.LoginPanel;
@@ -57,12 +58,15 @@ public class MainFrame extends JFrame {
 
     /** 상품 상세 화면. 어떤 상품을 보여줄지 openProduct 로 알려준다. */
     private final ProductDetailPanel productDetail;
+    /** 주문서 화면. 어떤 주문서를 보여줄지 openOrder 로 알려준다. */
+    private final OrderPanel orderPanel;
 
     public MainFrame(AppContext context) {
         super("사담다");
         this.context = context;
         FontSize.load().apply();
         productDetail = new ProductDetailPanel(context, this);
+        orderPanel = new OrderPanel(context, this);
 
         addScreen(HomePanel.NAME, new HomePanel(context, this));
         addScreen(ProductListPanel.NAME, new ProductListPanel(context, this));
@@ -70,7 +74,7 @@ public class MainFrame extends JFrame {
         addScreen(LookbookPanel.NAME, new LookbookPanel(context, this));
         addScreen(TryOnPanel.NAME, new TryOnPanel(context, this));
         addScreen(CartPanel.NAME, new CartPanel(context, this));
-        addScreen(OrderPanel.NAME, new OrderPanel(context, this));
+        addScreen(OrderPanel.NAME, orderPanel);
         addScreen(OrderHistoryPanel.NAME, new OrderHistoryPanel(context, this));
         addScreen(SignUpPanel.NAME, new SignUpPanel(context, this));
         addScreen(LoginPanel.NAME, new LoginPanel(context, this));
@@ -108,6 +112,12 @@ public class MainFrame extends JFrame {
     public void openProduct(Long productId) {
         productDetail.showProduct(productId);
         navigate(ProductDetailPanel.NAME);
+    }
+
+    /** 장바구니 [주문하기]·상세 [바로 구매]로 만든 주문서를 연다 (UC-11 2단계). fromCart 면 결제 후 장바구니에서 뺀다. */
+    public void openOrder(OrderSheet sheet, boolean fromCart) {
+        orderPanel.showSheet(sheet, fromCart);
+        navigate(OrderPanel.NAME);
     }
 
     /** 로그인 성공 후 일반 회원을 로그인 전에 보던 화면으로 돌려보낸다. 기억한 화면이 없으면 홈. */

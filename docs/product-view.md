@@ -148,7 +148,7 @@ Model·Controller 코드는 **수정하지 않았습니다.**
 
 | 버튼 | 부르는 것 | 결과 |
 |---|---|---|
-| [바로 구매] | `context.order.prepareDirect(OrderLine)` | 주문서 화면으로 이동. **지금은 Controller가 TODO라 "바로 구매는 아직 연결되지 않았습니다" 안내** |
+| [바로 구매] | `context.order.prepareDirect(OrderLine)` | 이 상품 하나로 주문서 화면을 엽니다. **지금은 Controller가 TODO라 목업 주문서(`MockOrders`)를 엽니다** ([docs/order-view.md](order-view.md)) |
 | [장바구니 담기] | `context.cart.add(OrderLine)` | "장바구니에 담았어요"와 [장바구니로 가기] [계속 쇼핑하기]. **지금은 Model이 TODO라 목업 장바구니(`MockCart`)에 담습니다** ([docs/order-view.md](order-view.md)) |
 | [AI로 입어보기] | (화면 이동만) | AI 입어보기 화면으로 이동. 사이즈·색상은 고르지 않아도 됨 |
 
