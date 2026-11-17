@@ -36,6 +36,16 @@ public class ProductController {
         return productService.search(filter);
     }
 
+    /** UC-04 카테고리의 판매 중 상품 수. [더 보기] 버튼을 보여줄지 정한다. */
+    public int countByCategory(Category category) {
+        return productService.countByCategory(category);
+    }
+
+    /** UC-05 2a 검색 결과가 없을 때 제안할 비슷한 검색어. */
+    public List<String> suggestKeywords(String keyword) {
+        return productService.suggestKeywords(keyword);
+    }
+
     /** UC-06 2단계 */
     public Product detail(Long productId) {
         return productService.findById(productId);
