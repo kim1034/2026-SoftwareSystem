@@ -262,6 +262,10 @@ public final class Theme {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = smooth(g);
+                if (!isEnabled()) {
+                    paintDisabled(this, g2);
+                    return;
+                }
                 g2.setColor(getModel().isPressed() ? background.darker() : background);
                 g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), getHeight(), getHeight())); // 알약 모양
                 g2.dispose();
@@ -309,6 +313,33 @@ public final class Theme {
      * ButtonGroup 으로 묶어 하나만 선택되게 쓴다. 높이 48px 이상 (NFR-02).
      */
     public static JToggleButton chip(String text) {
+        return chip(text, false, PRIMARY);
+    }
+
+    /** 고르지 않았을 때 흰 바탕에 테두리만 있는 칩 (상품 상세의 사이즈·색상). 품절 칩보다 테두리와 글씨가 진하다. */
+    public static JToggleButton outlineChip(String text) {
+        return chip(text, true, PRIMARY);
+    }
+
+    /**
+     * outlineChip 과 같고, 고르면 selectedFill 로 채운다 (상품 상세의 색상 칩을 그 색으로). null 이면 검정.
+     * 글씨는 채운 색 위에서 더 잘 보이는 쪽(흰색·검정)으로 바꾸고, 밝은 색이면 흰 바탕과 구분되게 테두리를 둔다.
+     */
+    public static JToggleButton outlineChip(String text, Color selectedFill) {
+        return chip(text, true, selectedFill == null ? PRIMARY : selectedFill);
+    }
+
+    /** 밝은 색인지 (상대 휘도 0.4 초과). 그 위의 글씨는 검정으로 쓴다. */
+    private static boolean isLight(Color color) {
+        double[] rgb = {color.getRed() / 255.0, color.getGreen() / 255.0, color.getBlue() / 255.0};
+        for (int i = 0; i < 3; i++) {
+            rgb[i] = rgb[i] <= 0.03928 ? rgb[i] / 12.92 : Math.pow((rgb[i] + 0.055) / 1.055, 2.4);
+        }
+        return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2] > 0.4;
+    }
+
+    private static JToggleButton chip(String text, boolean outline, Color selectedFill) {
+        Color selectedText = isLight(selectedFill) ? TEXT : Color.WHITE;
         JToggleButton chip = new JToggleButton(text) {
             @Override
             public void updateUI() {
@@ -320,31 +351,31 @@ public final class Theme {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = smooth(g);
-                RoundRectangle2D pill = new RoundRectangle2D.Float(0.5f, 0.5f, getWidth() - 1, getHeight() - 1,
-                        getHeight(), getHeight());
                 if (!isEnabled()) {
-                    // 고를 수 없음 (예: 품절): 흰 바탕 + 테두리 + 회색 글씨. 기본 흐린 글씨는 대비가 부족해 직접 그린다.
-                    g2.setColor(CARD);
-                    g2.fill(pill);
-                    g2.setColor(LINE);
-                    g2.draw(pill);
-                    g2.setColor(HINT);
-                    g2.setFont(getFont());
-                    FontMetrics fm = g2.getFontMetrics();
-                    g2.drawString(getText(), (getWidth() - fm.stringWidth(getText())) / 2,
-                            (getHeight() - fm.getHeight()) / 2 + fm.getAscent());
-                    g2.dispose();
+                    paintDisabled(this, g2); // 고를 수 없음 (예: 품절)
                     return;
                 }
-                g2.setColor(isSelected() ? PRIMARY : SECONDARY);
+                RoundRectangle2D pill = new RoundRectangle2D.Float(0.5f, 0.5f, getWidth() - 1, getHeight() - 1,
+                        getHeight(), getHeight());
+                g2.setColor(isSelected() ? selectedFill : outline ? CARD : SECONDARY);
                 g2.fill(pill);
+                if (outline && isSelected() && isLight(selectedFill)) {
+                    // 화이트·아이보리처럼 밝은 색을 골랐을 때도 고르지 않은 칩과 구분되게 진한 테두리
+                    g2.setColor(PRIMARY);
+                    g2.setStroke(new BasicStroke(2f));
+                    g2.draw(new RoundRectangle2D.Float(1f, 1f, getWidth() - 2, getHeight() - 2,
+                            getHeight() - 1, getHeight() - 1));
+                } else if (outline && !isSelected()) {
+                    g2.setColor(HINT);
+                    g2.draw(pill);
+                }
                 g2.dispose();
                 super.paintComponent(g);
                 paintFocusRing(this, g);
             }
         };
         chip.setForeground(TEXT);
-        chip.addItemListener(e -> chip.setForeground(chip.isSelected() ? Color.WHITE : TEXT));
+        chip.addItemListener(e -> chip.setForeground(chip.isSelected() ? selectedText : TEXT));
         chip.setContentAreaFilled(false);
         chip.setFocusPainted(false);
         chip.setBorder(BorderFactory.createEmptyBorder(14, 32, 14, 32));
@@ -408,6 +439,25 @@ public final class Theme {
     public static void setInvalid(JComponent input, boolean invalid) {
         input.putClientProperty(INVALID, invalid);
         input.repaint();
+    }
+
+    /**
+     * 누를 수 없는 알약 버튼: 흰 바탕 + 테두리 + 회색 글씨. 기본 흐린 글씨는 대비가 부족해 직접 그린다 (NFR-01).
+     * g2 는 여기서 dispose 한다.
+     */
+    private static void paintDisabled(AbstractButton button, Graphics2D g2) {
+        RoundRectangle2D pill = new RoundRectangle2D.Float(0.5f, 0.5f, button.getWidth() - 1, button.getHeight() - 1,
+                button.getHeight(), button.getHeight());
+        g2.setColor(CARD);
+        g2.fill(pill);
+        g2.setColor(LINE);
+        g2.draw(pill);
+        g2.setColor(HINT);
+        g2.setFont(button.getFont());
+        FontMetrics fm = g2.getFontMetrics();
+        g2.drawString(button.getText(), (button.getWidth() - fm.stringWidth(button.getText())) / 2,
+                (button.getHeight() - fm.getHeight()) / 2 + fm.getAscent());
+        g2.dispose();
     }
 
     /**

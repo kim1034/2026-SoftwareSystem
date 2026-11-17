@@ -9,6 +9,8 @@ import com.sadamda.model.product.SearchFilter;
 import com.sadamda.model.recommend.Lookbook;
 import com.sadamda.view.MainFrame;
 import com.sadamda.view.ScreenPanel;
+import com.sadamda.view.Theme;
+import com.sadamda.view.WrapLayout;
 import com.sadamda.view.member.LoginPanel;
 import com.sadamda.view.member.MyInfoPanel;
 import com.sadamda.view.product.CategoryBar;
@@ -22,10 +24,13 @@ import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
+import javax.swing.JScrollBar;
+import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
 import java.util.List;
@@ -44,7 +49,7 @@ public class HomePanel extends ScreenPanel {
     private static final int NEWEST_PREVIEW = 8;
 
     private final JPanel body = new JPanel();
-    private final JTextField searchField = new JTextField();
+    private final JTextField searchField = Theme.textField("상품 이름이나 종류를 입력해 보세요");
     private final CategoryBar categoryBar;
     private final JPanel greeting = new JPanel(new GridLayout(0, 1, 0, 4));
     private final JPanel forMe = new JPanel(new BorderLayout(0, 12));
@@ -53,6 +58,7 @@ public class HomePanel extends ScreenPanel {
     private final JPanel lookbookRow = new JPanel(new GridLayout(1, LOOKBOOK_PREVIEW, 16, 0));
     private final ProductGrid newestGrid;
     private boolean trendingExpanded;
+    private JScrollPane scroll;
 
     public HomePanel(AppContext context, MainFrame frame) {
         super(context, frame, "홈", "UC-08 유행·맞춤 아이템 추천 보기");
@@ -99,7 +105,57 @@ public class HomePanel extends ScreenPanel {
         block(ShopUi.sectionHeader("새로 들어온 상품", "최근에 등록된 상품이에요.",
                 linkButton("상품 더 보기", () -> openCategory(null))), 40);
         block(newestGrid, 12);
-        return ShopUi.verticalScroll(body);
+        scroll = ShopUi.verticalScroll(body);
+        return withPinnedCategories(scroll);
+    }
+
+    /** 맨 위(인사말·검색창)로 올린다. 홈에서 상단의 [사담다] 로고를 다시 누를 때 쓴다. */
+    public void scrollToTop() {
+        scroll.getViewport().setViewPosition(new java.awt.Point(0, 0));
+    }
+
+    /**
+     * 화면을 내려 "카테고리로 찾기"가 위로 사라지면, 맨 위에 카테고리 버튼 줄을 고정해 보여준다 (상품 화면 머리말처럼).
+     * 내용 위에 겹쳐 그려서 줄이 나타날 때 목록이 밀리지 않는다.
+     */
+    private JComponent withPinnedCategories(JScrollPane scroll) {
+        JPanel pinned = new JPanel(new WrapLayout(FlowLayout.LEFT, 10, 8));
+        pinned.setBackground(ShopUi.PAGE);
+        pinned.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.LINE));
+        for (Category category : Category.values()) {
+            JButton button = Theme.secondaryButton(category.label());
+            button.setBorder(BorderFactory.createEmptyBorder(12, 24, 12, 24)); // 48px 이상 (NFR-02)
+            button.addActionListener(e -> openCategory(category));
+            pinned.add(button);
+        }
+        pinned.setVisible(false);
+
+        JPanel screen = new JPanel(null) {
+            @Override
+            public void doLayout() {
+                scroll.setBounds(0, 0, getWidth(), getHeight());
+                JScrollBar bar = scroll.getVerticalScrollBar();
+                int width = getWidth() - (bar.isVisible() ? bar.getWidth() : 0); // 스크롤바는 가리지 않는다
+                pinned.setBounds(0, 0, width, pinned.getPreferredSize().height);
+            }
+
+            @Override
+            public boolean isOptimizedDrawingEnabled() {
+                return false; // 고정 줄이 목록 위에 겹친다
+            }
+        };
+        screen.setOpaque(false);
+        screen.add(pinned); // 먼저 넣은 것이 위에 그려진다
+        screen.add(scroll);
+        scroll.getViewport().addChangeListener(e -> {
+            int categoryBottom = body.getY() + categoryBar.getY() + categoryBar.getHeight();
+            boolean show = categoryBar.getHeight() > 0 && scroll.getViewport().getViewPosition().y > categoryBottom;
+            if (show != pinned.isVisible()) {
+                pinned.setVisible(show);
+                screen.doLayout();
+            }
+        });
+        return screen;
     }
 
     /** 맨 위: 인사말과 큰 검색창. */
@@ -113,8 +169,7 @@ public class HomePanel extends ScreenPanel {
         searchField.getAccessibleContext().setAccessibleName("상품 검색");
         searchField.setToolTipText("예: 캐시미어, 로퍼, 버킷햇, 브랜드 이름");
         searchField.addActionListener(e -> search());
-        JButton search = ShopUi.primaryButton("검색");
-        search.setPreferredSize(new Dimension(120, 56));
+        JButton search = ShopUi.primaryButton("검색"); // 높이는 검색창에 맞춰 늘어난다 (BorderLayout.EAST)
         search.addActionListener(e -> search());
         JPanel searchRow = new JPanel(new BorderLayout(10, 0));
         searchRow.setOpaque(false);

@@ -89,6 +89,11 @@ public class ProductDetailPanel extends ScreenPanel {
     private final JLabel sizeError = Theme.errorLabel();
     private final JLabel colorError = Theme.errorLabel();
     private final JLabel actionError = Theme.errorLabel();
+    /** 살 개수. 상품을 열 때마다 1로 돌린다. */
+    private int quantity = 1;
+    private final JLabel quantityLabel = Theme.label("1개", 1.1f, Font.BOLD, Theme.TEXT);
+    private final JLabel quantityError = Theme.errorLabel();
+    private final JLabel totalLabel = Theme.label(" ", 1.1f, Font.BOLD, Theme.TEXT);
 
     public ProductDetailPanel(AppContext context, MainFrame frame) {
         super(context, frame, "상품 상세", "UC-06 상품 상세 조회");
@@ -122,9 +127,13 @@ public class ProductDetailPanel extends ScreenPanel {
         scroll.getViewport().setViewPosition(new Point(0, 0));
     }
 
-    // TODO Product getter 가 생기면 context.product.detail(productId) 결과를 ProductDetail 로 바꿔 쓴다.
+    /** 없는 상품이면 null. */
     private ProductDetail fetchDetail(Long productId) {
-        return MockProducts.detail(productId);
+        try {
+            return ProductDetail.of(context.product.detail(productId));
+        } catch (AppException e) {
+            return null;
+        }
     }
 
     // TODO ReviewService 가 구현되면 context.product.reviews(productId) 로 바꾼다.
@@ -261,6 +270,11 @@ public class ProductDetailPanel extends ScreenPanel {
         Theme.addToCard(panel, chipRow(sizeChips), 4);
         Theme.addToCard(panel, labelWithError("색상", colorError), 20);
         Theme.addToCard(panel, chipRow(colorChips), 4);
+        quantity = 1;
+        quantityError.setText("");
+        updateQuantity();
+        Theme.addToCard(panel, labelWithError("수량", quantityError), 20);
+        Theme.addToCard(panel, quantityRow(), 4);
 
         JButton buyNow = Theme.primaryButton("바로 구매");
         buyNow.addActionListener(e -> buyNow());
@@ -276,8 +290,63 @@ public class ProductDetailPanel extends ScreenPanel {
         Theme.addToCard(panel, actionError, 32);
         Theme.addToCard(panel, buyNow, 8);
         Theme.addToCard(panel, secondary, 12);
-        Theme.addToCard(panel, Theme.label("수량은 장바구니에서 바꿀 수 있어요", 1f, Font.PLAIN, Theme.HINT), 12);
         return panel;
+    }
+
+    /** [−] 2개 [+]   합계 1,480,000원 (장바구니 화면의 수량 줄과 같은 모양) */
+    private JPanel quantityRow() {
+        JButton minus = Theme.secondaryButton("−");
+        JButton plus = Theme.secondaryButton("+");
+        for (JButton button : List.of(minus, plus)) {
+            button.setBorder(BorderFactory.createEmptyBorder(12, 18, 12, 18)); // 48px 이상 (NFR-02)
+        }
+        minus.getAccessibleContext().setAccessibleName("수량 줄이기");
+        plus.getAccessibleContext().setAccessibleName("수량 늘리기");
+        minus.addActionListener(e -> changeQuantity(-1));
+        plus.addActionListener(e -> changeQuantity(1));
+        quantityLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        quantityLabel.setPreferredSize(new Dimension(
+                quantityLabel.getFontMetrics(quantityLabel.getFont()).stringWidth("99개") + 24,
+                quantityLabel.getPreferredSize().height));
+
+        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        row.setOpaque(false);
+        row.add(minus);
+        row.add(quantityLabel);
+        row.add(plus);
+        row.add(javax.swing.Box.createHorizontalStrut(16));
+        row.add(totalLabel);
+        return row;
+    }
+
+    private void changeQuantity(int delta) {
+        quantityError.setText("");
+        int next = quantity + delta;
+        if (next < 1) {
+            return;
+        }
+        int max = maxQuantity();
+        if (next > max) {
+            quantityError.setText("최대 " + max + "개까지 살 수 있어요");
+            return;
+        }
+        quantity = next;
+        updateQuantity();
+    }
+
+    /** 고른 사이즈·색상에 맞는 옵션의 재고 중 가장 많은 수. 아직 안 골랐으면 그 조건은 빼고 본다. */
+    private int maxQuantity() {
+        String size = selected(sizeChips);
+        String color = selected(colorChips);
+        return Math.max(1, product.options().stream()
+                .filter(o -> (size == null || o.size().equals(size)) && (color == null || o.color().equals(color)))
+                .mapToInt(ProductOption::stock).max().orElse(1));
+    }
+
+    private void updateQuantity() {
+        quantityLabel.setText(quantity + "개");
+        quantityLabel.getAccessibleContext().setAccessibleName("수량 " + quantity + "개");
+        totalLabel.setText("합계 " + String.format("%,d원", product.price() * quantity));
     }
 
     /** "★ 4.7  리뷰 3개" — 리뷰 링크를 누르면 아래 리뷰로 내려간다. */
@@ -309,7 +378,7 @@ public class ProductDetailPanel extends ScreenPanel {
         List<String> sizes = product.options().stream().map(ProductOption::size).distinct().toList();
         List<String> colors = product.options().stream().map(ProductOption::color).distinct().toList();
         for (String size : sizes) {
-            JToggleButton chip = Theme.chip(size);
+            JToggleButton chip = Theme.outlineChip(size);
             chip.addActionListener(e -> {
                 sizeError.setText("");
                 updateColorChips();
@@ -318,7 +387,7 @@ public class ProductDetailPanel extends ScreenPanel {
             sizeChips.put(size, chip);
         }
         for (String color : colors) {
-            JToggleButton chip = Theme.chip(color);
+            JToggleButton chip = Theme.outlineChip(color, OptionColors.of(color));
             chip.addActionListener(e -> colorError.setText(""));
             colorGroup.add(chip);
             colorChips.put(color, chip);
@@ -383,7 +452,7 @@ public class ProductDetailPanel extends ScreenPanel {
         }
         try {
             // TODO CartService 가 구현되면 context.cart.add(line) 으로 바꾼다. 지금은 목업 장바구니에 담는다.
-            MockCart.add(context.member.currentMember().getId(), new OrderLine(product.id(), option.id(), 1));
+            MockCart.add(context.member.currentMember().getId(), new OrderLine(product.id(), option.id(), quantity));
         } catch (AppException e) {
             actionError.setText(e.getMessage()); // 예: 재고보다 많이 담음, 그사이 품절됨
             return;
@@ -406,7 +475,7 @@ public class ProductDetailPanel extends ScreenPanel {
         OrderSheet sheet;
         try {
             // TODO OrderController 가 구현되면 context.order.prepareDirect(line) 으로 바꾼다.
-            sheet = MockOrders.prepareDirect(new OrderLine(product.id(), option.id(), 1),
+            sheet = MockOrders.prepareDirect(new OrderLine(product.id(), option.id(), quantity),
                     context.member.currentMember().getDefaultAddress());
         } catch (AppException e) {
             actionError.setText(e.getMessage()); // 예: 그사이 품절됨
@@ -415,12 +484,18 @@ public class ProductDetailPanel extends ScreenPanel {
         frame.openOrder(sheet);
     }
 
-    /** [AI로 입어보기]: 사이즈·색상과 상관없이 이 상품으로 입어 본다 (UC-09). */
+    /** [AI로 입어보기]: 사이즈·색상과 상관없이 이 상품을 옷 입혀보기 화면의 캐릭터에 바로 입혀 본다 (UC-09). */
     private void tryOn() {
         actionError.setText("");
-        if (loggedIn()) {
-            frame.navigate(TryOnPanel.NAME); // TODO AI 입어보기 화면이 생기면 product.id() 를 넘긴다.
+        if (!loggedIn()) {
+            return;
         }
+        TryOnPanel tryOnPanel = ShopUi.findScreen(frame, TryOnPanel.class);
+        if (tryOnPanel == null || !tryOnPanel.wear(product.id())) {
+            actionError.setText("이 상품은 아직 입어 볼 수 없어요. 모자·상의·하의·주얼리·신발만 입어 볼 수 있어요.");
+            return;
+        }
+        frame.navigate(TryOnPanel.NAME);
     }
 
     /** UC-06 4a: 비회원이면 로그인 화면으로 보낸다. 로그인하면 이 화면으로 돌아온다. */

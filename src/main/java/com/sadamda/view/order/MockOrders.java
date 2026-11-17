@@ -154,11 +154,17 @@ public final class MockOrders {
             return;
         }
         LocalDateTime now = LocalDateTime.now();
-        add(memberId, List.of(new OrderLine(2L, 201L, 1)), "서울시 종로구 세종대로 1, 101동 101호",
+        add(memberId, List.of(demoLine("TOP-KR-02")), "서울시 종로구 세종대로 1, 101동 101호",
                 "카드 결제", OrderPanel.SHIPPING_FEE, null, OrderStatus.SHIPPING, now.minusDays(2), "6012-3456-7890");
-        add(memberId, List.of(new OrderLine(13L, 1301L, 1), new OrderLine(19L, 1902L, 1)),
+        add(memberId, List.of(demoLine("BOT-KR-03"), demoLine("BOT-KR-09")),
                 "서울시 종로구 세종대로 1, 101동 101호", "계좌이체", OrderPanel.SHIPPING_FEE, null,
                 OrderStatus.DELIVERED, now.minusDays(9), "6012-1111-2222");
+    }
+
+    /** 시연용 주문 한 줄: 데모 데이터 상품(코드로 찾음)의 첫 옵션 1개. */
+    private static OrderLine demoLine(String code) {
+        Long productId = MockProducts.idOf(code);
+        return new OrderLine(productId, MockProducts.detail(productId).options().get(0).id(), 1);
     }
 
     private static MockOrder add(Long memberId, List<OrderLine> lines, String address, String method, int shippingFee,

@@ -9,8 +9,10 @@ import com.sadamda.view.member.MyInfoPanel;
 import com.sadamda.view.member.SignUpPanel;
 import com.sadamda.view.order.OrderHistoryPanel;
 import com.sadamda.view.order.OrderPanel;
+import com.sadamda.view.product.MockProducts;
 import com.sadamda.view.product.ProductDetailPanel;
 import com.sadamda.view.product.ProductListPanel;
+import com.sadamda.view.product.ShopUi;
 import com.sadamda.view.recommend.HomePanel;
 import com.sadamda.view.review.ReviewWritePanel;
 import com.sadamda.view.recommend.LookbookPanel;
@@ -72,6 +74,7 @@ public class MainFrame extends JFrame {
     public MainFrame(AppContext context) {
         super("사담다");
         this.context = context;
+        MockProducts.connect(context.product); // 목업 장바구니·주문·리뷰도 같은 상품 데이터를 보게
         FontSize.load().apply();
         installInputMethodGuard();
         productDetail = new ProductDetailPanel(context, this);
@@ -201,6 +204,7 @@ public class MainFrame extends JFrame {
         left.add(screenMenu("홈", HomePanel.NAME));
         left.add(screenMenu("상품", ProductListPanel.NAME));
         left.add(screenMenu("룩북", LookbookPanel.NAME));
+        left.add(screenMenu("옷 입혀보기", TryOnPanel.NAME));
 
         JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
         right.setOpaque(false);
@@ -238,7 +242,13 @@ public class MainFrame extends JFrame {
         logo.setBorder(BorderFactory.createEmptyBorder(8, 4, 8, 4));
         logo.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         logo.setToolTipText("홈으로");
-        logo.addActionListener(e -> navigate(HomePanel.NAME));
+        logo.addActionListener(e -> {
+            navigate(HomePanel.NAME);
+            HomePanel home = ShopUi.findScreen(this, HomePanel.class);
+            if (home != null) {
+                home.scrollToTop(); // 이미 홈이면 맨 위로 올린다
+            }
+        });
         return logo;
     }
 

@@ -1,5 +1,7 @@
 package com.sadamda.view.tryon;
 
+import com.sadamda.view.Theme;
+
 import javax.swing.JPanel;
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -67,8 +69,8 @@ class CharacterView extends JPanel {
             }
         }
 
-        g.setColor(new Color(40, 40, 40));
-        g.setStroke(new BasicStroke(3));
+        g.setColor(Theme.LINE); // 다른 카드와 같은 연한 테두리
+        g.setStroke(new BasicStroke(1));
         g.draw(frame);
         g.dispose();
     }

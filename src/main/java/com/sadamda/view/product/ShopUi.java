@@ -6,6 +6,7 @@ import com.sadamda.common.LoginRequiredException;
 import com.sadamda.controller.AppContext;
 import com.sadamda.model.product.Product;
 import com.sadamda.view.MainFrame;
+import com.sadamda.view.Theme;
 import com.sadamda.view.member.LoginPanel;
 
 import javax.swing.BorderFactory;
@@ -15,16 +16,13 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.JToggleButton;
 import javax.swing.Scrollable;
 import javax.swing.SwingUtilities;
-import javax.swing.UIManager;
-import javax.swing.plaf.basic.BasicButtonUI;
-import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
-import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -42,21 +40,19 @@ import java.util.Locale;
 /**
  * 상품·룩북·홈 화면이 함께 쓰는 화면 도구: 색, 글씨, 버튼, 상품 열기, 오류 표시.
  *
- * 색 값은 공통 디자인(view/Theme, 강준서 feat/product-view 의 흑백 테마)과 같은 값으로 맞췄다.
- * 브랜치를 합친 뒤 아래 색 상수를 Theme 상수로 바꿔도 화면은 그대로다.
- * 글씨 크기 조절(UC-15) 때 updateComponentTreeUI 가 UI 를 다시 깔기 때문에, 글꼴은 updateUI 에서 정한다.
+ * 색·글씨·버튼은 공통 디자인(view/Theme)을 그대로 쓴다. 다른 화면과 모양이 같아지도록 여기서 따로 정하지 않는다.
  */
 public final class ShopUi {
-    public static final Color PAGE = new Color(0xF2F2F2);      // 화면 배경
-    public static final Color CARD = Color.WHITE;
-    public static final Color TEXT = new Color(0x1F1F1F);      // 흰 배경 대비 16.6:1 (NFR-01)
-    public static final Color HINT = new Color(0x666666);      // 흰 배경 대비 5.7:1
-    public static final Color LINE = new Color(0xD4D4D4);
-    public static final Color PRIMARY = new Color(0x262626);   // 흰 글씨 대비 15.1:1
-    public static final Color PRIMARY_SOFT = new Color(0xE6E6E6);
-    public static final Color SECONDARY = new Color(0xE6E6E6);
-    public static final Color ERROR = new Color(0xC62828);
-    public static final Color TREND = new Color(0x262626);     // "유행" 표시. 흑백 테마라 검정
+    public static final Color PAGE = Theme.PAGE;
+    public static final Color CARD = Theme.CARD;
+    public static final Color TEXT = Theme.TEXT;
+    public static final Color HINT = Theme.HINT;
+    public static final Color LINE = Theme.LINE;
+    public static final Color PRIMARY = Theme.PRIMARY;
+    public static final Color PRIMARY_SOFT = Theme.SECONDARY;
+    public static final Color SECONDARY = Theme.SECONDARY;
+    public static final Color ERROR = Theme.ERROR;
+    public static final Color TREND = Theme.PRIMARY;           // "유행" 표시. 흑백 테마라 검정
 
     /** 버튼·누르는 영역 최소 높이 (NFR-02). */
     public static final int MIN_TOUCH = 48;
@@ -70,20 +66,12 @@ public final class ShopUi {
 
     /** 기본 글씨 크기의 scale 배 크기 라벨. 글씨 크기를 바꾸면 함께 바뀐다. */
     public static JLabel label(String text, float scale, int style, Color color) {
-        JLabel label = new JLabel(text) {
-            @Override
-            public void updateUI() {
-                super.updateUI();
-                Font base = UIManager.getFont("Label.font");
-                setFont(base.deriveFont(style, base.getSize2D() * scale));
-            }
-        };
-        label.setForeground(color);
-        return label;
+        return Theme.label(text, scale, style, color);
     }
 
+    /** 화면 제목. 다른 화면(상품·장바구니)의 제목과 같은 크기. */
     public static JLabel title(String text) {
-        return label(text, 1.45f, Font.BOLD, TEXT);
+        return label(text, 1.6f, Font.BOLD, TEXT);
     }
 
     public static JLabel hint(String text) {
@@ -105,83 +93,31 @@ public final class ShopUi {
 
     // ---------- 버튼 ----------
 
-    /** 파란 바탕 흰 글씨 버튼 (가장 중요한 동작). */
+    /** 주 버튼: 검정 바탕에 흰 글씨 (Theme.primaryButton). */
     public static JButton primaryButton(String text) {
-        return new RoundButton(text, PRIMARY, Color.WHITE, PRIMARY);
+        return Theme.primaryButton(text);
     }
 
-    /** 흰 바탕 파란 테두리 버튼. */
+    /** 보조 버튼: 연한 회색 바탕에 진한 글씨 (Theme.secondaryButton). */
     public static JButton secondaryButton(String text) {
-        return new RoundButton(text, CARD, PRIMARY, PRIMARY);
+        return Theme.secondaryButton(text);
     }
 
-    /** 카테고리처럼 여러 개 중 하나를 고르는 버튼. 고른 상태는 setSelected 로 바꾼다. */
-    public static JButton choiceButton(String text) {
-        return new RoundButton(text, CARD, TEXT, LINE);
-    }
-
-    /** 둥근 모서리 버튼. 높이 48px 이상, 글씨는 본문 +1px, 키보드 포커스가 오면 굵은 테두리. */
-    private static final class RoundButton extends JButton {
-        private final Color background;
-        private final Color foreground;
-        private final Color border;
-
-        RoundButton(String text, Color background, Color foreground, Color border) {
-            super(text);
-            this.background = background;
-            this.foreground = foreground;
-            this.border = border;
-            setContentAreaFilled(false);
-            setFocusPainted(false);
-            setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
-            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-            setForeground(foreground);
-        }
-
-        @Override
-        public void updateUI() {
-            setUI(new BasicButtonUI());
-            Font base = UIManager.getFont("Button.font");
-            setFont(base.deriveFont(Font.BOLD, base.getSize2D() + 1));
-        }
-
-        @Override
-        public Dimension getPreferredSize() {
-            Dimension size = super.getPreferredSize();
-            return new Dimension(Math.max(size.width, MIN_TOUCH), Math.max(size.height, MIN_TOUCH));
-        }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            RoundRectangle2D shape = new RoundRectangle2D.Float(1, 1, getWidth() - 3, getHeight() - 3, 14, 14);
-            boolean chosen = isSelected();
-            Color fill = !isEnabled() ? new Color(0xF3F4F6)
-                    : chosen ? PRIMARY
-                    : getModel().isRollover() && background == CARD ? PRIMARY_SOFT
-                    : background;
-            g2.setColor(fill);
-            g2.fill(shape);
-            g2.setColor(!isEnabled() ? LINE : chosen ? PRIMARY : border);
-            g2.setStroke(new BasicStroke(isFocusOwner() ? 3f : 1.5f));
-            g2.draw(shape);
-            g2.dispose();
-            setForeground(!isEnabled() ? HINT : chosen ? Color.WHITE : foreground);
-            super.paintComponent(g);
-        }
+    /** 카테고리처럼 여러 개 중 하나를 고르는 버튼 (Theme.chip). 고른 상태는 setSelected 로 바꾼다. */
+    public static JToggleButton choiceButton(String text) {
+        return Theme.chip(text);
     }
 
     // ---------- 배치 ----------
 
-    /** 흰 바탕 둥근 카드. */
+    /** 흰 바탕 둥근 카드. 모서리는 Theme.card 와 같다. */
     public static JPanel card(LayoutManager layout) {
         JPanel card = new JPanel(layout) {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                RoundRectangle2D shape = new RoundRectangle2D.Float(0, 0, getWidth() - 1, getHeight() - 1, 20, 20);
+                RoundRectangle2D shape = new RoundRectangle2D.Float(0, 0, getWidth() - 1, getHeight() - 1, 24, 24);
                 g2.setColor(CARD);
                 g2.fill(shape);
                 g2.setColor(LINE);
@@ -195,11 +131,20 @@ public final class ShopUi {
 
     /** 왼쪽에 제목·설명, 오른쪽에 버튼(없으면 null)을 둔 구역 머리줄. */
     public static JPanel sectionHeader(String title, String description, JComponent action) {
+        return header(label(title, 1.25f, Font.BOLD, TEXT), description, action);
+    }
+
+    /** 화면 맨 위 머리줄. sectionHeader 와 같고 제목만 화면 제목 크기다. */
+    public static JPanel pageHeader(String title, String description, JComponent action) {
+        return header(title(title), description, action);
+    }
+
+    private static JPanel header(JLabel titleLabel, String description, JComponent action) {
         JPanel header = new JPanel(new BorderLayout(16, 0));
         header.setOpaque(false);
         JPanel texts = new JPanel(new GridLayout(0, 1, 0, 2));
         texts.setOpaque(false);
-        texts.add(label(title, 1.25f, Font.BOLD, TEXT));
+        texts.add(titleLabel);
         if (description != null) {
             texts.add(hint(description));
         }

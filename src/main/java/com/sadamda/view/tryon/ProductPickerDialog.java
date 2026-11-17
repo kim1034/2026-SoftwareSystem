@@ -2,6 +2,7 @@ package com.sadamda.view.tryon;
 
 import com.sadamda.model.product.Product;
 import com.sadamda.model.tryon.DressUpSlot;
+import com.sadamda.view.Theme;
 
 import javax.swing.BorderFactory;
 import javax.swing.DefaultListCellRenderer;
@@ -19,8 +20,8 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import java.awt.BorderLayout;
 import java.awt.Component;
-import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.Font;
 import java.awt.Window;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -37,8 +38,8 @@ class ProductPickerDialog extends JDialog {
     private final List<Product> products;
     private final DefaultListModel<Product> model = new DefaultListModel<>();
     private final JList<Product> list = new JList<>(model);
-    private final JTextField keyword = new JTextField(14);
-    private final JComboBox<String> kind = new JComboBox<>();
+    private final JTextField keyword = Theme.textField("상품 이름·브랜드");
+    private final JComboBox<String> kind = Theme.comboBox();
     private Product chosen;
     private boolean takeOff;
 
@@ -57,12 +58,14 @@ class ProductPickerDialog extends JDialog {
             @Override public void changedUpdate(DocumentEvent e) { refresh(); }
         });
 
+        keyword.setColumns(14);
         JPanel filters = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 8));
+        filters.setOpaque(false);
         if (kinds.size() > 2) {
-            filters.add(new JLabel("종류"));
+            filters.add(Theme.label("종류", 1f, Font.BOLD, Theme.TEXT));
             filters.add(kind);
         }
-        filters.add(new JLabel("찾기"));
+        filters.add(Theme.label("찾기", 1f, Font.BOLD, Theme.TEXT));
         filters.add(keyword);
 
         list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
@@ -77,7 +80,7 @@ class ProductPickerDialog extends JDialog {
             }
         });
 
-        JButton wear = button("이 옷 입히기");
+        JButton wear = compact(Theme.primaryButton("이 옷 입히기"));
         wear.addActionListener(e -> choose());
         JButton off = button("벗기");
         off.setEnabled(wearing);
@@ -88,11 +91,13 @@ class ProductPickerDialog extends JDialog {
         JButton close = button("닫기");
         close.addActionListener(e -> dispose());
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 8));
+        buttons.setOpaque(false);
         buttons.add(off);
         buttons.add(close);
         buttons.add(wear);
 
         JPanel content = new JPanel(new BorderLayout(0, 8));
+        content.setBackground(Theme.CARD);
         content.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
         content.add(filters, BorderLayout.NORTH);
         content.add(new JScrollPane(list), BorderLayout.CENTER);
@@ -141,9 +146,12 @@ class ProductPickerDialog extends JDialog {
     }
 
     private static JButton button(String text) {
-        JButton button = new JButton(text);
-        Dimension size = button.getPreferredSize();
-        button.setPreferredSize(new Dimension(Math.max(size.width, 96), Math.max(size.height, 48))); // NFR-02
+        return compact(Theme.secondaryButton(text));
+    }
+
+    /** 대화상자 폭에 맞게 Theme 버튼의 좌우 여백을 좁힌다. 높이는 48px 그대로 (NFR-02). */
+    private static JButton compact(JButton button) {
+        button.setBorder(BorderFactory.createEmptyBorder(14, 24, 14, 24));
         return button;
     }
 

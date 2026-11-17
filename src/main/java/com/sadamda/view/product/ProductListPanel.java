@@ -4,6 +4,8 @@ import com.sadamda.controller.AppContext;
 import com.sadamda.model.member.BodyProfile;
 import com.sadamda.model.member.Member;
 import com.sadamda.model.product.Category;
+import com.sadamda.model.product.Product;
+import com.sadamda.model.product.ProductService;
 import com.sadamda.model.product.SearchFilter;
 import com.sadamda.view.MainFrame;
 import com.sadamda.view.ScreenPanel;
@@ -242,6 +244,20 @@ public class ProductListPanel extends ScreenPanel {
         return filterArea;
     }
 
+    /** 홈 화면의 카테고리 버튼에서 부른다. null([전체 상품 보기])이면 이 화면에 [전체]가 없어 상의를 보여준다. */
+    public void openCategory(Category selected) {
+        showCategory(selected == null ? Category.TOP : selected);
+    }
+
+    /** 홈 화면의 검색창에서 부른다. 처음 여는 경우 componentShown 이 검색 결과를 덮지 않게 목록을 먼저 채운다. */
+    public void openSearch(String text) {
+        if (category == null) {
+            showCategory(Category.TOP);
+        }
+        searchField.setText(text);
+        search(text);
+    }
+
     /** UC-04 1~2단계: 카테고리의 첫 페이지를 보여준다. 없으면 인기 상품을 대신 보여준다 (2a). */
     private void showCategory(Category selected) {
         category = selected;
@@ -255,7 +271,7 @@ public class ProductListPanel extends ScreenPanel {
             showCards(fetchPopular(), false);
         } else {
             hideInfo();
-            showCards(items, items.size() == MockProducts.PAGE_SIZE);
+            showCards(items, items.size() == ProductService.PAGE_SIZE);
         }
     }
 
@@ -265,7 +281,7 @@ public class ProductListPanel extends ScreenPanel {
         List<ProductItem> items = fetch(category, page);
         int firstNew = grid.getComponentCount();
         addCards(items);
-        moreRow.setVisible(items.size() == MockProducts.PAGE_SIZE);
+        moreRow.setVisible(items.size() == ProductService.PAGE_SIZE);
         refresh();
         if (firstNew < grid.getComponentCount()) {
             grid.getComponent(firstNew).requestFocusInWindow(); // 키보드 사용자가 새 상품부터 이어 볼 수 있게
@@ -373,19 +389,20 @@ public class ProductListPanel extends ScreenPanel {
         Theme.setInvalid(searchField, false);
     }
 
-    // TODO Product getter 가 생기면 context.product.listByCategory(category, page) 결과를 ProductItem 으로 바꿔 쓴다.
     private List<ProductItem> fetch(Category category, int page) {
-        return MockProducts.listByCategory(category, page);
+        return items(context.product.listByCategory(category, page));
     }
 
-    // TODO 위와 같이 context.product.popular() 로 바꾼다.
     private List<ProductItem> fetchPopular() {
-        return MockProducts.popular();
+        return items(context.product.popular());
     }
 
-    // TODO 위와 같이 context.product.search(filter) 로 바꾼다.
     private List<ProductItem> fetchSearch(SearchFilter filter) {
-        return MockProducts.search(filter);
+        return items(context.product.search(filter));
+    }
+
+    private static List<ProductItem> items(List<Product> products) {
+        return products.stream().map(ProductItem::of).toList();
     }
 
     private void showInfo(String title, boolean clearLink, String hintText, boolean showFilters,

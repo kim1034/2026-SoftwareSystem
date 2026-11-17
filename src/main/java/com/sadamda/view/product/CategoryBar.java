@@ -3,8 +3,9 @@ package com.sadamda.view.product;
 import com.sadamda.controller.AppContext;
 import com.sadamda.model.product.Category;
 
-import javax.swing.JButton;
+import javax.swing.BorderFactory;
 import javax.swing.JPanel;
+import javax.swing.JToggleButton;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -15,9 +16,16 @@ import java.util.function.Consumer;
  */
 public class CategoryBar extends JPanel {
     private final AppContext context;
-    private final JButton allButton;
-    private final Map<Category, JButton> buttons = new EnumMap<>(Category.class);
+    private final JToggleButton allButton;
+    private final Map<Category, JToggleButton> buttons = new EnumMap<>(Category.class);
     private final boolean showAll;
+
+    /** 카테고리 칸이 좁아서(최소 130px) 칩의 좌우 여백을 줄여 "주얼리 12"까지 잘리지 않게 한다. */
+    private static JToggleButton chip(String text) {
+        JToggleButton chip = ShopUi.choiceButton(text);
+        chip.setBorder(BorderFactory.createEmptyBorder(14, 8, 14, 8));
+        return chip;
+    }
 
     /** showAll: [전체] 버튼을 둘지. 홈 화면처럼 "카테고리로 찾기"만 필요한 곳은 false. */
     public CategoryBar(AppContext context, boolean showAll, Consumer<Category> onSelect) {
@@ -26,7 +34,7 @@ public class CategoryBar extends JPanel {
         this.showAll = showAll;
         setOpaque(false);
 
-        allButton = ShopUi.choiceButton("전체");
+        allButton = chip("전체");
         allButton.addActionListener(e -> {
             setSelected(null);
             onSelect.accept(null);
@@ -35,7 +43,7 @@ public class CategoryBar extends JPanel {
             add(allButton);
         }
         for (Category category : Category.values()) {
-            JButton button = ShopUi.choiceButton(category.label());
+            JToggleButton button = chip(category.label());
             button.addActionListener(e -> {
                 setSelected(category);
                 onSelect.accept(category);
@@ -48,7 +56,7 @@ public class CategoryBar extends JPanel {
 
     /** 버튼의 상품 수를 다시 센다 (관리자가 상품을 바꾼 뒤 등). */
     public void refreshCounts() {
-        for (Map.Entry<Category, JButton> entry : buttons.entrySet()) {
+        for (Map.Entry<Category, JToggleButton> entry : buttons.entrySet()) {
             int count = context.product.countByCategory(entry.getKey());
             entry.getValue().setText(entry.getKey().label() + " " + count);
             entry.getValue().getAccessibleContext().setAccessibleName(

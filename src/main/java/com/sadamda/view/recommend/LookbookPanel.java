@@ -7,6 +7,7 @@ import com.sadamda.model.product.ProductOption;
 import com.sadamda.model.recommend.Lookbook;
 import com.sadamda.view.MainFrame;
 import com.sadamda.view.ScreenPanel;
+import com.sadamda.view.Theme;
 import com.sadamda.view.product.ProductThumbnails;
 import com.sadamda.view.product.ShopUi;
 
@@ -50,8 +51,8 @@ public class LookbookPanel extends ScreenPanel {
     private final CardLayout views = new CardLayout();
     private final JPanel viewHolder = new JPanel(views);
 
-    private final JComboBox<String> occasionBox = new JComboBox<>();
-    private final JComboBox<String> seasonBox = new JComboBox<>();
+    private final JComboBox<String> occasionBox = Theme.comboBox();
+    private final JComboBox<String> seasonBox = Theme.comboBox();
     private final JButton createButton = ShopUi.primaryButton("새 코디 올리기");
     private final JLabel listSummary = ShopUi.label("", 1.1f, Font.BOLD, ShopUi.TEXT);
     private final JPanel listGrid = new JPanel(new GridLayout(0, 3, 16, 16));
@@ -98,7 +99,7 @@ public class LookbookPanel extends ScreenPanel {
         body.setBackground(ShopUi.PAGE);
         body.setBorder(BorderFactory.createEmptyBorder(8, 8, 24, 8));
 
-        addBlock(body, ShopUi.sectionHeader("룩북 코디", "상황과 계절에 맞춘 코디를 골라 보세요. 코디를 누르면 구성 상품을 볼 수 있어요.",
+        addBlock(body, ShopUi.pageHeader("룩북 코디", "상황과 계절에 맞춘 코디를 골라 보세요. 코디를 누르면 구성 상품을 볼 수 있어요.",
                 createButton), 0);
         createButton.addActionListener(e -> openEditor(null));
 
@@ -220,7 +221,7 @@ public class LookbookPanel extends ScreenPanel {
         }
         detail.removeAll();
 
-        JButton back = ShopUi.secondaryButton("← 코디 목록으로");
+        JButton back = Theme.linkButton("← 코디 목록으로"); // 상품 상세의 [← 상품 목록으로]와 같은 모양
         back.addActionListener(e -> backToList());
         JPanel top = new JPanel(new BorderLayout());
         top.setOpaque(false);

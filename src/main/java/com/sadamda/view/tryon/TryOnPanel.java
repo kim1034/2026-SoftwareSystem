@@ -14,6 +14,8 @@ import com.sadamda.model.tryon.DressUpSlot;
 import com.sadamda.model.tryon.Outfit;
 import com.sadamda.view.MainFrame;
 import com.sadamda.view.ScreenPanel;
+import com.sadamda.view.Theme;
+import com.sadamda.view.WrapLayout;
 
 import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
@@ -32,11 +34,18 @@ import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
+import javax.swing.plaf.basic.BasicButtonUI;
+import java.awt.BasicStroke;
 import java.awt.BorderLayout;
+import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.GridLayout;
-import java.awt.Insets;
+import java.awt.RenderingHints;
+import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -65,12 +74,12 @@ public class TryOnPanel extends ScreenPanel {
     private final Outfit outfit = new Outfit();
     private final Map<DressUpSlot, JButton> slotButtons = new EnumMap<>(DressUpSlot.class);
     private final CharacterView characterView = new CharacterView();
-    private final JLabel serviceLabel = new JLabel(" ", SwingConstants.RIGHT);
+    private final JLabel serviceLabel = Theme.label(" ", 1f, Font.PLAIN, Theme.HINT);
     private final JButton specButton = bigButton("");
-    private final JLabel status = new JLabel(" ");
-    private final JLabel total = new JLabel(" ", SwingConstants.RIGHT);
+    private final JLabel status = Theme.label(" ", 1f, Font.PLAIN, Theme.TEXT);
+    private final JLabel total = Theme.label(" ", 1.1f, Font.BOLD, Theme.TEXT);
     private final JProgressBar progress = new JProgressBar();
-    private final JButton generateButton = bigButton("입혀보기");
+    private final JButton generateButton = compact(Theme.primaryButton("입혀보기"));
     private final JButton retryButton = bigButton("다시 시도");
     private final JButton undressButton = bigButton("모두 벗기");
     private final JButton lockerButton = bigButton("보관함에 저장");
@@ -87,6 +96,8 @@ public class TryOnPanel extends ScreenPanel {
     public TryOnPanel(AppContext context, MainFrame frame) {
         super(context, frame, "AI 입어보기", "UC-09 AI 착용 이미지 생성");
         removeAll(); // 공통 부모가 넣어 둔 "TODO" 안내를 걷어내고 실제 화면을 넣는다
+        setBackground(Theme.PAGE);
+        setBorder(BorderFactory.createEmptyBorder(24, 48, 24, 48));
         spec = context.dressUp.initialSpec();
 
         add(header(), BorderLayout.NORTH);
@@ -104,19 +115,27 @@ public class TryOnPanel extends ScreenPanel {
     }
 
     private JPanel header() {
+        // 상품 화면 머리말과 같은 모양: 큰 제목 + 아래 구분선
         JPanel header = new JPanel(new BorderLayout());
-        header.add(new JLabel("<html><b>옷 입혀보기</b></html>"), BorderLayout.WEST);
+        header.setOpaque(false);
+        header.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.LINE),
+                BorderFactory.createEmptyBorder(0, 0, 16, 0)));
+        header.add(Theme.label("옷 입혀보기", 1.6f, Font.BOLD, Theme.TEXT), BorderLayout.WEST);
         header.add(serviceLabel, BorderLayout.EAST);
         return header;
     }
 
     /** 왼쪽: 그림체 고르기 + 캐릭터 + 신체 스펙. */
     private JPanel characterColumn() {
-        JPanel styles = new JPanel(new GridLayout(1, 0, 8, 0));
+        // 2×2: "애니메이션 캐릭터"처럼 긴 이름도 글씨를 키운 상태에서 잘리지 않게
+        JPanel styles = new JPanel(new GridLayout(0, 2, 8, 8));
+        styles.setOpaque(false);
         ButtonGroup group = new ButtonGroup();
         for (CharacterStyle option : CharacterStyle.values()) {
-            JToggleButton button = new JToggleButton(option.label(), option == style);
-            button.setPreferredSize(new Dimension(120, 52));
+            JToggleButton button = Theme.chip(option.label());
+            button.setBorder(BorderFactory.createEmptyBorder(14, 16, 14, 16));
+            button.setSelected(option == style);
             button.addActionListener(e -> {
                 if (style != option && !working) {
                     style = option;
@@ -130,6 +149,7 @@ public class TryOnPanel extends ScreenPanel {
         specButton.addActionListener(e -> editSpec());
 
         JPanel column = new JPanel(new BorderLayout(0, 12));
+        column.setOpaque(false);
         column.add(styles, BorderLayout.NORTH);
         column.add(characterView, BorderLayout.CENTER);
         column.add(specButton, BorderLayout.SOUTH);
@@ -139,9 +159,10 @@ public class TryOnPanel extends ScreenPanel {
     /** 오른쪽: 모자·상의·하의·주얼리·신발 칸. */
     private JPanel slotColumn() {
         JPanel column = new JPanel(new GridLayout(0, 1, 0, 12));
+        column.setOpaque(false);
         column.setBorder(BorderFactory.createEmptyBorder(0, 24, 0, 0));
         for (DressUpSlot slot : DressUpSlot.values()) {
-            JButton button = new JButton();
+            JButton button = slotButton();
             button.setHorizontalAlignment(SwingConstants.LEFT);
             button.setIconTextGap(12);
             button.setPreferredSize(new Dimension(380, 104));
@@ -173,11 +194,14 @@ public class TryOnPanel extends ScreenPanel {
         settingsButton.addActionListener(e -> editSettings());
 
         JPanel statusRow = new JPanel(new BorderLayout(12, 0));
+        statusRow.setOpaque(false);
         statusRow.add(status, BorderLayout.CENTER);
         statusRow.add(progress, BorderLayout.WEST);
         statusRow.add(total, BorderLayout.EAST);
 
-        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        // 버튼이 많아 창이 좁거나 글씨가 크면 다음 줄로 넘긴다
+        JPanel buttons = new JPanel(new WrapLayout(FlowLayout.LEFT, 12, 12));
+        buttons.setOpaque(false);
         buttons.add(generateButton);
         buttons.add(retryButton);
         buttons.add(undressButton);
@@ -188,6 +212,7 @@ public class TryOnPanel extends ScreenPanel {
         buttons.add(settingsButton);
 
         JPanel actions = new JPanel(new BorderLayout(0, 8));
+        actions.setOpaque(false);
         actions.add(statusRow, BorderLayout.NORTH);
         actions.add(buttons, BorderLayout.CENTER);
         return actions;
@@ -230,6 +255,35 @@ public class TryOnPanel extends ScreenPanel {
                 : "옷을 바꿨습니다. [입혀보기]를 누르면 캐릭터가 입습니다.");
     }
 
+    /**
+     * 상품 상세의 [AI로 입어보기]에서 부른다. 이 상품을 맞는 칸에 넣고, AI 가 연결되어 있으면 바로 입혀 본다.
+     * 맞는 칸이 없는 카테고리(원피스·가방 등)면 아무것도 하지 않고 false.
+     */
+    public boolean wear(Long productId) {
+        Product product = context.product.detail(productId);
+        DressUpSlot slot = null;
+        for (DressUpSlot each : DressUpSlot.values()) {
+            if (each.category() == product.getCategory()) {
+                slot = each;
+            }
+        }
+        if (slot == null) {
+            return false;
+        }
+        if (working) {
+            return true; // 그리는 중에는 고른 옷을 바꾸지 않는다
+        }
+        outfit.put(slot, product);
+        refreshSlots();
+        if (context.dressUp.dressUpConnected()) {
+            generate();
+        } else {
+            setStatus(slot.label() + " 칸에 넣었습니다. 그림 만드는 곳(AI)에 연결되지 않아 입혀 볼 수 없습니다. "
+                    + "[AI 연결 설정]에서 이용 열쇠를 넣어 주세요.");
+        }
+        return true;
+    }
+
     private void refreshSlots() {
         for (DressUpSlot slot : DressUpSlot.values()) {
             JButton button = slotButtons.get(slot);
@@ -253,19 +307,19 @@ public class TryOnPanel extends ScreenPanel {
                 CharacterSpec.MIN_HEIGHT, CharacterSpec.MAX_HEIGHT, 1));
         JSpinner weight = new JSpinner(new SpinnerNumberModel(spec.weightKg(),
                 CharacterSpec.MIN_WEIGHT, CharacterSpec.MAX_WEIGHT, 1));
-        JComboBox<String> bodyType = new JComboBox<>(CharacterSpec.BODY_TYPES.toArray(new String[0]));
+        JComboBox<String> bodyType = Theme.comboBox(CharacterSpec.BODY_TYPES.toArray(new String[0]));
         bodyType.setSelectedItem(spec.bodyType());
-        JComboBox<String> ageGroup = new JComboBox<>(CharacterSpec.AGE_GROUPS.toArray(new String[0]));
+        JComboBox<String> ageGroup = Theme.comboBox(CharacterSpec.AGE_GROUPS.toArray(new String[0]));
         ageGroup.setSelectedItem(spec.ageGroup());
 
         JPanel form = new JPanel(new GridLayout(0, 2, 12, 12));
-        form.add(new JLabel("키 (cm)"));
+        form.add(Theme.label("키 (cm)", 1f, Font.BOLD, Theme.TEXT));
         form.add(height);
-        form.add(new JLabel("몸무게 (kg)"));
+        form.add(Theme.label("몸무게 (kg)", 1f, Font.BOLD, Theme.TEXT));
         form.add(weight);
-        form.add(new JLabel("체형"));
+        form.add(Theme.label("체형", 1f, Font.BOLD, Theme.TEXT));
         form.add(bodyType);
-        form.add(new JLabel("연령대"));
+        form.add(Theme.label("연령대", 1f, Font.BOLD, Theme.TEXT));
         form.add(ageGroup);
 
         Object[] choices = {"확인", "취소"};
@@ -290,20 +344,26 @@ public class TryOnPanel extends ScreenPanel {
     /** [AI 연결 설정]: 이용 열쇠·서비스 주소·모델을 이 PC 에만 저장한다. */
     private void editSettings() {
         DressUpSettings saved = context.dressUp.dressUpSettings();
-        JPasswordField key = new JPasswordField(saved.apiKey() == null ? "" : saved.apiKey(), 28);
-        JTextField baseUrl = new JTextField(saved.baseUrl() == null ? "" : saved.baseUrl(), 28);
-        JTextField model = new JTextField(saved.model() == null ? "" : saved.model(), 28);
+        JPasswordField key = Theme.passwordField("");
+        key.setText(saved.apiKey() == null ? "" : saved.apiKey());
+        JTextField baseUrl = Theme.textField("비우면 OpenAI 공식 주소");
+        baseUrl.setText(saved.baseUrl() == null ? "" : saved.baseUrl());
+        JTextField model = Theme.textField("비우면 기본 모델");
+        model.setText(saved.model() == null ? "" : saved.model());
+        for (JTextField field : List.of(key, baseUrl, model)) {
+            field.setColumns(28);
+        }
 
         JPanel form = new JPanel(new GridLayout(0, 1, 0, 6));
-        form.add(new JLabel("이용 열쇠 (API 키)"));
+        form.add(Theme.label("이용 열쇠 (API 키)", 1f, Font.BOLD, Theme.TEXT));
         form.add(key);
-        form.add(new JLabel("서비스 주소 (중계 서비스를 쓸 때만. 비우면 OpenAI 공식 주소)"));
+        form.add(Theme.label("서비스 주소 (중계 서비스를 쓸 때만)", 1f, Font.BOLD, Theme.TEXT));
         form.add(baseUrl);
-        form.add(new JLabel("모델 이름 (비우면 기본 모델)"));
+        form.add(Theme.label("모델 이름", 1f, Font.BOLD, Theme.TEXT));
         form.add(model);
-        form.add(new JLabel(context.dressUp.dressUpKeyFromEnvironment()
+        form.add(Theme.label(context.dressUp.dressUpKeyFromEnvironment()
                 ? "지금은 환경 변수에 넣은 열쇠가 먼저 쓰입니다."
-                : "이 PC 에만 저장되고, 다른 사람에게 보내는 파일에는 들어가지 않습니다."));
+                : "이 PC 에만 저장되고, 다른 사람에게 보내는 파일에는 들어가지 않습니다.", 1f, Font.PLAIN, Theme.HINT));
 
         Object[] choices = {"저장", "취소"};
         int answer = JOptionPane.showOptionDialog(this, form, "AI 연결 설정",
@@ -476,9 +536,42 @@ public class TryOnPanel extends ScreenPanel {
     }
 
     private static JButton bigButton(String text) {
-        JButton button = new JButton(text);
-        button.setMinimumSize(new Dimension(48, 48)); // NFR-02
-        button.setMargin(new Insets(10, 14, 10, 14));
+        return compact(Theme.secondaryButton(text));
+    }
+
+    /** Theme 버튼은 좌우 여백이 넓어서, 버튼이 많은 이 화면에서는 장바구니 화면처럼 좁힌다. 높이는 48px 그대로 (NFR-02). */
+    private static JButton compact(JButton button) {
+        button.setBorder(BorderFactory.createEmptyBorder(14, 24, 14, 24));
+        return button;
+    }
+
+    /** 옷 칸: 흰 바탕 둥근 카드 모양 버튼. 키보드 포커스가 오면 검정 테두리. */
+    private static JButton slotButton() {
+        JButton button = new JButton() {
+            @Override
+            public void updateUI() {
+                setUI(new BasicButtonUI());
+            }
+
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                RoundRectangle2D shape = new RoundRectangle2D.Float(1, 1, getWidth() - 2, getHeight() - 2, 24, 24);
+                g2.setColor(getModel().isPressed() ? Theme.SECONDARY : Theme.CARD);
+                g2.fill(shape);
+                g2.setColor(isFocusOwner() ? Theme.PRIMARY : Theme.LINE);
+                g2.setStroke(new BasicStroke(isFocusOwner() ? 2f : 1f));
+                g2.draw(shape);
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        button.setForeground(Theme.TEXT);
+        button.setContentAreaFilled(false);
+        button.setFocusPainted(false);
+        button.setBorder(BorderFactory.createEmptyBorder(10, 16, 10, 16));
+        button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         return button;
     }
 }

@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 데모용 상품 데이터(resources/data/products.tsv, 300개)를 읽어 Product 로 만든다.
+ * 데모용 상품 데이터(resources/data/products.tsv, 370개)를 읽어 Product 로 만든다.
  * DB 스키마가 정해지면 이 클래스 대신 DB 조회로 바꾼다.
  *
  * 데모 데이터에 없는 값은 아래처럼 임시로 채운다.

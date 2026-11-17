@@ -2,6 +2,7 @@ package com.sadamda.view.tryon;
 
 import com.sadamda.controller.TryOnController;
 import com.sadamda.model.tryon.TryOnImage;
+import com.sadamda.view.Theme;
 
 import javax.imageio.ImageIO;
 import javax.swing.BorderFactory;
@@ -22,8 +23,8 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.Font;
 import java.awt.Graphics2D;
-import java.awt.Insets;
 import java.awt.RenderingHints;
 import java.awt.Window;
 import java.awt.image.BufferedImage;
@@ -46,7 +47,7 @@ class LockerDialog extends JDialog {
     private final DefaultListModel<TryOnImage> model = new DefaultListModel<>();
     private final JList<TryOnImage> list = new JList<>(model);
     private final Map<Long, ImageIcon> icons = new HashMap<>();
-    private final JLabel summary = new JLabel(" ");
+    private final JLabel summary = Theme.label(" ", 1f, Font.PLAIN, Theme.TEXT);
     private final JButton deleteButton = bigButton("지우기");
 
     LockerDialog(Window owner, TryOnController tryOn) {
@@ -63,14 +64,17 @@ class LockerDialog extends JDialog {
         closeButton.addActionListener(e -> dispose());
 
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        buttons.setOpaque(false);
         buttons.add(deleteButton);
         buttons.add(closeButton);
 
         JPanel bottom = new JPanel(new BorderLayout(12, 0));
+        bottom.setOpaque(false);
         bottom.add(summary, BorderLayout.CENTER);
         bottom.add(buttons, BorderLayout.EAST);
 
         JPanel content = new JPanel(new BorderLayout(0, 12));
+        content.setBackground(Theme.CARD);
         content.setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
         content.add(new JScrollPane(list), BorderLayout.CENTER);
         content.add(bottom, BorderLayout.SOUTH);
@@ -154,10 +158,10 @@ class LockerDialog extends JDialog {
         }
     }
 
+    /** Theme 보조 버튼. 대화상자 폭에 맞게 좌우 여백만 좁힌다. 높이는 48px 그대로 (NFR-02). */
     private static JButton bigButton(String text) {
-        JButton button = new JButton(text);
-        button.setMinimumSize(new Dimension(48, 48)); // NFR-02
-        button.setMargin(new Insets(10, 14, 10, 14));
+        JButton button = Theme.secondaryButton(text);
+        button.setBorder(BorderFactory.createEmptyBorder(14, 24, 14, 24));
         return button;
     }
 }
