@@ -37,9 +37,9 @@ public class AppContext {
         MemberService memberService = new MemberService();
         ProductService productService = new ProductService();
         RecommendService recommendService = new RecommendService(productService);
-        CartService cartService = new CartService();
-        OrderService orderService = new OrderService();
-        ReviewService reviewService = new ReviewService();
+        CartService cartService = new CartService(productService);
+        OrderService orderService = new OrderService(productService, cartService);
+        ReviewService reviewService = new ReviewService(orderService, memberService);
         TryOnService tryOnService = new TryOnService();
 
         member = new MemberController(session, memberService);
