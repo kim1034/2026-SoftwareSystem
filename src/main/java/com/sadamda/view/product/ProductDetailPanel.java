@@ -10,6 +10,7 @@ import com.sadamda.model.review.Review;
 import com.sadamda.view.MainFrame;
 import com.sadamda.view.ScreenPanel;
 import com.sadamda.view.Theme;
+import com.sadamda.view.Toast;
 import com.sadamda.view.WrapLayout;
 import com.sadamda.view.cart.CartPanel;
 import com.sadamda.view.member.LoginPanel;
@@ -91,6 +92,10 @@ public class ProductDetailPanel extends ScreenPanel {
     private final JLabel quantityLabel = Theme.label("1개", 1.1f, Font.BOLD, Theme.TEXT);
     private final JLabel quantityError = Theme.errorLabel();
     private final JLabel totalLabel = Theme.label(" ", 1.1f, Font.BOLD, Theme.TEXT);
+    /** 아래에 늘 붙어 있는 구매 줄: [♡] 합계 ... [장바구니 담기] [바로 구매] (쇼핑몰 상세 화면의 고정 버튼 줄). */
+    private final JPanel purchaseBar = new JPanel(new BorderLayout(16, 0));
+    private final JButton wishButton = Theme.secondaryButton("♡");
+    private final JLabel barTotal = Theme.label(" ", 1.2f, Font.BOLD, Theme.TEXT);
 
     public ProductDetailPanel(AppContext context, MainFrame frame) {
         super(context, frame, "상품 상세", "UC-06 상품 상세 조회");
@@ -104,7 +109,12 @@ public class ProductDetailPanel extends ScreenPanel {
         scroll.getVerticalScrollBar().setUnitIncrement(24);
         scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         scroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
-        setContent(scroll);
+        createPurchaseBar();
+        JPanel screen = new JPanel(new BorderLayout());
+        screen.setOpaque(false);
+        screen.add(scroll, BorderLayout.CENTER);
+        screen.add(purchaseBar, BorderLayout.SOUTH);
+        setContent(screen);
 
         // 창 폭이나 글씨 크기가 바뀌면 사진·정보를 나란히 둘지 위아래로 둘지 다시 정한다.
         scroll.getViewport().addComponentListener(new ComponentAdapter() {
@@ -157,6 +167,7 @@ public class ProductDetailPanel extends ScreenPanel {
         backRow.add(back);
         Theme.addToCard(body, backRow, 0);
 
+        purchaseBar.setVisible(product != null);
         if (product == null) {
             Theme.addToCard(body, Theme.label("상품을 찾을 수 없어요", 1.3f, Font.BOLD, Theme.TEXT), 24);
             Theme.addToCard(body, Theme.label("판매가 끝났거나 주소가 바뀌었을 수 있어요.", 1f, Font.PLAIN, Theme.HINT), 8);
@@ -185,9 +196,10 @@ public class ProductDetailPanel extends ScreenPanel {
             return;
         }
         float fontSize = UIManager.getFont("Label.font").getSize2D();
-        int photoWidth = Math.max(360, Math.round(fontSize * 26));
         int infoMinimum = Math.round(fontSize * 24);
-        boolean sideBySide = available >= photoWidth + 97 + infoMinimum; // 97: 구분선과 양쪽 여백
+        // 쇼핑몰 상세처럼 웬만하면 [사진 | 정보]를 나란히 둔다. 사진은 남는 폭에 맞춰 360px 까지 줄인다.
+        boolean sideBySide = available >= 360 + 97 + infoMinimum; // 97: 구분선과 양쪽 여백
+        int photoWidth = Math.max(360, Math.min(Math.round(fontSize * 26), available - 97 - infoMinimum));
         photo.setPhotoWidth(sideBySide ? photoWidth : Math.min(photoWidth, available));
 
         mainRow.removeAll();
@@ -273,25 +285,44 @@ public class ProductDetailPanel extends ScreenPanel {
         Theme.addToCard(panel, labelWithError("수량", quantityError), 20);
         Theme.addToCard(panel, quantityRow(), 4);
 
-        JButton buyNow = Theme.primaryButton("바로 구매");
-        buyNow.addActionListener(e -> buyNow());
-        JButton addToCart = Theme.secondaryButton("장바구니 담기");
-        addToCart.addActionListener(e -> addToCart());
+        // 찜·장바구니·바로 구매는 화면 아래 고정 줄에 있다 (createPurchaseBar). 여기에는 입어보기만.
         JButton tryOn = Theme.secondaryButton("AI로 입어보기");
         tryOn.addActionListener(e -> tryOn());
-        JPanel secondary = new JPanel(new GridLayout(1, 2, 12, 0));
-        secondary.setOpaque(false);
-        secondary.add(addToCart);
-        secondary.add(tryOn);
-
-        Theme.addToCard(panel, actionError, 32);
-        Theme.addToCard(panel, buyNow, 8);
-        Theme.addToCard(panel, secondary, 12);
-        // UC-10 1a 찜: 누를 때마다 찜·해제. 찜한 상품은 장바구니 화면 아래에 모아 보여 준다.
-        JButton wish = Theme.secondaryButton(wishText());
-        wish.addActionListener(e -> toggleWish(wish));
-        Theme.addToCard(panel, wish, 12);
+        Theme.addToCard(panel, tryOn, 32);
+        updateWishButton();
         return panel;
+    }
+
+    /** 아래 고정 줄: [♡ 찜] [합계] ............ [장바구니 담기] [바로 구매]. 오류 문장은 버튼 바로 위에. */
+    private void createPurchaseBar() {
+        purchaseBar.setBackground(Theme.CARD);
+        purchaseBar.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(1, 0, 0, 0, Theme.LINE),
+                BorderFactory.createEmptyBorder(12, 48, 12, 48)));
+        wishButton.setBorder(BorderFactory.createEmptyBorder(12, 20, 12, 20));
+        wishButton.addActionListener(e -> toggleWish());
+        JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 16, 0));
+        left.setOpaque(false);
+        left.add(wishButton);
+        left.add(barTotal);
+
+        JButton addToCart = Theme.secondaryButton("장바구니 담기");
+        addToCart.addActionListener(e -> addToCart());
+        JButton buyNow = Theme.primaryButton("바로 구매");
+        buyNow.addActionListener(e -> buyNow());
+        JPanel buttons = new JPanel(new GridLayout(1, 2, 12, 0));
+        buttons.setOpaque(false);
+        buttons.add(addToCart);
+        buttons.add(buyNow);
+
+        JPanel right = new JPanel(new BorderLayout(0, 4));
+        right.setOpaque(false);
+        actionError.setHorizontalAlignment(SwingConstants.RIGHT);
+        right.add(actionError, BorderLayout.NORTH);
+        right.add(buttons, BorderLayout.CENTER);
+        purchaseBar.add(left, BorderLayout.WEST);
+        purchaseBar.add(right, BorderLayout.EAST);
+        purchaseBar.setVisible(false);
     }
 
     /** [−] 2개 [+]   합계 1,480,000원 (장바구니 화면의 수량 줄과 같은 모양) */
@@ -348,6 +379,7 @@ public class ProductDetailPanel extends ScreenPanel {
         quantityLabel.setText(quantity + "개");
         quantityLabel.getAccessibleContext().setAccessibleName("수량 " + quantity + "개");
         totalLabel.setText("합계 " + String.format("%,d원", product.price() * quantity));
+        barTotal.setText(String.format("%,d원", product.price() * quantity) + (quantity > 1 ? " (" + quantity + "개)" : ""));
     }
 
     /** "★ 4.7  리뷰 3개" — 리뷰 링크를 누르면 아래 리뷰로 내려간다. */
@@ -430,7 +462,13 @@ public class ProductDetailPanel extends ScreenPanel {
         colorError.setText(color == null ? "색상을 골라 주세요" : "");
         if (size == null || color == null) {
             (size == null ? sizeChips : colorChips).values().stream()
-                    .filter(JToggleButton::isEnabled).findFirst().ifPresent(JComponent::requestFocusInWindow);
+                    .filter(JToggleButton::isEnabled).findFirst().ifPresent(chip -> {
+                        // 아래 고정 줄에서 눌렀을 때 고를 곳이 화면 밖이면 보이게 올린다.
+                        chip.scrollRectToVisible(new Rectangle(0, -chip.getHeight() * 3, chip.getWidth(),
+                                chip.getHeight() * 5));
+                        chip.requestFocusInWindow();
+                    });
+            actionError.setText(size == null ? "사이즈를 먼저 골라 주세요" : "색상을 먼저 골라 주세요");
             return null;
         }
         return product.options().stream()
@@ -457,12 +495,9 @@ public class ProductDetailPanel extends ScreenPanel {
             actionError.setText(e.getMessage()); // 예: 재고보다 많이 담음, 그사이 품절됨
             return;
         }
-        String[] choices = {"장바구니로 가기", "계속 쇼핑하기"};
-        int answer = JOptionPane.showOptionDialog(this, "장바구니에 담았어요.", "장바구니",
-                JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, choices, choices[1]);
-        if (answer == 0) {
-            frame.navigate(CartPanel.NAME);
-        }
+        // 화면을 막는 확인 창 대신 잠깐 뜨는 알림 + [장바구니 보기] (쇼핑몰에서 흔한 방식)
+        frame.refreshCartBadge();
+        Toast.show(this, "장바구니에 담았어요", "장바구니 보기", () -> frame.navigate(CartPanel.NAME));
     }
 
     /** [바로 구매]: 이 옵션 하나로 주문서를 만든다 (UC-11). */
@@ -496,25 +531,31 @@ public class ProductDetailPanel extends ScreenPanel {
         frame.navigate(TryOnPanel.NAME);
     }
 
-    /** UC-06 4a: 비회원이면 로그인 화면으로 보낸다. 로그인하면 이 화면으로 돌아온다. */
-    private String wishText() {
-        return context.cart.isWished(product.id()) ? "♥ 찜한 상품 (누르면 해제)" : "♡ 찜하기";
+    /** UC-10 1a 찜 버튼: 찜했으면 ♥ (채운 하트), 아니면 ♡. */
+    private void updateWishButton() {
+        boolean wished = product != null && context.cart.isWished(product.id());
+        wishButton.setText(wished ? "♥ 찜" : "♡ 찜");
+        wishButton.getAccessibleContext().setAccessibleName(wished ? "찜 해제하기" : "찜하기");
     }
 
-    private void toggleWish(JButton wish) {
+    private void toggleWish() {
         actionError.setText("");
         if (!loggedIn()) {
             return;
         }
+        boolean wished;
         try {
-            context.cart.toggleWish(product.id());
+            wished = context.cart.toggleWish(product.id());
         } catch (AppException e) {
             actionError.setText(e.getMessage());
             return;
         }
-        wish.setText(wishText());
+        updateWishButton();
+        Toast.show(this, wished ? "찜했어요" : "찜을 해제했어요", wished ? "찜 목록 보기" : null,
+                () -> frame.navigate(CartPanel.NAME));
     }
 
+    /** UC-06 4a: 비회원이면 로그인 화면으로 보낸다. 로그인하면 이 화면으로 돌아온다. */
     private boolean loggedIn() {
         if (context.member.currentMember() != null) {
             return true;

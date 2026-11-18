@@ -50,7 +50,7 @@ import java.util.Map;
 
 /**
  * UC-10 장바구니: 담긴 상품(사진·옵션·수량·가격)과 총액, 수량·옵션 변경, 삭제, [주문하기].
- * 로그인이 필요하다. 찜 목록(1a)은 아직.
+ * 로그인이 필요하다. 아래에 찜한 상품(1a)을 모아 보여 준다.
  */
 public class CartPanel extends ScreenPanel {
     public static final String NAME = "cart";
@@ -110,6 +110,7 @@ public class CartPanel extends ScreenPanel {
             return;
         }
         List<CartItem> items = fetchCart();
+        frame.refreshCartBadge(); // 수량 변경·삭제가 상단 [장바구니 n]에도 바로 보이게
         column.removeAll();
         int width = columnWidth();
         JLabel title = Theme.label("장바구니", 1.6f, Font.BOLD, Theme.TEXT);

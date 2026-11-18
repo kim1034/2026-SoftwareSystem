@@ -57,6 +57,7 @@ public class MainFrame extends JFrame {
     private final MenuItem loginMenu = new MenuItem("로그인", LoginPanel.NAME);
     private final MenuItem signUpMenu = new MenuItem("회원가입", SignUpPanel.NAME);
     private final MenuItem logoutMenu = new MenuItem("로그아웃", null);
+    private final MenuItem cartMenu = new MenuItem("장바구니", CartPanel.NAME);
     private final MenuItem adminMenu = new MenuItem("관리자", AdminPanel.NAME);
 
     private String currentScreen;
@@ -206,7 +207,7 @@ public class MainFrame extends JFrame {
 
         JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
         right.setOpaque(false);
-        right.add(screenMenu("장바구니", CartPanel.NAME));
+        right.add(screenMenu(cartMenu));
         right.add(screenMenu("주문 내역", OrderHistoryPanel.NAME));
         right.add(screenMenu(myInfoMenu));
         right.add(screenMenu(loginMenu));
@@ -269,6 +270,8 @@ public class MainFrame extends JFrame {
         applyAccountFontSize();
         myInfoMenu.setVisible(loggedIn);
         logoutMenu.setVisible(loggedIn);
+        logoutMenu.setCurrent(false); // 다른 메뉴와 같은 글씨 크기로 (화면이 없는 메뉴라 따로 맞춘다)
+        refreshCartBadge();
         loginMenu.setVisible(!loggedIn);
         signUpMenu.setVisible(!loggedIn);
         adminMenu.setVisible(context.session.isAdmin());
@@ -291,6 +294,13 @@ public class MainFrame extends JFrame {
         if (saved != null && FontSize.valueOf(saved) != FontSize.load()) {
             javax.swing.SwingUtilities.invokeLater(() -> FontSize.valueOf(saved).apply());
         }
+    }
+
+    /** 상단 [장바구니] 옆에 담긴 상품 수를 보여 준다 (예: "장바구니 2"). 비회원이거나 비어 있으면 숫자 없이. */
+    public void refreshCartBadge() {
+        int count = context.session.isLoggedIn() ? context.cart.cart().size() : 0;
+        cartMenu.setText(count == 0 ? "장바구니" : "장바구니 " + count);
+        cartMenu.getAccessibleContext().setAccessibleName(count == 0 ? "장바구니" : "장바구니, 상품 " + count + "개");
     }
 
     private void logout() {

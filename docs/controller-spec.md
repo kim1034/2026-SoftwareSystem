@@ -30,19 +30,22 @@ Controller·Model 은 실패를 아래 예외로 알립니다 (`com.sadamda.comm
 `RetryableException`이 `AppException`을 상속하므로 `catch`는 `RetryableException`을 먼저 둡니다.
 
 - 메시지는 사용자에게 그대로 보여줄 쉬운 한국어로 씁니다 (NFR-03). 예: "이미 가입된 이메일입니다."
-- `UnsupportedOperationException("TODO ...")`은 아직 구현되지 않았다는 뜻입니다.
+- `UnsupportedOperationException("TODO ...")`은 아직 구현되지 않았다는 뜻입니다. 지금 남은 것은 `TryOnController.generate` 하나입니다 (4장 참고).
 
 ### 오래 걸리는 호출
 
 아래 두 메서드는 외부 서비스를 기다리므로 Swing 화면 스레드(EDT)에서 바로 부르면 화면이 멈춥니다.
 `SwingWorker`로 별도 스레드에서 호출하고 진행 상태를 표시하세요.
 
-- `TryOnController.generate` — 최대 30초 (NFR-05)
+- `TryOnController.generate` — 최대 30초 (NFR-05). 지금은 미구현
+- `DressUpController.dressUp` — AI 그림 서비스 응답 대기 (옷 입혀보기 화면이 씀)
 - `OrderController.checkout` — 결제 시스템 응답 대기
+
+주문 취소·교환·반품 신청(`OrderController.cancel/requestExchangeOrReturn`)도 주문 내역 화면이 별도 스레드에서 부릅니다 (결제 취소 대기).
 
 ### 로그인 필요 여부
 
-- 로그인 불필요: `ProductController`, `RecommendController`, `MemberController`의 가입·로그인
+- 로그인 불필요: `ProductController`, `RecommendController`, `MemberController`의 가입·로그인·`saveFontSize`(비회원이면 아무것도 안 함), `CartController.isWished`(비회원이면 `false`)
 - 로그인 필요: `CartController`, `OrderController`, `ReviewController`, `TryOnController`, `MemberController.myInfo/updateProfile`
 - 관리자 필요: `AdminController` 전체
 
@@ -59,6 +62,7 @@ Controller·Model 은 실패를 아래 예외로 알립니다 (`com.sadamda.comm
 | `currentMember()` | | 로그인한 `Member`, 비회원이면 `null` | |
 | `myInfo()` | UC-03 | `Member` | 로그인 필요 |
 | `updateProfile(String phone, String defaultAddress, BodyProfile bodyProfile)` | UC-03 | 수정된 `Member` | 형식 오류(4a) |
+| `saveFontSize(String fontSize)` | UC-15 4단계 | 회원이면 고른 글씨 크기(`FontSize` 이름: `NORMAL`·`LARGE`·`XLARGE`)를 `Member.fontSize`에 저장. 비회원이면 아무것도 안 함 | |
 
 `SignUpForm(email, password, name, phone, bodyProfile, agreedToTerms)` — `bodyProfile`은 선택이라 `null` 가능.
 
@@ -99,6 +103,7 @@ Controller·Model 은 실패를 아래 예외로 알립니다 (`com.sadamda.comm
 | `update(Long cartItemId, Long optionId, int quantity)` | UC-10 3단계 | | 재고 초과(3a) |
 | `remove(Long cartItemId)` | UC-10 3단계 | | |
 | `toggleWish(Long productId)` | UC-10 1a | 찜 상태면 `true` | |
+| `isWished(Long productId)` | UC-10 1a | 찜했으면 `true`, 비회원이면 `false` (로그인 불필요) | |
 | `wishList()` | UC-10 1a | `List<Product>` | |
 
 `OrderLine(productId, optionId, quantity)` — 장바구니 담기와 주문에 같이 씁니다.
@@ -124,9 +129,12 @@ Controller·Model 은 실패를 아래 예외로 알립니다 (`com.sadamda.comm
 
 | 메서드 | 반환 | 실패 |
 |--------|------|------|
-| `write(Long orderId, Long productId, int rating, String content, List<String> photoPaths)` | `Review` | 별점 없음(3a, rating=0), 배송 완료 전 |
+| `write(Long orderId, Long productId, int rating, String content, List<String> photoPaths)` | `Review` | 별점 없음(3a, rating=0), 배송 완료 전, 이미 쓴 상품 |
+| `hasWritten(Long orderId, Long productId)` | 이 주문의 이 상품에 리뷰를 썼으면 `true` | |
 
 ### TryOnController — UC-09 (로그인 필요, 담당: 김대원)
+
+> 지금 화면(`TryOnPanel`)은 사진 합성 대신 `DressUpController`(옷 입혀보기, 아래)를 쓰고, `TryOnController`는 [보관함에 저장](`saveToLocker`)에만 씁니다. `generate`는 아직 `UnsupportedOperationException("TODO UC-09 (계획 4단계)")`이고, 구현 브랜치 `feat/tryon`(PR #4)은 합칠지 아직 정하지 않았습니다.
 
 | 메서드 | 반환 | 실패 |
 |--------|------|------|
@@ -139,6 +147,20 @@ Controller·Model 은 실패를 아래 예외로 알립니다 (`com.sadamda.comm
 - `TryOnRequest(productId, personImage, personFileName, backgroundTemplateId, backgroundImage, photoUseAgreed)`
   - 배경은 `backgroundTemplateId`와 `backgroundImage` 중 하나만 채웁니다.
 - 업로드 가능: JPG·PNG, 최대 10MB (`TryOnController.ALLOWED_EXTENSIONS`, `MAX_IMAGE_BYTES`)
+
+### DressUpController — UC-09 확장 옷 입혀보기 (담당: 정우진)
+
+캐릭터에 고른 상품을 AI로 입혀 보는 화면(`TryOnPanel`)이 씁니다. 자세한 내용은 [docs/product-recommend.md](product-recommend.md)를 보세요.
+
+| 메서드 | 반환 | 실패 |
+|--------|------|------|
+| `initialSpec()` | 처음 캐릭터 신체 스펙 (로그인했으면 회원 체형 정보 반영) | |
+| `characterImage(CharacterStyle style, CharacterSpec spec)` | 옷 입히기 전 캐릭터 그림 | |
+| `productsFor(DressUpSlot slot)` | 그 칸(모자·상의·하의·주얼리·신발)에 입힐 수 있는 상품 | |
+| `dressUp(CharacterStyle style, CharacterSpec spec, Outfit outfit)` | 옷을 입힌 그림 (PNG 바이트). 오래 걸리므로 별도 스레드 | `DressUpException` (고른 옷 없음, AI 미연결, 시간 초과 등) |
+| `dressUpConnected()`, `dressUpServiceName()`, `dressUpTimeoutSeconds()` | AI 연결 상태·이름·기다리는 시간 | |
+| `dressUpSettings()`, `dressUpKeyFromEnvironment()`, `configureDressUp(apiKey, baseUrl, model)` | [AI 연결 설정] 읽기·저장 | |
+| `isLoggedIn()` | 로그인 여부 (보관함·장바구니 버튼용) | |
 
 ### AdminController — UC-16~18 (관리자 필요, 담당: 김대원)
 
@@ -159,7 +181,7 @@ Controller·Model 은 실패를 아래 예외로 알립니다 (`com.sadamda.comm
 
 ## 3. Controller 가 Model 에 요구하는 것
 
-Controller 가 부르는 Model 메서드의 시그니처를 각 Service 에 정해 두었습니다. 본문은 `TODO`이고 Model 담당이 구현합니다.
+Controller 가 부르는 Model 메서드의 시그니처를 각 Service 에 정해 두었고, Model 담당이 모두 구현했습니다 (데이터는 메모리에만 저장).
 
 - 실패는 `AppException`(사용자에게 보여줄 메시지)으로 알려 주세요.
 - `Member`의 `getId()·getRole()·getDefaultAddress()`, `Order`의 `getId()·getMemberId()·getPaymentId()·getStatus()`는 Controller 가 쓰므로 이름을 유지해 주세요. 나머지 접근자·생성자는 자유롭게 추가하면 됩니다.
@@ -167,19 +189,17 @@ Controller 가 부르는 Model 메서드의 시그니처를 각 Service 에 정�
 
 | Service | 담당 | Controller 가 쓰는 메서드 |
 |---------|------|---------------------------|
-| `MemberService` | 백예원 | `signUp(email, rawPassword, name, phone, bodyProfile)`, `login`, `sendPasswordResetLink`, `findById`, `updateProfile(memberId, phone, defaultAddress, bodyProfile)` |
-| `CartService` | 백예원 | `getCart`, `getTotal`, `add(memberId, lines)`, `updateItem`, `removeItem`, `toggleWish`, `getWishList` |
+| `MemberService` | 백예원 | `signUp(email, rawPassword, name, phone, bodyProfile)`, `login`, `sendPasswordResetLink`, `findById`, `updateProfile(memberId, phone, defaultAddress, bodyProfile)` (글씨 크기는 `findById(...).setFontSize`) |
+| `CartService` | 백예원 | `getCart`, `getTotal`, `add(memberId, lines)`, `updateItem`, `removeItem`, `toggleWish`, `isWished`, `getWishList` |
 | `OrderService` | 백예원 | `calculateTotal`, `placeOrder(memberId, lines, address, giftInfo, paymentId)`, `clearOrderedFromCart`, `findByMember`, `findById`, `cancel`, `requestChange`, `findByStatus`, `updateStatus`, `approveChange`, `rejectChange` |
-| `ReviewService` | 백예원 | `write(memberId, orderId, productId, rating, content, photoPaths)`, `findByProduct` |
+| `ReviewService` | 백예원 | `write(memberId, orderId, productId, rating, content, photoPaths)`, `findByProduct`, `hasWritten` |
 | `ProductService` | 정우진 | `findByCategory`, `findPopular`, `search`, `findById`, `findAll`, `save`, `hasActiveOrders`, `suspend`, `delete` |
-| `RecommendService` | 정우진 | `findLookbooks`, `findLookbook`, `findTrendingItems`, `recommendFor`, `saveLookbook`, `setTrending` |
+| `RecommendService` | 정우진 | `findLookbooks`, `findLookbook`, `findLookbookProducts`, `occasions`, `seasons`, `findTrendingItems`, `recommendFor`, `hasBodyType`, `saveLookbook`, `deleteLookbook`, `setTrending` |
 | `TryOnService` | 정우진 | `findBackgroundTemplates`, `loadBackgroundTemplate`, `save`, `findByMember`, `delete` |
 
 ## 4. 구현 현황
 
-- 구현됨: 로그인·관리자 확인(`Session.requireLogin/requireAdmin`), Model 로 그대로 넘기는 메서드
-- 김대원이 구현 예정 (`TODO ... (계획 N단계)`):
-  - 결제 흐름: `OrderController.prepare*/checkout`
-  - 주문 조회·취소: `myOrders/orderDetail/cancel/requestExchangeOrReturn`
-  - AI 합성: `TryOnController.generate`
-  - 반품 승인·환불: `AdminController.approveRequest`
+- 구현됨: 위 표의 Controller 메서드 전부 — 회원, 상품, 추천, 장바구니·찜, 주문(결제·취소·교환·반품), 리뷰, 관리자(상품·룩북·주문 관리, 반품 환불), 옷 입혀보기(`DressUpController`), 보관함(`TryOnController.saveToLocker/locker/deleteFromLocker`)
+- 남은 것: `TryOnController.generate` (`TODO UC-09 (계획 4단계)`). `feat/tryon`(PR #4)에 구현이 있지만 아직 합치지 않았습니다.
+- 외부 연동은 가짜를 씁니다: 결제 `MockPaymentGateway`(늘 승인), AI 사진 합성 `MockAiImageClient` (`AppContext`의 `TODO` 주석). 옷 입혀보기의 AI는 이용 열쇠를 넣으면 실제 서비스로 연결됩니다.
+- 테스트: `src/test/java`에 `OrderController`·`AdminController`·`Session` 테스트가 있습니다. Model Service 단위 테스트는 아직 없습니다.

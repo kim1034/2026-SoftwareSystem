@@ -358,6 +358,7 @@ public class OrderPanel extends ScreenPanel {
                 try {
                     completed = get();
                     completedMethod = method;
+                    frame.refreshCartBadge(); // 장바구니에서 주문한 상품이 빠졌다
                 } catch (ExecutionException e) {
                     // 6a 결제 실패, 7a 재고 소진 등: 주문을 만들지 않고 이유를 알린 뒤 주문서에 남는다.
                     String message = e.getCause() instanceof AppException

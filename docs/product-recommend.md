@@ -11,32 +11,34 @@
 | 룩북 코디 조회 (상황·계절), 코디 등록·수정·삭제 | `model/recommend/RecommendService`, `Lookbook` | FR-09, FR-26, UC-07, UC-17 |
 | 유행 아이템, 연령대·체형 맞춤 추천 | `RecommendService.findTrendingItems`, `recommendFor` | FR-11, FR-12, UC-08 |
 | 합성 이미지 보관함 (저장·목록·삭제) | `model/tryon/TryOnService`, `view/tryon/LockerDialog` | FR-16, NFR-08 |
-| 옷 입혀보기 (캐릭터에 상품을 AI로 입히기) | `view/tryon/TryOnPanel`, `controller/TryOnController`, `external/*DressUp*`, `model/tryon` | UC-09 확장 |
+| 옷 입혀보기 (캐릭터에 상품을 AI로 입히기) | `view/tryon/TryOnPanel`, `controller/DressUpController`(`context.dressUp`), `external/*DressUp*`, `model/tryon` | UC-09 확장 |
 | 업로드 사진 정리 (합성 뒤 삭제, 다시 켤 때 남은 사진 삭제) | `TryOnService.deleteUpload`, `deleteLeftoverUploads` | NFR-08 |
 | 홈(첫 화면): 검색창, 카테고리로 찾기, 나에게 어울리는 상품, 유행 아이템, 추천 코디, 새로 들어온 상품 | `view/recommend/HomePanel` | UC-04, UC-07, UC-08 |
 | 상품 목록: 큰 카테고리 버튼, 검색, 필터·정렬, [내 체형에 맞는 상품], [더 보기], 결과 없음 안내 | `view/product/ProductListPanel`, `CategoryBar`, `ProductGrid`, `ProductCard` | UC-04, UC-05 |
-| 상품 정보 창: 큰 사진, 소재·코디 포인트, 옵션, [장바구니 담기] [찜하기] | `view/product/ProductInfoDialog` | UC-06 요약 |
+| 상품 정보 창: 큰 사진, 소재·코디 포인트, 옵션, [장바구니 담기] [찜하기] (상세 화면이 없을 때만 쓰는 임시 창. 지금은 상세 화면 `ProductDetailPanel`이 열림) | `view/product/ProductInfoDialog` | UC-06 요약 |
 | 룩북: 상황·계절 고르기, 코디 보기, [코디 전체 담기], 관리자 [새 코디 올리기]·수정·삭제 | `view/recommend/LookbookPanel`, `LookbookEditorDialog` | UC-07, UC-17 |
 
 ## 화면 (View)
 
 다른 브랜치와 부딪히지 않도록 아래처럼 만들었습니다.
 
+> 아래는 다른 브랜치와 합치기 전에 쓴 내용입니다. 지금은 브랜치가 모두 합쳐져서 상품 카드를 누르면 상품 상세 화면이 열리고, 장바구니·찜·로그인도 실제로 동작합니다.
+
 - `MainFrame`은 고치지 않았습니다. 화면이 보일 때마다 내용을 새로 읽으므로(`ShopUi.whenShown`) 로그인·로그아웃 뒤에도 맞춤 추천이 바로 바뀝니다.
 - `ScreenPanel`은 `feat/auth-view` 브랜치와 **똑같은 내용**으로 맞췄습니다(`setContent`, `hideTitle`). 두 브랜치를 합쳐도 충돌하지 않습니다.
 - 색은 `feat/auth-view`의 `Theme`과 같은 값을 `ShopUi`에 두었습니다. 그 브랜치가 합쳐지면 `ShopUi`의 색 상수를 `Theme` 상수로 바꿔도 됩니다.
-- 상품 카드를 누르면 `ShopUi.openProduct`가 상품 정보 창을 엽니다. 상품 상세 화면(`ProductDetailPanel`, UC-06)이 완성되면 이 메서드 하나만 바꾸면 됩니다.
+- 상품 카드를 누르면 `ShopUi.openProduct`가 `MainFrame.openProduct(Long)`이 있으면 상품 상세 화면(`ProductDetailPanel`, UC-06)을, 없으면 임시 상품 정보 창을 엽니다. 지금은 `MainFrame`에 이 메서드가 있어서 상세 화면이 열립니다.
 - 홈에서 카테고리·검색어·코디를 누르면 `ProductListPanel.showCategory/showSearch`, `LookbookPanel.showLookbook`을 부른 뒤 그 화면으로 이동합니다.
-- 장바구니·찜(백예원)과 로그인(회원 도메인)이 아직 TODO라서, 지금은 [장바구니 담기]를 누르면 "로그인이 필요한 기능입니다" 또는 "준비 중" 안내가 나옵니다. 구현되면 화면은 고치지 않아도 그대로 동작합니다.
+- 장바구니·찜(백예원)과 로그인(회원 도메인)은 구현되어 연결되었습니다. 비회원이 [장바구니 담기]를 누르면 "로그인이 필요한 기능입니다" 안내 뒤 로그인 화면으로 갑니다.
 - 코디 올리기·수정·삭제는 관리자로 로그인했을 때만 룩북 화면에 버튼이 보입니다.
 
 ## 데모 데이터
 
-- `src/main/resources/data/products.tsv`: 팀 구글 시트의 테스트 데이터 300개입니다. (https://docs.google.com/spreadsheets/d/1OEbyJTQ3_8mpnIesrYRcQPwiPQlF9hbfUxq6GUTmyi4/edit?gid=0#gid=0) 모자 30, 상의 30, 하의 30, 신발 90, 양말 30, 주얼리 90개가 들어 있습니다.
+- `src/main/resources/data/products.tsv`: 팀 구글 시트의 테스트 데이터 370개입니다. (https://docs.google.com/spreadsheets/d/1OEbyJTQ3_8mpnIesrYRcQPwiPQlF9hbfUxq6GUTmyi4/edit?gid=0#gid=0) 상의 35, 하의 35, 원피스 5, 아우터 5, 모자 35, 신발 105, 양말 35, 주얼리 105, 가방 5, 스카프 5개가 들어 있습니다 (11-17에 300개 → 370개, [docs/ui-data-update.md](ui-data-update.md)).
 - 시트의 "현지표시가"와 "이미지 속성" 열은 쓰지 않습니다. 가격은 숫자로 바꿔 넣습니다.
 - 데이터에 없는 값은 임시 규칙으로 채웁니다 (`ProductSeedLoader`, `RecommendService` 주석).
   - 옵션·재고: 카테고리별 기본 사이즈 × 소재 문구의 색상, 재고 10
-  - 유행 아이템: 세부 카테고리마다 앞의 2개 (`-01`, `-02`), 모두 20개
+  - 유행 아이템: 세부 카테고리마다 앞의 2개 (`-01`, `-02`). 관리자 화면(UC-17)에서 지정·해제할 수 있습니다
   - 룩북: 나라별 데모 코디 6개
 - DB가 정해지기 전까지 상품·룩북은 메모리에만 둡니다. 관리자 화면에서 바꾼 내용은 프로그램을 끄면 사라집니다.
 
@@ -113,8 +115,8 @@ java -cp "target/classes;target/test-classes" com.sadamda.DomainSelfCheck
 
 - 연령대·체형 태그: 데모 데이터에 없어서 상품명·코디 문구로 추정한 임시 값입니다 (`ProductTags.guessAgeGroups`, `guessBodyTypes`). 40대는 캐주얼·트렌디, 50대는 단정·우아, 60대는 편안함 위주이고, 어느 쪽에도 해당하지 않으면 세 연령대 모두입니다. 실제 값이 정해지면 데이터나 관리자 화면에서 바꿔 주세요.
 - 데이터 불일치: `HAT-KR-02`는 이름이 "블랙 버킷햇"인데 사진은 회색 니트 후드입니다. 다른 상품은 아직 확인하지 않았습니다.
-- 업로드 사진 삭제: `feat/tryon`의 `TryOnController.generate`는 인물 사진을 파일로 남기지 않고 메모리에서만 씁니다. 파일로 잠시 보관하는 방식으로 바뀌면 `storeUpload` → 합성 → `deleteUpload`(finally)로 지우면 됩니다. 프로그램이 합성 중에 꺼져 남은 사진은 다음 실행 때 `deleteLeftoverUploads`가 지웁니다.
-- 로그인(회원 도메인)이 구현되기 전까지 보관함, 장바구니 담기, 맞춤 추천, 관리자 코디 올리기는 화면에서 쓸 수 없습니다.
+- 업로드 사진 삭제: `feat/tryon`(PR #4, 아직 합치지 않음)의 `TryOnController.generate`는 인물 사진을 파일로 남기지 않고 메모리에서만 씁니다. 파일로 잠시 보관하는 방식으로 바뀌면 `storeUpload` → 합성 → `deleteUpload`(finally)로 지우면 됩니다. 프로그램이 합성 중에 꺼져 남은 사진은 다음 실행 때 `deleteLeftoverUploads`가 지웁니다.
+- UC-09 원래 흐름(사진 업로드 합성)의 `TryOnController.generate`는 이 브랜치에서 아직 `UnsupportedOperationException("TODO UC-09 (계획 4단계)")`입니다. 화면(`TryOnPanel`)은 `DressUpController`(옷 입혀보기)를 쓰고, `TryOnController`는 [보관함에 저장](`saveToLocker`)에만 씁니다. `feat/tryon`(PR #4)을 합칠지는 아직 정하지 않았습니다.
 - 데모 데이터는 판매 수량이 모두 0이라 인기순이 "유행 아이템 → 등록 순"으로 정해집니다. 그래서 홈에는 인기 상품 대신 새로 들어온 상품을 보여줍니다.
 
 ---
@@ -153,10 +155,10 @@ java -cp "target/classes;target/test-classes" com.sadamda.DomainSelfCheck
 
 ### 합친 뒤 자동으로 이어지는 것
 
-- 홈·룩북에서 상품을 누르면: `MainFrame.openProduct(Long)`가 있으면 상품 상세 화면, 없으면(합치기 전) 임시 `ProductInfoDialog`.
-- 홈의 카테고리 버튼·검색창: `ProductListPanel`에 `public openCategory(Category)`·`public openSearch(String)`이 있으면 그 카테고리·검색 결과로, 없으면 상품 화면만 엽니다. → **강준서 님께 두 메서드 추가를 부탁드릴 것.**
+- 홈·룩북에서 상품을 누르면: `MainFrame.openProduct(Long)`가 있으면 상품 상세 화면, 없으면(합치기 전) 임시 `ProductInfoDialog`. → 지금은 상세 화면이 열립니다.
+- 홈의 카테고리 버튼·검색창: `ProductListPanel`에 `public openCategory(Category)`·`public openSearch(String)`이 있으면 그 카테고리·검색 결과로, 없으면 상품 화면만 엽니다. → 11-17에 두 메서드가 추가되었습니다.
 
 ### 합친 뒤 할 일 (선택)
 
-- `ProductListPanel`·`ProductDetailPanel`의 `MockProducts` 호출을 `context.product`로 바꾸기 (강준서 님 문서 4번).
-- 상단 메뉴에 [옷 입혀보기] 추가 (`TryOnPanel.NAME`).
+- ~~`ProductListPanel`·`ProductDetailPanel`의 `MockProducts` 호출을 `context.product`로 바꾸기~~ → 끝남 (`MockProducts`는 11-19 통합 때 지움).
+- ~~상단 메뉴에 [옷 입혀보기] 추가 (`TryOnPanel.NAME`)~~ → 끝남.

@@ -2,9 +2,7 @@
 
 작성: 강준서 (View 담당) · 2026-11-15 · 브랜치 `feat/order-view`
 
-> **2026-11-19 통합 (`feat/integrate-real-models`):** 목업(`MockCart`, `MockOrders`, `MockReviews`, `MockProducts`)을 지우고 실제 Controller·Model로 연결했습니다. 아래의 "목업" 설명은 지난 기록입니다. 지금 동작은 [docs/integration.md](integration.md)를 보세요.
-
-구매 흐름(UC-10 장바구니 → UC-11·12 주문서 → UC-13 주문 내역) 화면을 이 문서에 모읍니다. 지금은 **UC-10 장바구니**, **UC-11 주문·결제, UC-12 선물하기**, **UC-13 주문 내역·취소·교환·반품**까지 만들었습니다. 주문 Controller(`OrderController`)는 김대원 님이 구현했지만, 안에서 부르는 장바구니·주문 Model(`CartService`, `OrderService`)이 아직 TODO라서 **목업 장바구니·목업 주문으로 동작**합니다 (6번 참고).
+구매 흐름(UC-10 장바구니 → UC-11·12 주문서 → UC-13 주문 내역) 화면을 이 문서에 모읍니다. **UC-10 장바구니·찜**, **UC-11 주문·결제, UC-12 선물하기**, **UC-13 주문 내역·취소·교환·반품** 화면이 모두 실제 Controller(`CartController`, `OrderController`)와 Model(`CartService`, `OrderService`)에 연결되어 있습니다 (6번 참고). 처음에는 목업으로 만들었고, 2026-11-19 통합(`feat/integrate-real-models`, [docs/integration.md](integration.md))에서 실제 Model로 바꿨습니다.
 
 공통 디자인(`Theme`)과 화면 이동 규칙은 [docs/auth-view.md](auth-view.md), 상품 화면과 공통 부품은 [docs/product-view.md](product-view.md)를 참고해 주세요.
 
@@ -12,13 +10,15 @@
 
 ## 1. 바로 보기
 
-1. IDE에서 `com.sadamda.App`의 `main`을 실행하고 **회원가입** 또는 **로그인**합니다.
+1. IDE에서 `com.sadamda.App`의 `main`을 실행하고 **회원가입** 또는 **로그인**합니다. 시연용 회원 `demo@sadamda.com` / `demo1234`로 로그인해도 됩니다.
 2. 상단 **[상품]** → 상품 카드 → 사이즈·색상을 고르고 **[장바구니 담기]** → **[장바구니로 가기]**
 3. 또는 상단 **[장바구니]**를 바로 누릅니다.
 4. 장바구니 아래 **[… 주문하기]**(또는 상품 상세의 **[바로 구매]**) → 주문서에서 주소를 넣고 **[… 결제하기]**
 5. 주문 완료 화면의 **[주문 내역 보기]** 또는 상단 **[주문 내역]**
 
-> 목업 장바구니는 앱을 켜 둔 동안만 기억합니다. 상품 사진을 보려면 인터넷 연결이 필요합니다.
+> 장바구니와 주문은 메모리에만 저장되어 앱을 켜 둔 동안만 기억합니다. 결제는 실제 결제 시스템 대신 늘 승인하는 `MockPaymentGateway`를 씁니다. 상품 사진을 보려면 인터넷 연결이 필요합니다.
+>
+> 일반 회원이 처음 로그인하면 주문 내역에 **시연용 예전 주문 2건**(배송중 1건, 배송완료 1건)이 들어갑니다 (`controller/DemoData`). 배송완료 주문으로 리뷰 쓰기와 교환·반품을 바로 해 볼 수 있습니다.
 
 화면 구성 (위에서 아래로):
 
@@ -27,26 +27,29 @@
 | 제목 | 가운데 "장바구니" |
 | 상품 카드 (담은 순서대로) | 작은 사진, 상품명, 옵션("L (77) / 카멜"), **[−] 1개 [+]**, **[옵션 변경]**, 오른쪽 위 **[삭제]**, 오른쪽 아래 금액(가격 × 수량) |
 | 주문 정보 카드 | 총 상품금액, 배송비 3,000원, **총 결제 예정금액** |
+| 찜한 상품 (찜이 있을 때) | "찜한 상품 n개", 줄마다 작은 사진, 상품명·가격(판매 중지면 "· 판매 중지"), **[상세 보기]** **[찜 해제]** |
 | 화면 아래 (늘 보임) | **"652,000원 · 총 2건 주문하기"** 검정 버튼 (배송비 포함) |
 
 ---
 
 ## 2. 바뀐 파일
 
+처음 만들 때(`feat/order-view`) 바꾼 파일입니다. 목업 파일(`MockCart`, `MockOrders`, `MockProducts`)은 통합 때 지웠습니다.
+
 | 파일 | 내용 |
 |---|---|
 | `view/cart/CartPanel.java` | 장바구니 화면 (TODO 문구만 있던 파일을 구현) |
-| `view/cart/MockCart.java` (새 파일) | **임시 목업 장바구니.** `CartService`가 구현되면 지울 파일 |
-| `view/product/ProductDetailPanel.java` | [장바구니 담기]가 목업 장바구니에 담기고, [바로 구매]가 목업 주문서를 열도록 바꿈 |
+| ~~`view/cart/MockCart.java`~~ | 임시 목업 장바구니. **통합 때 지움** |
+| `view/product/ProductDetailPanel.java` | [장바구니 담기]·[바로 구매] 연결 (지금은 `context.cart.add`, `context.order.prepareDirect`) |
 | `view/order/OrderPanel.java` | 주문서·주문 완료 화면 (TODO 문구만 있던 파일을 구현) |
-| `view/order/MockOrders.java` (새 파일) | **임시 목업 주문** (주문서 만들기, 결제, 주문 내역, 취소, 교환·반품). `OrderService`가 구현되면 지울 파일 |
+| ~~`view/order/MockOrders.java`~~ | 임시 목업 주문. **통합 때 지움** |
 | `view/order/OrderHistoryPanel.java` | 주문 내역·주문 상세 화면 (TODO 문구만 있던 파일을 구현) |
 | `view/ProductThumbnail.java` (새 파일) | 장바구니·주문서의 작은 상품 사진 (장바구니에 있던 것을 공통 부품으로 꺼냄) |
 | `view/MainFrame.java` | 주문서를 여는 `openOrder(sheet)` 추가 |
 | `view/member/SignUpPanel.java` | 연락처 검사(`phoneMessage`)를 `public`으로 바꿈. 선물 받는 분 연락처 검사에 같이 씀 |
-| `view/product/MockProducts.java`, `ProductDetail.java` | 장바구니가 상품 정보를 읽을 수 있게 `public`으로 바꿈 (내용은 그대로) |
+| `view/product/ProductDetail.java` | 장바구니가 상품 정보를 읽을 수 있게 `public`으로 바꿈 (`MockProducts.java`는 통합 때 지움) |
 
-Model·Controller 코드는 **수정하지 않았습니다.** 김대원 님의 `feat/order-payment`(주문서·결제 Controller)와 `feat/order-manage-v2`(주문 내역·취소·교환·반품, 관리자 주문 관리)를 이 브랜치에 merge해서, 화면을 바뀐 `OrderSheet`·`CheckoutRequest` 모양과 `RetryableException` 규칙에 맞췄습니다 (6번 "목업 주문" 참고).
+Model·Controller 코드는 **수정하지 않았습니다.** 김대원 님의 `feat/order-payment`(주문서·결제 Controller)와 `feat/order-manage-v2`(주문 내역·취소·교환·반품, 관리자 주문 관리)를 이 브랜치에 merge해서, 화면을 바뀐 `OrderSheet`·`CheckoutRequest` 모양과 `RetryableException` 규칙에 맞췄습니다.
 
 ---
 
@@ -57,6 +60,7 @@ Model·Controller 코드는 **수정하지 않았습니다.** 김대원 님의 `
 - 화면을 열 때마다 장바구니를 다시 불러옵니다.
 - **비회원**이 상단 [장바구니]를 누르면 로그인 화면으로 가고, 로그인하면 장바구니로 돌아옵니다.
 - 비어 있으면 "장바구니가 비어 있어요"와 **[상품 보러 가기]**를 보여 주고, 아래 주문 버튼은 숨깁니다.
+- 찜한 상품이 있으면 장바구니 아래에 "찜한 상품 n개" 카드를 보여 줍니다 (1a, 아래 "찜" 참고).
 
 ### 수량 (3~4단계, 3a)
 
@@ -78,7 +82,12 @@ Model·Controller 코드는 **수정하지 않았습니다.** 김대원 님의 `
 
 ### 주문하기 (5단계)
 
-아래 버튼은 **장바구니 전체**로 주문서를 만들고 주문서(UC-11) 화면을 엽니다 (`context.order.prepareFromCart()` 자리, 지금은 목업). 금액에는 **배송비 3,000원**이 들어 있어서 주문서의 결제 금액과 같습니다.
+아래 버튼은 `context.order.prepareFromCart()`로 **장바구니 전체**의 주문서를 만들고 주문서(UC-11) 화면을 엽니다. 품절·판매 중지 상품이 섞여 있으면 Model이 보낸 문장을 안내 창으로 보여 주고 장바구니에 남습니다. 금액에는 **배송비 3,000원**이 들어 있어서 주문서의 결제 금액과 같습니다.
+
+### 찜 (1a)
+
+- 상품 상세의 **[♡ 찜하기]**로 찜하고, 다시 누르면 해제합니다 (상품 화면 쪽, [docs/integration.md](integration.md) 참고).
+- 장바구니 화면 아래 "찜한 상품 n개" 카드에서 **[상세 보기]**로 상품 상세를 열고, **[찜 해제]**로 뺍니다 (`context.cart.wishList()`, `context.cart.toggleWish(productId)`).
 
 ### 이번에 넣지 않은 것
 
@@ -88,8 +97,7 @@ Model·Controller 코드는 **수정하지 않았습니다.** 김대원 님의 `
 |---|---|
 | 체크박스로 일부만 고르기, 선택 삭제 | 명세의 `prepareFromCart()`는 **장바구니 전체**로 주문서를 만들어서 일부만 주문할 수 없음 |
 | 상품별 [바로 주문] | 명세 5단계는 [주문하기] 하나. 버튼이 많으면 헷갈림 |
-| 배송비·검수비·수수료, 결제 할인 안내 | 명세와 데이터에 없음 |
-| 찜하기·찜 목록 (1a) | 넣지 않음. 할지 말지는 나중에 정함 (우선순위 Low) |
+| 검수비·수수료, 결제 할인 안내 | 명세와 데이터에 없음 |
 
 ---
 
@@ -128,7 +136,7 @@ Model·Controller 코드는 **수정하지 않았습니다.** 김대원 님의 `
 |---|---|
 | 성공 | 같은 화면이 **주문 완료**로 바뀜: "주문이 완료되었어요"(선물이면 "선물 주문이 완료되었어요"와 **선물 주문** 표시), 주문번호, 주문 일시, 결제 방법, 결제 금액, 배송지(선물이면 받는 분·선물 메시지). 아래에 [쇼핑 계속하기] [주문 내역 보기]. 장바구니에서 온 주문이면 주문한 상품을 장바구니에서 뺌 |
 | 결제 거절 (6a) | "결제하지 못했어요" 창에 이유를 보여 주고 **주문서에 그대로 남음** (입력한 내용 유지) |
-| 재고 소진 (7a) | 같은 창에 "'상품명'이(가) 품절되어 결제를 취소했어요" |
+| 재고 소진 (7a) | 같은 창에 "'상품명'이(가) 품절되었습니다. 결제는 취소되었습니다." (Controller가 결제를 자동 취소) |
 | 그 밖의 실패 | Controller가 보낸 `AppException` 문장(예: "결제 시스템에 연결하지 못했습니다…")을 그대로, 예상하지 못한 오류면 "결제 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요." |
 
 결제가 끝나면 주문서를 비워서, 뒤로 돌아와도 같은 주문을 두 번 결제하지 않습니다.
@@ -165,7 +173,9 @@ Model·Controller 코드는 **수정하지 않았습니다.** 김대원 님의 `
 - 맨 위 **[← 주문 내역으로]**
 - 상태와 **배송 단계**: 결제완료 → 배송준비 → 배송중 → 배송완료. 지난 단계는 ✓, 지금 단계는 ● 와 회색 바탕, 남은 단계는 ○ 회색 글씨. 취소·신청된 주문은 단계 대신 "이 주문은 취소됨 상태예요."
 - 목록과 같은 상태별 안내·버튼
-- 주문 정보(주문번호, 주문 일시, 결제 방법, 송장번호), 주문 상품, 배송지(선물이면 받는 분·연락처·선물 메시지), 결제 금액(상품 금액 + 배송비 = 총 결제금액)
+- 주문 정보(주문번호, 주문 일시, 송장번호가 있으면 송장번호), 주문 상품, 배송지(선물이면 받는 분·연락처·선물 메시지), 결제 금액(상품 금액 + 배송비 = 총 결제금액)
+- 상품 금액은 **주문할 때의 가격**(`OrderItem.unitPrice()`)으로 보여 줍니다. 나중에 상품 가격이 바뀌어도 주문 내역 금액은 그대로입니다.
+- **결제 방법은 주문 상세에 나오지 않습니다.** `Order`에 결제 방법 필드가 없기 때문입니다 (주문 완료 화면은 방금 고른 값을 따로 기억해 보여 줌). 필요하면 Model에 필드를 추가해야 합니다.
 
 ### 취소·교환·반품 (4~6단계)
 
@@ -180,64 +190,43 @@ Model·Controller 코드는 **수정하지 않았습니다.** 김대원 님의 `
 
 ---
 
-## 6. 목업 장바구니와 교체 방법
+## 6. Controller 연결
 
-`MockCart`는 `CartController`와 같은 이름·방식으로 동작합니다 (회원별로 앱을 켜 둔 동안만 기억).
+처음에는 `MockCart`·`MockOrders` 목업으로 만들었고, 통합(`feat/integrate-real-models`) 때 실제 Controller로 바꾼 뒤 목업 파일을 지웠습니다. 지금 화면이 부르는 메서드는 아래와 같습니다.
 
-| `MockCart` | 바꿀 Controller 메서드 |
-|---|---|
-| `cart(memberId)` | `context.cart.cart()` |
-| `add(memberId, line)` — 같은 옵션이면 수량을 더함 | `context.cart.add(line)` |
-| `update(memberId, cartItemId, optionId, quantity)` — 같은 옵션이 생기면 합침 | `context.cart.update(cartItemId, optionId, quantity)` |
-| `remove(memberId, cartItemId)` | `context.cart.remove(cartItemId)` |
-
-- 재고를 넘거나 품절이면 `AppException`("이 옵션은 최대 N개까지 주문할 수 있어요.", "품절된 옵션입니다.")을 던지고, 화면은 그 문장을 그대로 보여 줍니다.
-- 장바구니 줄(`CartItem`)에는 상품 번호·옵션 번호·수량만 있어서, 사진·상품명·가격·옵션 이름은 상품 정보(지금은 `MockProducts.detail`)에서 찾아 붙입니다. `Product` getter가 생기면 `context.product.detail(id)`로 바꿉니다.
-- 코드의 `TODO` 자리(`fetchCart`, `change`, `remove`, 상세의 `addToCart`)만 바꾸고 `MockCart.java`를 지우면 됩니다.
-
-### 목업 주문 (`MockOrders`)
-
-`OrderController`의 `prepareFromCart`·`prepareDirect`·`checkout`은 김대원 님이 구현했고(`feat/order-payment`, 이 브랜치에 merge됨), 26개 테스트가 통과합니다. 하지만 안에서 부르는 **`OrderService`(주문 Model)와 `CartService`가 아직 TODO**라서, 실제로 부르면 "구현 안 됨" 오류가 납니다. 그래서 Model이 준비될 때까지 화면은 목업을 씁니다.
-
-| `MockOrders` | 바꿀 Controller 메서드 | 쓰는 곳 |
+| 화면 | 하는 일 | Controller 메서드 |
 |---|---|---|
-| `prepareFromCart(memberId, 기본 배송지)` | `context.order.prepareFromCart()` | 장바구니 `order()` |
-| `prepareDirect(line, 기본 배송지)` | `context.order.prepareDirect(line)` | 상세 `buyNow()` |
-| `checkout(memberId, request, 배송비)` — `request.fromCart()`면 장바구니에서 뺌 | `context.order.checkout(request)` | 주문서 `fetchCheckout()` |
+| 장바구니 | 목록 | `context.cart.cart()` |
+| 장바구니 | 수량·옵션 변경 (같은 옵션이 생기면 한 줄로 합침) | `context.cart.update(cartItemId, optionId, quantity)` |
+| 장바구니 | 삭제 | `context.cart.remove(cartItemId)` |
+| 장바구니 | 찜 목록·찜 해제 | `context.cart.wishList()`, `context.cart.toggleWish(productId)` |
+| 장바구니 | [주문하기] | `context.order.prepareFromCart()` |
+| 상품 상세 | [장바구니 담기] (같은 옵션이면 수량을 더함) | `context.cart.add(line)` |
+| 상품 상세 | [바로 구매] | `context.order.prepareDirect(line)` |
+| 주문서 | [결제하기] (별도 스레드) | `context.order.checkout(request)` |
+| 주문 내역 | 목록·상세 | `context.order.myOrders()`, `context.order.orderDetail(orderId)` |
+| 주문 내역 | 취소, 교환·반품 신청 (별도 스레드) | `context.order.cancel(orderId, reason)`, `context.order.requestExchangeOrReturn(orderId, requested, reason)` |
 
-- 결제는 늘 승인된 것으로 봅니다. 재고가 모자라면 7a 문장으로 실패합니다. (6a는 테스트에서만 일부러 실패시켜 확인했습니다)
-- 지금 `Order`에는 생성자와 getter가 거의 없어서, 완료 화면은 화면용 `MockOrders.MockOrder`(주문번호, 금액, 배송지, 선물 정보 등)로 그립니다. `Order` getter가 생기면 바꿉니다.
-- 주문은 앱을 켜 둔 동안 기억합니다. 주문 내역을 처음 열면 배송 중·배송 완료 화면을 볼 수 있게 **시연용 예전 주문 2건**(배송중 1건, 배송완료 1건)을 넣어 둡니다.
-
-| `MockOrders` (UC-13) | 바꿀 Controller 메서드 | 쓰는 곳 |
-|---|---|---|
-| `ordersOf(memberId)` | `context.order.myOrders()` | 주문 내역 `fetchOrders()` |
-| `orderDetail(memberId, orderId)` | `context.order.orderDetail(orderId)` | 주문 상세 `fetchOrder()` |
-| `cancel(memberId, orderId, reason)` | `context.order.cancel(orderId, reason)` | 취소 창 |
-| `requestExchangeOrReturn(memberId, orderId, requested, reason)` | `context.order.requestExchangeOrReturn(orderId, requested, reason)` | 교환·반품 창 |
-- 배송비는 `OrderPanel.SHIPPING_FEE`(3,000원) 한 곳에서 정합니다. `OrderSheet.totalPrice`는 상품 금액만이라고 보고, 화면이 배송비를 더합니다.
+- 재고를 넘거나 품절이면 Model이 `AppException`("이 옵션은 최대 N개까지 주문할 수 있어요.", "'상품명' 사이즈/색상은(는) 품절입니다." 등)을 던지고, 화면은 그 문장을 그대로 보여 줍니다.
+- 장바구니 줄(`CartItem`)에는 상품 번호·옵션 번호·수량만 있어서, 사진·상품명·가격·옵션 이름은 `context.product.detail(id)`로 찾아 붙입니다.
+- 배송비는 `OrderService.SHIPPING_FEE`(3,000원) 한 곳에서 정하고, 화면은 `OrderPanel.SHIPPING_FEE`로 그 값을 그대로 씁니다. `OrderSheet.totalPrice`에는 배송비가 이미 들어 있고(`OrderService.calculateTotal`), 주문서 화면은 상품 금액을 따로 계산해 "상품 금액 + 배송비"로 나눠 보여 줍니다.
+- 결제는 `MockPaymentGateway`가 늘 승인합니다. 결제 실패(6a)를 화면에서 보려면 `MockPaymentGateway`를 바꿔 확인해야 합니다.
 
 ---
 
-## 7. 담당자께 부탁드릴 일
+## 7. 담당자께 부탁드렸던 일 (처리됨)
 
-### 백예원 님 (장바구니)
+### 백예원 님 (장바구니·주문)
 
-- `CartService`의 `getCart`, `add`, `updateItem`, `removeItem`을 구현해 주세요.
-- 이 4개 메서드가 구현되면 화면 코드에서 `MockCart`를 부르는 자리만 `context.cart`로 바꾸면 됩니다. 이 부분은 제가 바꾸겠습니다.
-- 화면은 다음처럼 동작한다고 보고 만들었습니다. 다르면 알려 주세요.
-  - 같은 옵션을 또 담으면 **새 줄이 아니라 수량을 더한다.**
-  - 옵션을 바꿔 다른 줄과 같아지면 **한 줄로 합친다.**
-  - 재고를 넘으면 `AppException`에 **최대 수량을 담은 문장**을 준다 (UC-10 3a).
+- `CartService`(`getCart`, `add`, `updateItem`, `removeItem`, 찜)와 `OrderService`를 구현해 주셔서, 통합 때 목업 자리를 `context.cart`·`context.order`로 바꿨습니다.
+- 같은 옵션을 또 담으면 수량을 더하고, 옵션을 바꿔 다른 줄과 같아지면 한 줄로 합치고, 재고를 넘으면 최대 수량을 담은 문장을 주는 것 모두 화면이 기대한 대로 동작합니다.
 
 ### 김대원 님 (주문)
 
-- `feat/order-payment`와 `feat/order-manage-v2`를 이 브랜치에 merge하고, 화면을 새 `OrderSheet`·`CheckoutRequest`(`fromCart` 추가)에 맞췄습니다. `checkout`·`cancel`은 별도 스레드에서 부르고, `RetryableException`은 [다시 시도] 버튼으로 보여 줍니다.
-- 주문 내역·상세 화면을 실제 `Order`로 그리려면 주문 일시, 상품 줄, 배송지, 결제 방법, 금액, 선물 정보, **송장번호** getter가 필요합니다 (Model 담당과 함께).
-- 장바구니 [주문하기]는 `prepareFromCart()`, 상세 [바로 구매]는 `prepareDirect(line)`, 주문서 [결제하기]는 `checkout(request)` 자리에 연결할 예정입니다. Model(`OrderService`·`CartService`)이 구현되면 목업 자리만 바꾸겠습니다.
-- **배송비**: `OrderSheet.totalPrice`에 배송비를 넣을지 정해 주세요. 지금 화면은 상품 금액만 들어온다고 보고 3,000원을 더합니다.
-- **결제 수단 값**: `paymentMethod`에 "카드 결제", "계좌이체", "휴대폰 결제" 문자열을 그대로 보냅니다. 결제 시스템에 맞는 코드가 필요하면 알려 주세요.
-- 주문 완료 화면을 실제 `Order`로 그리려면 주문번호·금액·배송지·결제 방법·주문 일시·선물 정보 getter가 필요합니다 (Model 담당과 함께).
+- `feat/order-payment`와 `feat/order-manage-v2`를 merge하고, 화면을 `OrderSheet`·`CheckoutRequest`(`fromCart` 포함)에 맞췄습니다. `checkout`·`cancel`은 별도 스레드에서 부르고, `RetryableException`은 [다시 시도] 버튼으로 보여 줍니다.
+- **배송비**: `OrderSheet.totalPrice`에 배송비가 들어가는 것으로 정해졌습니다 (`OrderService.calculateTotal`).
+- **결제 수단 값**: `paymentMethod`에 "카드 결제", "계좌이체", "휴대폰 결제" 문자열을 그대로 보냅니다.
+- **남은 일**: `Order`에 결제 방법이 없어서 주문 상세에 결제 방법을 보여 주지 못합니다. 필요하면 Model에 필드를 추가해야 합니다.
 
 ---
 
