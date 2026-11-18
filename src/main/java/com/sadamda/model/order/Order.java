@@ -15,8 +15,25 @@ public class Order {
     private GiftInfo giftInfo;
     private OrderStatus status;
     private LocalDateTime orderedAt;
+    private int productTotal;
+    private int shippingFee;
+    private String reason;
 
-    // Controller 명세에서 쓰는 getter. 나머지 접근자는 Model 담당이 추가한다.
+    public Order(Long id, Long memberId, List<OrderItem> items, String shippingAddress, int productTotal,
+                 int shippingFee, String paymentId, GiftInfo giftInfo, LocalDateTime orderedAt) {
+        this.id = id;
+        this.memberId = memberId;
+        this.items = List.copyOf(items);
+        this.shippingAddress = shippingAddress;
+        this.productTotal = productTotal;
+        this.shippingFee = shippingFee;
+        this.totalPrice = productTotal + shippingFee;
+        this.paymentId = paymentId;
+        this.giftInfo = giftInfo;
+        this.orderedAt = orderedAt;
+        this.status = OrderStatus.PAID;
+    }
+
     public Long getId() {
         return id;
     }
@@ -31,5 +48,58 @@ public class Order {
 
     public OrderStatus getStatus() {
         return status;
+    }
+
+    public List<OrderItem> getItems() {
+        return items;
+    }
+
+    public String getShippingAddress() {
+        return shippingAddress;
+    }
+
+    public int getProductTotal() {
+        return productTotal;
+    }
+
+    public int getShippingFee() {
+        return shippingFee;
+    }
+
+    public int getTotalPrice() {
+        return totalPrice;
+    }
+
+    public String getTrackingNumber() {
+        return trackingNumber;
+    }
+
+    public GiftInfo getGiftInfo() {
+        return giftInfo;
+    }
+
+    public boolean isGift() {
+        return giftInfo != null;
+    }
+
+    public LocalDateTime getOrderedAt() {
+        return orderedAt;
+    }
+
+    public String getReason() {
+        return reason;
+    }
+
+    public String getOrderNumber() {
+        return String.format("SD%1$tY%1$tm%1$td-%2$04d", orderedAt, id);
+    }
+
+    void changeStatus(OrderStatus status, String reason) {
+        this.status = status;
+        this.reason = reason;
+    }
+
+    void setTrackingNumber(String trackingNumber) {
+        this.trackingNumber = trackingNumber;
     }
 }
