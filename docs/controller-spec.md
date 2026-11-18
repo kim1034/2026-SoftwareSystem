@@ -24,7 +24,10 @@ Controller·Model 은 실패를 아래 예외로 알립니다 (`com.sadamda.comm
 |------|------|---------------|
 | `LoginRequiredException` | 로그인이 필요한 기능을 비회원이 씀 | 로그인 화면(UC-02)으로 이동 → 로그인 후 원래 화면으로 돌아와 다시 호출 |
 | `AccessDeniedException` | 관리자 기능을 일반 회원이 씀, 남의 주문 조회 | 메시지 표시 |
+| `RetryableException` | 잠시 후 다시 하면 될 수 있는 실패 (결제 취소·환불 실패 등) | 메시지와 함께 [다시 시도] 버튼 표시 |
 | `AppException` | 그 밖의 검증 실패·대안 흐름 | `getMessage()`를 큰 글씨로 그대로 표시 |
+
+`RetryableException`이 `AppException`을 상속하므로 `catch`는 `RetryableException`을 먼저 둡니다.
 
 - 메시지는 사용자에게 그대로 보여줄 쉬운 한국어로 씁니다 (NFR-03). 예: "이미 가입된 이메일입니다."
 - `UnsupportedOperationException("TODO ...")`은 아직 구현되지 않았다는 뜻입니다.
@@ -104,7 +107,7 @@ Controller·Model 은 실패를 아래 예외로 알립니다 (`com.sadamda.comm
 | `checkout(CheckoutRequest request)` | UC-11, UC-12 | 완료된 `Order` | 결제 실패(6a), 재고 소진(7a, 결제 자동 취소) |
 | `myOrders()` | UC-13 | `List<Order>` 최신순 | |
 | `orderDetail(Long orderId)` | UC-13 | `Order` | 남의 주문 |
-| `cancel(Long orderId, String reason)` | UC-13 4~5 | `Order` (취소됨) | 배송 중(4a) |
+| `cancel(Long orderId, String reason)` | UC-13 4~5 | `Order` (취소됨) | 배송 중(4a), 결제 취소 실패(`RetryableException`), 결제는 취소됐는데 주문 상태 변경 실패(고객센터 안내, 재시도 아님) |
 | `requestExchangeOrReturn(Long orderId, OrderStatus requested, String reason)` | UC-13 6 | `Order` | |
 
 - `OrderSheet(lines, defaultAddress, totalPrice, fromCart)` — 주문서 화면에 그대로 표시
@@ -144,8 +147,8 @@ Controller·Model 은 실패를 아래 예외로 알립니다 (`com.sadamda.comm
 | `saveLookbook(Lookbook lookbook)` | UC-17 | 저장된 `Lookbook` | 판매 중지 상품 포함(2a) |
 | `setTrending(Long productId, boolean trending)` | UC-17 | | |
 | `orders(OrderStatus status)` | UC-18 | 상태별 목록, null 이면 전체 | |
-| `updateOrderStatus(Long orderId, OrderStatus status, String trackingNumber)` | UC-18 3 | `Order` — SHIPPING 이면 송장번호 필수 | 잘못된 상태 변경 |
-| `approveRequest(Long orderId)` | UC-18 4~5 | `Order` — 반품이면 환불 후 반영 | 환불 실패(5a, 재시도 안내) |
+| `updateOrderStatus(Long orderId, OrderStatus status, String trackingNumber)` | UC-18 3 | `Order` — status 는 PREPARING·SHIPPING·DELIVERED 만 (그 밖은 `IllegalArgumentException`), SHIPPING 이면 송장번호 필수 | 잘못된 상태 변경 |
+| `approveRequest(Long orderId)` | UC-18 4~5 | `Order` — 반품이면 환불 후 반영 | 환불 실패(5a, `RetryableException`), 환불은 됐는데 상태 반영 실패(다시 승인하지 말라는 안내, 재시도 아님) |
 | `rejectRequest(Long orderId, String reason)` | UC-18 4 | `Order` | |
 
 ## 3. Controller 가 Model 에 요구하는 것
