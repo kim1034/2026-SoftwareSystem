@@ -13,16 +13,27 @@ public class Member {
     private Role role = Role.MEMBER;
     private BodyProfile bodyProfile; // 선택 입력
 
-    // Controller 명세에서 쓰는 getter. 나머지 접근자는 Model 담당이 추가한다.
-    public Long getId() {
-        return id;
-    }
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
 
-    public Role getRole() {
-        return role;
-    }
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
 
-    public String getDefaultAddress() {
-        return defaultAddress;
-    }
+    public String getPasswordHash() { return passwordHash; }
+    public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
+
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+
+    public String getPhone() { return phone; }
+    public void setPhone(String phone) { this.phone = phone; }
+
+    public String getDefaultAddress() { return defaultAddress; }
+    public void setDefaultAddress(String defaultAddress) { this.defaultAddress = defaultAddress; }
+
+    public Role getRole() { return role; }
+    public void setRole(Role role) { this.role = role; }
+
+    public BodyProfile getBodyProfile() { return bodyProfile; }
+    public void setBodyProfile(BodyProfile bodyProfile) { this.bodyProfile = bodyProfile; }
 }

@@ -24,7 +24,10 @@ Controller·Model 은 실패를 아래 예외로 알립니다 (`com.sadamda.comm
 |------|------|---------------|
 | `LoginRequiredException` | 로그인이 필요한 기능을 비회원이 씀 | 로그인 화면(UC-02)으로 이동 → 로그인 후 원래 화면으로 돌아와 다시 호출 |
 | `AccessDeniedException` | 관리자 기능을 일반 회원이 씀, 남의 주문 조회 | 메시지 표시 |
+| `RetryableException` | 잠시 후 다시 하면 될 수 있는 실패 (결제 취소·환불 실패 등) | 메시지와 함께 [다시 시도] 버튼 표시 |
 | `AppException` | 그 밖의 검증 실패·대안 흐름 | `getMessage()`를 큰 글씨로 그대로 표시 |
+
+`RetryableException`이 `AppException`을 상속하므로 `catch`는 `RetryableException`을 먼저 둡니다.
 
 - 메시지는 사용자에게 그대로 보여줄 쉬운 한국어로 씁니다 (NFR-03). 예: "이미 가입된 이메일입니다."
 - `UnsupportedOperationException("TODO ...")`은 아직 구현되지 않았다는 뜻입니다.
@@ -66,6 +69,8 @@ Controller·Model 은 실패를 아래 예외로 알립니다 (`com.sadamda.comm
 | `listByCategory(Category category, int page)` | UC-04 | `List<Product>` — page 는 0부터, [더 보기]마다 +1 |
 | `popular()` | UC-04 2a, UC-05 2a | 결과가 없을 때 보여줄 인기 상품 |
 | `search(SearchFilter filter)` | UC-05 | `List<Product>` — 3a [내 체형에 맞는 상품]은 회원 체형 정보로 filter 를 채워 호출 |
+| `countByCategory(Category category)` | UC-04 | 판매 중 상품 수 — 카테고리 버튼 숫자, [더 보기] 표시 여부 |
+| `suggestKeywords(String keyword)` | UC-05 2a | 결과가 없을 때 제안할 비슷한 검색어 |
 | `detail(Long productId)` | UC-06 | `Product` |
 | `reviews(Long productId)` | UC-06 | `List<Review>` |
 
@@ -77,6 +82,9 @@ Controller·Model 은 실패를 아래 예외로 알립니다 (`com.sadamda.comm
 | `lookbook(Long lookbookId)` | UC-07 | `Lookbook` |
 | `trendingItems()` | UC-08 | 이번 시즌 유행 아이템 |
 | `recommendedForMe()` | UC-08 | 맞춤 상품, 비회원이면 빈 목록 |
+| `lookbookProducts(Long lookbookId)` | UC-07 4 | 코디 구성 상품 (지워진 상품은 빠짐, 품절은 `isSoldOut`) |
+| `occasions()`, `seasons()` | UC-07 2 | 상황·계절 필터 값 (등록된 코디에 있는 것만) |
+| `hasBodyType()` | UC-08 3a | 로그인한 회원이 체형 정보를 넣었는지 — `false`면 체형 입력 권유 |
 
 [코디 전체 담기](UC-07 5단계)는 `CartController.addAll`을 씁니다.
 
@@ -104,11 +112,13 @@ Controller·Model 은 실패를 아래 예외로 알립니다 (`com.sadamda.comm
 | `checkout(CheckoutRequest request)` | UC-11, UC-12 | 완료된 `Order` | 결제 실패(6a), 재고 소진(7a, 결제 자동 취소) |
 | `myOrders()` | UC-13 | `List<Order>` 최신순 | |
 | `orderDetail(Long orderId)` | UC-13 | `Order` | 남의 주문 |
-| `cancel(Long orderId, String reason)` | UC-13 4~5 | `Order` (취소됨) | 배송 중(4a) |
+| `cancel(Long orderId, String reason)` | UC-13 4~5 | `Order` (취소됨) | 배송 중(4a), 결제 취소 실패(`RetryableException`), 결제는 취소됐는데 주문 상태 변경 실패(고객센터 안내, 재시도 아님) |
 | `requestExchangeOrReturn(Long orderId, OrderStatus requested, String reason)` | UC-13 6 | `Order` | |
 
-- `OrderSheet(lines, defaultAddress, totalPrice)` — 주문서 화면에 그대로 표시
-- `CheckoutRequest(lines, shippingAddress, paymentMethod, giftInfo)` — [선물로 보내기]를 고르면 `giftInfo`를 채움 (UC-12), 아니면 `null`
+- `OrderSheet(lines, defaultAddress, totalPrice, fromCart)` — 주문서 화면에 그대로 표시
+- `CheckoutRequest(lines, shippingAddress, paymentMethod, giftInfo, fromCart)`
+  - [선물로 보내기]를 고르면 `giftInfo`를 채움 (UC-12), 아니면 `null`
+  - `fromCart`는 `OrderSheet.fromCart()`를 그대로 넘김. true 면 결제 후 주문한 상품을 장바구니에서 비움 ([바로 구매]는 false)
 
 ### ReviewController — UC-14 (로그인 필요)
 
@@ -140,10 +150,11 @@ Controller·Model 은 실패를 아래 예외로 알립니다 (`com.sadamda.comm
 | `suspendProduct(Long productId)` | UC-16 3a | | |
 | `deleteProduct(Long productId)` | UC-16 | | |
 | `saveLookbook(Lookbook lookbook)` | UC-17 | 저장된 `Lookbook` | 판매 중지 상품 포함(2a) |
+| `deleteLookbook(Long lookbookId)` | UC-17 | | 없는 코디 |
 | `setTrending(Long productId, boolean trending)` | UC-17 | | |
 | `orders(OrderStatus status)` | UC-18 | 상태별 목록, null 이면 전체 | |
-| `updateOrderStatus(Long orderId, OrderStatus status, String trackingNumber)` | UC-18 3 | `Order` — SHIPPING 이면 송장번호 필수 | 잘못된 상태 변경 |
-| `approveRequest(Long orderId)` | UC-18 4~5 | `Order` — 반품이면 환불 후 반영 | 환불 실패(5a, 재시도 안내) |
+| `updateOrderStatus(Long orderId, OrderStatus status, String trackingNumber)` | UC-18 3 | `Order` — status 는 PREPARING·SHIPPING·DELIVERED 만 (그 밖은 `IllegalArgumentException`), SHIPPING 이면 송장번호 필수 | 잘못된 상태 변경 |
+| `approveRequest(Long orderId)` | UC-18 4~5 | `Order` — 반품이면 환불 후 반영 | 환불 실패(5a, `RetryableException`), 환불은 됐는데 상태 반영 실패(다시 승인하지 말라는 안내, 재시도 아님) |
 | `rejectRequest(Long orderId, String reason)` | UC-18 4 | `Order` | |
 
 ## 3. Controller 가 Model 에 요구하는 것
