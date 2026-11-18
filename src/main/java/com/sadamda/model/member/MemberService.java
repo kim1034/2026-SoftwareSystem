@@ -112,6 +112,11 @@ public class MemberService {
         return member;
     }
 
+    /** 이메일로 회원을 찾는다 (대소문자·앞뒤 공백 무시). 없으면 null. 가족에게 물어보기에서 받는 사람을 찾을 때 쓴다. */
+    public synchronized Member findByEmailOrNull(String email) {
+        return findByEmail(normalizeEmail(email));
+    }
+
     private Member findByEmail(String normalizedEmail) {
         for (Member member : members.values()) {
             if (member.getEmail().equals(normalizedEmail)) {
