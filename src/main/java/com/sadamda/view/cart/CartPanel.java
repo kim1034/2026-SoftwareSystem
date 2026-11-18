@@ -12,9 +12,7 @@ import com.sadamda.view.ScreenPanel;
 import com.sadamda.view.Theme;
 import com.sadamda.view.WrapLayout;
 import com.sadamda.view.member.LoginPanel;
-import com.sadamda.view.order.MockOrders;
 import com.sadamda.view.order.OrderPanel;
-import com.sadamda.view.product.MockProducts;
 import com.sadamda.view.product.ProductDetail;
 import com.sadamda.view.product.ProductListPanel;
 
@@ -111,7 +109,7 @@ public class CartPanel extends ScreenPanel {
             frame.navigate(LoginPanel.NAME);
             return;
         }
-        List<CartItem> items = fetchCart(member.getId());
+        List<CartItem> items = fetchCart();
         column.removeAll();
         int width = columnWidth();
         JLabel title = Theme.label("장바구니", 1.6f, Font.BOLD, Theme.TEXT);
@@ -124,13 +122,17 @@ public class CartPanel extends ScreenPanel {
         } else {
             int total = 0;
             for (CartItem item : items) {
-                ProductDetail product = MockProducts.detail(item.productId());
+                ProductDetail product = ProductDetail.of(context.product.detail(item.productId()));
                 total += product.price() * item.quantity();
                 Theme.addToCard(column, itemCard(item, product), 16);
             }
             Theme.addToCard(column, summaryCard(total), 24);
             orderButton.setText(price(total + OrderPanel.SHIPPING_FEE) + " · 총 " + items.size() + "건 주문하기");
             orderBar.setVisible(true);
+        }
+        List<com.sadamda.model.product.Product> wished = context.cart.wishList();
+        if (!wished.isEmpty()) {
+            Theme.addToCard(column, wishCard(wished), 32);
         }
         // 카드 폭을 글씨 크기에 맞춰 정한다. (길이가 다른 상품명 때문에 카드마다 폭이 달라지지 않게)
         column.setPreferredSize(null);
@@ -143,9 +145,8 @@ public class CartPanel extends ScreenPanel {
         orderBar.revalidate();
     }
 
-    // TODO CartService 가 구현되면 context.cart.cart() 로 바꾸고, 상품 정보는 context.product.detail(id) 로 가져온다.
-    private List<CartItem> fetchCart(Long memberId) {
-        return MockCart.cart(memberId);
+    private List<CartItem> fetchCart() {
+        return context.cart.cart();
     }
 
     /** UC-10 5단계: 장바구니 전체로 주문서를 만든다 (UC-11). */
@@ -157,8 +158,7 @@ public class CartPanel extends ScreenPanel {
         }
         OrderSheet sheet;
         try {
-            // TODO OrderController 가 구현되면 context.order.prepareFromCart() 로 바꾼다.
-            sheet = MockOrders.prepareFromCart(member.getId(), member.getDefaultAddress());
+            sheet = context.order.prepareFromCart();
         } catch (AppException e) {
             JOptionPane.showMessageDialog(this, e.getMessage()); // 예: 품절 상품이 섞여 있음
             return;
@@ -253,8 +253,7 @@ public class CartPanel extends ScreenPanel {
     /** UC-10 3~4단계: 수량·옵션을 바꾸고 총액을 다시 계산한다. 재고를 넘으면 최대 수량을 안내한다 (3a). */
     private boolean change(CartItem item, Long optionId, int quantity) {
         try {
-            // TODO context.cart.update(item.id(), optionId, quantity) 로 바꾼다.
-            MockCart.update(item.memberId(), item.id(), optionId, quantity);
+            context.cart.update(item.id(), optionId, quantity);
             messages.remove(item.id());
             refresh();
             return true;
@@ -271,8 +270,7 @@ public class CartPanel extends ScreenPanel {
         if (answer != JOptionPane.YES_OPTION) {
             return;
         }
-        // TODO context.cart.remove(item.id()) 로 바꾼다.
-        MockCart.remove(item.memberId(), item.id());
+        context.cart.remove(item.id());
         messages.remove(item.id());
         refresh();
     }
@@ -287,6 +285,40 @@ public class CartPanel extends ScreenPanel {
         Theme.addToCard(card, amountRow("배송비", price(OrderPanel.SHIPPING_FEE), false), 12);
         Theme.addToCard(card, line(), 16);
         Theme.addToCard(card, amountRow("총 결제 예정금액", price(total + OrderPanel.SHIPPING_FEE), true), 16);
+        return card;
+    }
+
+    /** UC-10 1a 찜한 상품: [사진] 상품명·가격 | [상세 보기] [찜 해제] */
+    private JPanel wishCard(List<com.sadamda.model.product.Product> wished) {
+        JPanel card = whiteCard();
+        card.setLayout(new GridBagLayout());
+        Theme.addToCard(card, Theme.label("찜한 상품 " + wished.size() + "개", 1.2f, Font.BOLD, Theme.TEXT), 0);
+        for (com.sadamda.model.product.Product product : wished) {
+            JPanel row = new JPanel(new BorderLayout(16, 0));
+            row.setOpaque(false);
+            row.add(new ProductThumbnail(product.getMainImageUrl()), BorderLayout.WEST);
+            JPanel text = new JPanel(new GridBagLayout());
+            text.setOpaque(false);
+            Theme.addToCard(text, Theme.label(product.getName(), 1f, Font.BOLD, Theme.TEXT), 0);
+            Theme.addToCard(text, Theme.label(price(product.getPrice())
+                    + (product.isOnSale() ? "" : " · 판매 중지"), 1f, Font.PLAIN, Theme.HINT), 6);
+            row.add(text, BorderLayout.CENTER);
+            JButton open = Theme.linkButton("상세 보기");
+            open.getAccessibleContext().setAccessibleName(product.getName() + " 상세 보기");
+            open.addActionListener(e -> frame.openProduct(product.getId()));
+            JButton unwish = Theme.linkButton("찜 해제");
+            unwish.getAccessibleContext().setAccessibleName(product.getName() + " 찜 해제");
+            unwish.addActionListener(e -> {
+                context.cart.toggleWish(product.getId());
+                refresh();
+            });
+            JPanel buttons = new JPanel(new GridLayout(2, 1, 0, 4));
+            buttons.setOpaque(false);
+            buttons.add(open);
+            buttons.add(unwish);
+            row.add(buttons, BorderLayout.EAST);
+            Theme.addToCard(card, row, 20);
+        }
         return card;
     }
 

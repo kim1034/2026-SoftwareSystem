@@ -4,8 +4,11 @@ import com.sadamda.common.AppException;
 import com.sadamda.controller.AppContext;
 import com.sadamda.controller.CheckoutRequest;
 import com.sadamda.controller.OrderSheet;
+import com.sadamda.controller.ProductController;
 import com.sadamda.model.member.Member;
 import com.sadamda.model.order.GiftInfo;
+import com.sadamda.model.order.Order;
+import com.sadamda.model.order.OrderItem;
 import com.sadamda.model.order.OrderLine;
 import com.sadamda.model.product.ProductOption;
 import com.sadamda.view.MainFrame;
@@ -15,7 +18,6 @@ import com.sadamda.view.Theme;
 import com.sadamda.view.cart.CartPanel;
 import com.sadamda.view.member.LoginPanel;
 import com.sadamda.view.member.SignUpPanel;
-import com.sadamda.view.product.MockProducts;
 import com.sadamda.view.product.ProductDetail;
 import com.sadamda.view.product.ProductListPanel;
 
@@ -57,7 +59,7 @@ import java.util.concurrent.ExecutionException;
 public class OrderPanel extends ScreenPanel {
     public static final String NAME = "order";
     /** 배송비 (팀 결정: 3,000원 고정). 장바구니 금액 요약도 이 값을 쓴다. */
-    public static final int SHIPPING_FEE = 3000;
+    public static final int SHIPPING_FEE = com.sadamda.model.order.OrderService.SHIPPING_FEE;
     private static final String[] PAYMENT_METHODS = {"카드 결제", "계좌이체", "휴대폰 결제"};
 
     /** 가운데 세로 한 줄. 폭은 글씨 크기에 맞춰 정하고, 높이는 내용(내가 받기·선물 카드 등)에 따라 늘어난다. */
@@ -73,7 +75,9 @@ public class OrderPanel extends ScreenPanel {
 
     /** 지금 작성 중인 주문서. 결제가 끝나면 null (같은 주문을 두 번 결제하지 않게). */
     private OrderSheet sheet;
-    private MockOrders.MockOrder completed;
+    private Order completed;
+    /** 방금 고른 결제 방법. Order 에는 결제 승인번호만 남으므로 완료 화면용으로 따로 기억한다. */
+    private String completedMethod;
 
     // 배송 주소
     /** 내가 받기 / 선물로 보내기 중 고른 카드만 담는다. (겹쳐 두면 짧은 카드도 긴 카드 높이가 된다) */
@@ -213,7 +217,7 @@ public class OrderPanel extends ScreenPanel {
         }
         paymentChips.forEach(SwingUtilities::updateComponentTreeUI);
         int productTotal = sheet.lines().stream()
-                .mapToInt(line -> MockProducts.detail(line.productId()).price() * line.quantity()).sum();
+                .mapToInt(line -> context.product.detail(line.productId()).getPrice() * line.quantity()).sum();
 
         JPanel addressHeader = sectionHeader("배송 주소");
         JPanel chips = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
@@ -230,7 +234,7 @@ public class OrderPanel extends ScreenPanel {
         JPanel itemsCard = whiteCard();
         boolean first = true;
         for (OrderLine line : sheet.lines()) {
-            Theme.addToCard(itemsCard, itemRow(line), first ? 0 : 20);
+            Theme.addToCard(itemsCard, itemRow(context.product, line), first ? 0 : 20);
             first = false;
         }
         Theme.addToCard(column, itemsCard, 12);
@@ -279,20 +283,31 @@ public class OrderPanel extends ScreenPanel {
     }
 
     /** [사진] 상품명 / 옵션 · 수량 ... 금액 */
-    static JPanel itemRow(OrderLine line) {
-        ProductDetail product = MockProducts.detail(line.productId());
+    static JPanel itemRow(ProductController products, OrderLine line) {
+        int unitPrice = products.detail(line.productId()).getPrice();
+        return itemRow(products, line.productId(), line.optionId(), line.quantity(), unitPrice);
+    }
+
+    /** 주문한 상품 한 줄. 금액은 주문할 때의 가격(unitPrice)으로 보여 준다. */
+    static JPanel itemRow(ProductController products, OrderItem item) {
+        return itemRow(products, item.productId(), item.optionId(), item.quantity(), item.unitPrice());
+    }
+
+    private static JPanel itemRow(ProductController products, Long productId, Long optionId, int quantity,
+                                  int unitPrice) {
+        ProductDetail product = ProductDetail.of(products.detail(productId));
         ProductOption option = product.options().stream()
-                .filter(o -> o.id().equals(line.optionId())).findFirst().orElseThrow();
+                .filter(o -> o.id().equals(optionId)).findFirst().orElseThrow();
         JPanel row = new JPanel(new BorderLayout(16, 0));
         row.setOpaque(false);
         row.add(new ProductThumbnail(product.imageUrls().get(0)), BorderLayout.WEST);
         JPanel text = new JPanel(new GridBagLayout());
         text.setOpaque(false);
         Theme.addToCard(text, Theme.label(product.name(), 1f, Font.BOLD, Theme.TEXT), 0);
-        Theme.addToCard(text, Theme.label(option.size() + " / " + option.color() + " · " + line.quantity() + "개",
+        Theme.addToCard(text, Theme.label(option.size() + " / " + option.color() + " · " + quantity + "개",
                 1f, Font.PLAIN, Theme.HINT), 6);
         row.add(text, BorderLayout.CENTER);
-        row.add(Theme.label(price(product.price() * line.quantity()), 1.1f, Font.BOLD, Theme.TEXT), BorderLayout.EAST);
+        row.add(Theme.label(price(unitPrice * quantity), 1.1f, Font.BOLD, Theme.TEXT), BorderLayout.EAST);
         return row;
     }
 
@@ -324,17 +339,16 @@ public class OrderPanel extends ScreenPanel {
         String method = paymentChips.stream().filter(JToggleButton::isSelected)
                 .map(JToggleButton::getText).findFirst().orElse(PAYMENT_METHODS[0]);
         CheckoutRequest request = new CheckoutRequest(sheet.lines(), address, method, gift, sheet.fromCart());
-        Long memberId = context.member.currentMember().getId();
 
         // 결제 시스템 응답을 기다리므로 화면 스레드가 아닌 곳에서 부른다 (docs/controller-spec.md).
         // 기다리는 동안 버튼을 막아 두 번 결제하지 않게 하고, 무엇을 하는지 알려 준다.
         String payText = payButton.getText();
         payButton.setEnabled(false);
         payButton.setText("결제 중…");
-        new SwingWorker<MockOrders.MockOrder, Void>() {
+        new SwingWorker<Order, Void>() {
             @Override
-            protected MockOrders.MockOrder doInBackground() {
-                return fetchCheckout(memberId, request);
+            protected Order doInBackground() {
+                return context.order.checkout(request);
             }
 
             @Override
@@ -343,6 +357,7 @@ public class OrderPanel extends ScreenPanel {
                 payButton.setText(payText);
                 try {
                     completed = get();
+                    completedMethod = method;
                 } catch (ExecutionException e) {
                     // 6a 결제 실패, 7a 재고 소진 등: 주문을 만들지 않고 이유를 알린 뒤 주문서에 남는다.
                     String message = e.getCause() instanceof AppException
@@ -359,12 +374,6 @@ public class OrderPanel extends ScreenPanel {
                 render();
             }
         }.execute();
-    }
-
-    // TODO OrderService·CartService 가 구현되면 context.order.checkout(request) 로 바꾼다.
-    //  (OrderController.checkout 은 구현됐지만 안에서 부르는 Model 이 아직 TODO)
-    private static MockOrders.MockOrder fetchCheckout(Long memberId, CheckoutRequest request) {
-        return MockOrders.checkout(memberId, request, SHIPPING_FEE);
     }
 
     private boolean checkAddress() {
@@ -418,30 +427,30 @@ public class OrderPanel extends ScreenPanel {
 
     private void renderCompleted() {
         JPanel card = whiteCard();
-        JLabel headline = Theme.label(completed.giftInfo() == null ? "주문이 완료되었어요" : "선물 주문이 완료되었어요",
+        JLabel headline = Theme.label(completed.getGiftInfo() == null ? "주문이 완료되었어요" : "선물 주문이 완료되었어요",
                 1.3f, Font.BOLD, Theme.TEXT);
         headline.setHorizontalAlignment(SwingConstants.CENTER);
         Theme.addToCard(card, headline, 8);
-        if (completed.giftInfo() != null) {
+        if (completed.isGift()) {
             JLabel badge = Theme.label("선물 주문", 1f, Font.BOLD, Theme.TEXT);
             badge.setHorizontalAlignment(SwingConstants.CENTER);
             Theme.addToCard(card, badge, 8);
         }
         Theme.addToCard(card, line(), 24);
-        Theme.addToCard(card, amountRow("주문번호", completed.orderNumber(), false), 20);
+        Theme.addToCard(card, amountRow("주문번호", completed.getOrderNumber(), false), 20);
         Theme.addToCard(card, amountRow("주문 일시",
-                completed.orderedAt().format(DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm")), false), 12);
-        Theme.addToCard(card, amountRow("결제 방법", completed.paymentMethod(), false), 12);
-        Theme.addToCard(card, amountRow("결제 금액", price(completed.totalPrice()), true), 12);
+                completed.getOrderedAt().format(DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm")), false), 12);
+        Theme.addToCard(card, amountRow("결제 방법", completedMethod, false), 12);
+        Theme.addToCard(card, amountRow("결제 금액", price(completed.getTotalPrice()), true), 12);
         Theme.addToCard(card, line(), 20);
-        if (completed.giftInfo() != null) {
-            Theme.addToCard(card, amountRow("받는 분", completed.giftInfo().recipientName(), false), 20);
-            if (completed.giftInfo().message() != null) {
-                Theme.addToCard(card, amountRow("선물 메시지", completed.giftInfo().message(), false), 12);
+        if (completed.isGift()) {
+            Theme.addToCard(card, amountRow("받는 분", completed.getGiftInfo().recipientName(), false), 20);
+            if (completed.getGiftInfo().message() != null) {
+                Theme.addToCard(card, amountRow("선물 메시지", completed.getGiftInfo().message(), false), 12);
             }
         }
         Theme.addToCard(card, Theme.label("배송지", 1f, Font.PLAIN, Theme.HINT), 20);
-        Theme.addToCard(card, Theme.label(completed.shippingAddress(), 1f, Font.PLAIN, Theme.TEXT), 4);
+        Theme.addToCard(card, Theme.label(completed.getShippingAddress(), 1f, Font.PLAIN, Theme.TEXT), 4);
 
         JButton history = Theme.primaryButton("주문 내역 보기");
         history.addActionListener(e -> frame.navigate(OrderHistoryPanel.NAME));

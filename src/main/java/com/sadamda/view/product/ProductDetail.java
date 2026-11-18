@@ -12,7 +12,7 @@ import java.util.List;
 public record ProductDetail(Long id, String name, int price, String material, List<String> imageUrls,
                      List<ProductOption> options) {
 
-    static ProductDetail of(Product product) {
+    public static ProductDetail of(Product product) {
         return new ProductDetail(product.getId(), product.getName(), product.getPrice(), product.getMaterial(),
                 product.getImageUrls(), product.getOptions());
     }

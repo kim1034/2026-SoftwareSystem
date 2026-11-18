@@ -4,7 +4,8 @@ import com.sadamda.common.AppException;
 import com.sadamda.common.RetryableException;
 import com.sadamda.controller.AppContext;
 import com.sadamda.model.member.Member;
-import com.sadamda.model.order.OrderLine;
+import com.sadamda.model.order.Order;
+import com.sadamda.model.order.OrderItem;
 import com.sadamda.model.order.OrderStatus;
 import com.sadamda.view.MainFrame;
 import com.sadamda.view.ScreenPanel;
@@ -102,18 +103,12 @@ public class OrderHistoryPanel extends ScreenPanel {
         });
     }
 
-    private Long memberId() {
-        Member member = context.member.currentMember();
-        return member == null ? null : member.getId();
+    private List<Order> fetchOrders() {
+        return context.order.myOrders();
     }
 
-    // TODO OrderService 가 구현되면 context.order.myOrders() / orderDetail(id) 로 바꾼다.
-    private List<MockOrders.MockOrder> fetchOrders() {
-        return MockOrders.ordersOf(memberId());
-    }
-
-    private MockOrders.MockOrder fetchOrder(Long orderId) {
-        return MockOrders.orderDetail(memberId(), orderId);
+    private Order fetchOrder(Long orderId) {
+        return context.order.orderDetail(orderId);
     }
 
     private void render() {
@@ -134,7 +129,7 @@ public class OrderHistoryPanel extends ScreenPanel {
         JLabel title = Theme.label("주문 내역", 1.6f, Font.BOLD, Theme.TEXT);
         title.setHorizontalAlignment(SwingConstants.CENTER);
         Theme.addToCard(column, title, 0);
-        List<MockOrders.MockOrder> orders = fetchOrders();
+        List<Order> orders = fetchOrders();
         if (orders.isEmpty()) {
             JPanel card = OrderPanel.whiteCard();
             card.setBorder(BorderFactory.createEmptyBorder(24, 24, 48, 24));
@@ -147,13 +142,13 @@ public class OrderHistoryPanel extends ScreenPanel {
             Theme.addToCard(column, card, 24);
             return;
         }
-        for (MockOrders.MockOrder order : orders) {
+        for (Order order : orders) {
             JPanel header = new JPanel(new BorderLayout());
             header.setOpaque(false);
-            header.add(Theme.label(order.orderedAt().format(DAY), 1.2f, Font.BOLD, Theme.TEXT), BorderLayout.WEST);
+            header.add(Theme.label(order.getOrderedAt().format(DAY), 1.2f, Font.BOLD, Theme.TEXT), BorderLayout.WEST);
             JButton detail = Theme.linkButton("주문 상세");
-            detail.getAccessibleContext().setAccessibleName(order.orderedAt().format(DAY) + " 주문 상세");
-            detail.addActionListener(e -> openDetail(order.id()));
+            detail.getAccessibleContext().setAccessibleName(order.getOrderedAt().format(DAY) + " 주문 상세");
+            detail.addActionListener(e -> openDetail(order.getId()));
             header.add(detail, BorderLayout.EAST);
             Theme.addToCard(column, header, 32);
             Theme.addToCard(column, orderCard(order), 4);
@@ -161,20 +156,20 @@ public class OrderHistoryPanel extends ScreenPanel {
     }
 
     /** 주문 한 건: 상태(+선물 주문), 상품 줄, 총 결제금액, 상태별 안내·버튼. 카드를 눌러도 상세로 간다. */
-    private JPanel orderCard(MockOrders.MockOrder order) {
+    private JPanel orderCard(Order order) {
         JPanel card = OrderPanel.whiteCard();
         Theme.addToCard(card, statusRow(order), 0);
-        for (OrderLine line : order.lines()) {
-            Theme.addToCard(card, OrderPanel.itemRow(line), 16);
+        for (OrderItem item : order.getItems()) {
+            Theme.addToCard(card, OrderPanel.itemRow(context.product, item), 16);
         }
         Theme.addToCard(card, OrderPanel.line(), 20);
-        Theme.addToCard(card, OrderPanel.amountRow("총 결제금액", OrderPanel.price(order.totalPrice()), true), 16);
+        Theme.addToCard(card, OrderPanel.amountRow("총 결제금액", OrderPanel.price(order.getTotalPrice()), true), 16);
         addActions(card, order);
         card.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         card.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
-                openDetail(order.id());
+                openDetail(order.getId());
             }
         });
         return card;
@@ -187,7 +182,7 @@ public class OrderHistoryPanel extends ScreenPanel {
 
     // ── 상세 (3단계) ──
 
-    private void renderDetail(MockOrders.MockOrder order) {
+    private void renderDetail(Order order) {
         JButton back = Theme.linkButton("← 주문 내역으로");
         back.addActionListener(e -> {
             detailId = null;
@@ -203,49 +198,48 @@ public class OrderHistoryPanel extends ScreenPanel {
 
         JPanel status = OrderPanel.whiteCard();
         Theme.addToCard(status, statusRow(order), 0);
-        Theme.addToCard(status, steps(order.status()), 20);
+        Theme.addToCard(status, steps(order.getStatus()), 20);
         addActions(status, order);
         Theme.addToCard(column, status, 24);
 
         Theme.addToCard(column, OrderPanel.sectionHeader("주문 정보"), 32);
         JPanel info = OrderPanel.whiteCard();
-        Theme.addToCard(info, OrderPanel.amountRow("주문번호", order.orderNumber(), false), 0);
-        Theme.addToCard(info, OrderPanel.amountRow("주문 일시", order.orderedAt().format(TIME), false), 12);
-        Theme.addToCard(info, OrderPanel.amountRow("결제 방법", order.paymentMethod(), false), 12);
-        if (order.trackingNumber() != null) {
-            Theme.addToCard(info, OrderPanel.amountRow("송장번호", order.trackingNumber(), false), 12);
+        Theme.addToCard(info, OrderPanel.amountRow("주문번호", order.getOrderNumber(), false), 0);
+        Theme.addToCard(info, OrderPanel.amountRow("주문 일시", order.getOrderedAt().format(TIME), false), 12);
+        if (order.getTrackingNumber() != null) {
+            Theme.addToCard(info, OrderPanel.amountRow("송장번호", order.getTrackingNumber(), false), 12);
         }
         Theme.addToCard(column, info, 12);
 
         Theme.addToCard(column, OrderPanel.sectionHeader("주문 상품"), 32);
         JPanel items = OrderPanel.whiteCard();
         boolean first = true;
-        for (OrderLine line : order.lines()) {
-            Theme.addToCard(items, OrderPanel.itemRow(line), first ? 0 : 20);
+        for (OrderItem item : order.getItems()) {
+            Theme.addToCard(items, OrderPanel.itemRow(context.product, item), first ? 0 : 20);
             first = false;
         }
         Theme.addToCard(column, items, 12);
 
-        Theme.addToCard(column, OrderPanel.sectionHeader(order.giftInfo() == null ? "배송지" : "선물 받는 분"), 32);
+        Theme.addToCard(column, OrderPanel.sectionHeader(order.getGiftInfo() == null ? "배송지" : "선물 받는 분"), 32);
         JPanel address = OrderPanel.whiteCard();
-        if (order.giftInfo() != null) {
-            Theme.addToCard(address, OrderPanel.amountRow("받는 분", order.giftInfo().recipientName(), false), 0);
-            Theme.addToCard(address, OrderPanel.amountRow("연락처", order.giftInfo().recipientPhone(), false), 12);
-            if (order.giftInfo().message() != null) {
-                Theme.addToCard(address, OrderPanel.amountRow("선물 메시지", order.giftInfo().message(), false), 12);
+        if (order.getGiftInfo() != null) {
+            Theme.addToCard(address, OrderPanel.amountRow("받는 분", order.getGiftInfo().recipientName(), false), 0);
+            Theme.addToCard(address, OrderPanel.amountRow("연락처", order.getGiftInfo().recipientPhone(), false), 12);
+            if (order.getGiftInfo().message() != null) {
+                Theme.addToCard(address, OrderPanel.amountRow("선물 메시지", order.getGiftInfo().message(), false), 12);
             }
-            Theme.addToCard(address, Theme.label(order.shippingAddress(), 1f, Font.PLAIN, Theme.TEXT), 12);
+            Theme.addToCard(address, Theme.label(order.getShippingAddress(), 1f, Font.PLAIN, Theme.TEXT), 12);
         } else {
-            Theme.addToCard(address, Theme.label(order.shippingAddress(), 1f, Font.PLAIN, Theme.TEXT), 0);
+            Theme.addToCard(address, Theme.label(order.getShippingAddress(), 1f, Font.PLAIN, Theme.TEXT), 0);
         }
         Theme.addToCard(column, address, 12);
 
         Theme.addToCard(column, OrderPanel.sectionHeader("결제 금액"), 32);
         JPanel amount = OrderPanel.whiteCard();
-        Theme.addToCard(amount, OrderPanel.amountRow("상품 금액", OrderPanel.price(order.productTotal()), false), 0);
-        Theme.addToCard(amount, OrderPanel.amountRow("배송비", OrderPanel.price(order.shippingFee()), false), 12);
+        Theme.addToCard(amount, OrderPanel.amountRow("상품 금액", OrderPanel.price(order.getProductTotal()), false), 0);
+        Theme.addToCard(amount, OrderPanel.amountRow("배송비", OrderPanel.price(order.getShippingFee()), false), 12);
         Theme.addToCard(amount, OrderPanel.line(), 16);
-        Theme.addToCard(amount, OrderPanel.amountRow("총 결제금액", OrderPanel.price(order.totalPrice()), true), 16);
+        Theme.addToCard(amount, OrderPanel.amountRow("총 결제금액", OrderPanel.price(order.getTotalPrice()), true), 16);
         Theme.addToCard(column, amount, 12);
     }
 
@@ -279,11 +273,11 @@ public class OrderHistoryPanel extends ScreenPanel {
     // ── 상태 표시와 버튼 (목록·상세 공통) ──
 
     /** "결제완료" + (선물이면) "선물 주문" */
-    private static JPanel statusRow(MockOrders.MockOrder order) {
+    private static JPanel statusRow(Order order) {
         JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         row.setOpaque(false);
-        row.add(Theme.label(STATUS_NAMES.get(order.status()), 1.1f, Font.BOLD, Theme.TEXT));
-        if (order.giftInfo() != null) {
+        row.add(Theme.label(STATUS_NAMES.get(order.getStatus()), 1.1f, Font.BOLD, Theme.TEXT));
+        if (order.getGiftInfo() != null) {
             JLabel gift = Theme.label("선물 주문", 1f, Font.BOLD, Theme.TEXT);
             gift.setOpaque(true);
             gift.setBackground(Theme.SECONDARY);
@@ -295,8 +289,8 @@ public class OrderHistoryPanel extends ScreenPanel {
     }
 
     /** 상태에 맞는 안내와 버튼을 카드 아래에 붙인다. */
-    private void addActions(JPanel card, MockOrders.MockOrder order) {
-        switch (order.status()) {
+    private void addActions(JPanel card, Order order) {
+        switch (order.getStatus()) {
             case PAID, PREPARING -> {
                 JButton cancel = Theme.secondaryButton("주문 취소");
                 cancel.addActionListener(e -> openCancelDialog(order));
@@ -308,13 +302,13 @@ public class OrderHistoryPanel extends ScreenPanel {
                         1f, Font.PLAIN, Theme.HINT), 20);
                 JButton track = Theme.secondaryButton("배송 조회");
                 track.addActionListener(e -> JOptionPane.showMessageDialog(this,
-                        "송장번호 " + order.trackingNumber() + "\n상품이 배송 중이에요.", "배송 조회",
+                        "송장번호 " + order.getTrackingNumber() + "\n상품이 배송 중이에요.", "배송 조회",
                         JOptionPane.INFORMATION_MESSAGE));
                 Theme.addToCard(card, track, 12);
             }
             case DELIVERED -> {
                 JButton review = Theme.primaryButton("리뷰 쓰기");
-                review.addActionListener(e -> frame.openReview(order.id())); // UC-14
+                review.addActionListener(e -> frame.openReview(order.getId())); // UC-14
                 JButton change = Theme.secondaryButton("교환·반품 신청");
                 change.addActionListener(e -> openReturnDialog(order));
                 JPanel buttons = new JPanel(new GridLayout(1, 2, 12, 0));
@@ -332,28 +326,24 @@ public class OrderHistoryPanel extends ScreenPanel {
     // ── 취소·교환·반품 (4~6단계) ──
 
     /** [주문 취소]: 사유를 고르고 [취소하기]. 결제 취소가 잠깐 실패하면 이유와 [다시 시도]를 보여 준다. */
-    private void openCancelDialog(MockOrders.MockOrder order) {
+    private void openCancelDialog(Order order) {
         ReasonDialog dialog = new ReasonDialog("주문 취소", "취소 사유를 골라 주세요", null, CANCEL_REASONS, "취소하기");
-        Long memberId = memberId();
         dialog.onSubmit(() -> {
             String reason = dialog.reason(); // 화면에서 고른 값은 화면 스레드에서 읽어 둔다
-            // TODO OrderService 가 구현되면 context.order.cancel(orderId, reason) 으로 바꾼다.
-            return () -> MockOrders.cancel(memberId, order.id(), reason);
+            return () -> context.order.cancel(order.getId(), reason);
         });
         dialog.setVisible(true);
     }
 
     /** [교환·반품 신청]: 교환/반품과 사유를 고르고 [신청하기] → "신청됨" (UC-18 관리자에게 전달). */
-    private void openReturnDialog(MockOrders.MockOrder order) {
+    private void openReturnDialog(Order order) {
         ReasonDialog dialog = new ReasonDialog("교환·반품 신청", "사유를 골라 주세요",
                 List.of("교환", "반품"), RETURN_REASONS, "신청하기");
-        Long memberId = memberId();
         dialog.onSubmit(() -> {
             OrderStatus requested = "교환".equals(dialog.kind())
                     ? OrderStatus.EXCHANGE_REQUESTED : OrderStatus.RETURN_REQUESTED;
             String reason = dialog.reason();
-            // TODO OrderService 가 구현되면 context.order.requestExchangeOrReturn(orderId, requested, reason) 으로 바꾼다.
-            return () -> MockOrders.requestExchangeOrReturn(memberId, order.id(), requested, reason);
+            return () -> context.order.requestExchangeOrReturn(order.getId(), requested, reason);
         });
         dialog.setVisible(true);
     }
@@ -368,7 +358,7 @@ public class OrderHistoryPanel extends ScreenPanel {
         private final JLabel error = Theme.errorLabel();
         private final JButton submit;
         private final String submitText;
-        private Supplier<Supplier<MockOrders.MockOrder>> action;
+        private Supplier<Supplier<Order>> action;
 
         ReasonDialog(String title, String prompt, List<String> kinds, List<String> reasons, String submitText) {
             super(SwingUtilities.getWindowAncestor(OrderHistoryPanel.this), title, Dialog.ModalityType.APPLICATION_MODAL);
@@ -412,7 +402,7 @@ public class OrderHistoryPanel extends ScreenPanel {
             setSize(width, getContentPane().getPreferredSize().height + insets.top + insets.bottom);
         }
 
-        void onSubmit(Supplier<Supplier<MockOrders.MockOrder>> action) {
+        void onSubmit(Supplier<Supplier<Order>> action) {
             this.action = action;
         }
 
@@ -434,12 +424,12 @@ public class OrderHistoryPanel extends ScreenPanel {
                 return;
             }
             error.setText("");
-            Supplier<MockOrders.MockOrder> work = action.get();
+            Supplier<Order> work = action.get();
             submit.setEnabled(false);
             submit.setText("처리 중…");
-            new SwingWorker<MockOrders.MockOrder, Void>() {
+            new SwingWorker<Order, Void>() {
                 @Override
-                protected MockOrders.MockOrder doInBackground() {
+                protected Order doInBackground() {
                     return work.get();
                 }
 

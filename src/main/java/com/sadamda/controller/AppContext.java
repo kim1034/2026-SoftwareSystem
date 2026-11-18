@@ -27,6 +27,8 @@ public class AppContext {
     public final ReviewController review;
     public final AdminController admin;
     public final DressUpController dressUp; // 옷 입혀보기 (정우진)
+    /** 시연용 예전 주문. 관리자 화면(UC-18)이 생기면 지운다. */
+    public final DemoData demo;
 
     public AppContext() {
         PaymentGateway paymentGateway = new MockPaymentGateway(); // TODO: 실제 PG 연동으로 교체
@@ -35,6 +37,7 @@ public class AppContext {
         DressUpImageClient dressUpClient = DressUpClients.create();
 
         MemberService memberService = new MemberService();
+        DemoData.createDemoMember(memberService); // 시연용 일반 회원 demo@sadamda.com / demo1234
         ProductService productService = new ProductService();
         RecommendService recommendService = new RecommendService(productService);
         CartService cartService = new CartService(productService);
@@ -51,5 +54,12 @@ public class AppContext {
         review = new ReviewController(session, reviewService);
         admin = new AdminController(session, productService, recommendService, orderService, paymentGateway);
         dressUp = new DressUpController(session, dressUpClient, productService);
+        demo = new DemoData(orderService, productService);
+        // 로그인하자마자 넣어야 시연용 주문이 회원이 새로 한 주문보다 아래(예전 주문)에 놓인다.
+        session.onLogin(member -> {
+            if (member != null && member.getRole() != com.sadamda.model.member.Member.Role.ADMIN) {
+                demo.seedOrdersOnce(member.getId());
+            }
+        });
     }
 }

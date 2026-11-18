@@ -2,6 +2,8 @@
 
 작성: 강준서 (View 담당) · 2026-11-15 · 브랜치 `feat/order-view`
 
+> **2026-11-19 통합 (`feat/integrate-real-models`):** 목업(`MockCart`, `MockOrders`, `MockReviews`, `MockProducts`)을 지우고 실제 Controller·Model로 연결했습니다. 아래의 "목업" 설명은 지난 기록입니다. 지금 동작은 [docs/integration.md](integration.md)를 보세요.
+
 리뷰 작성(UC-14) 화면을 만들었습니다. 주문 내역의 배송 완료 주문에서 **[리뷰 쓰기]**를 누르면 별점·내용·사진을 입력하고, 등록하면 그 상품의 상세 화면에서 리뷰가 보입니다. 리뷰 Model(`ReviewService`)이 아직 TODO라서 **목업 리뷰로 동작**합니다 (4번 참고).
 
 공통 디자인(`Theme`)은 [docs/auth-view.md](auth-view.md), 주문 내역은 [docs/order-view.md](order-view.md), 상품 상세의 리뷰 목록은 [docs/product-view.md](product-view.md)를 참고해 주세요.

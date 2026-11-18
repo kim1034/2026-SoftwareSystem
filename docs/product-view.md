@@ -3,6 +3,8 @@
 작성: 강준서 (View 담당) · 2026-11-14 · 브랜치 `feat/product-view`
 수정: 2026-11-17 · 브랜치 `feat/order-view` (실제 데이터 연결, 카테고리 10개, 상세 화면 수량·색상·AI 입어보기. 자세한 내용은 [docs/ui-data-update.md](ui-data-update.md))
 
+> **2026-11-19 통합 (`feat/integrate-real-models`):** 목업(`MockCart`, `MockOrders`, `MockReviews`, `MockProducts`)을 지우고 실제 Controller·Model로 연결했습니다. 아래의 "목업" 설명은 지난 기록입니다. 지금 동작은 [docs/integration.md](integration.md)를 보세요.
+
 상품 목록(UC-04 카테고리별 상품 조회)과 검색(UC-05 상품 검색 및 필터) 화면을 만들었습니다. 큰 카테고리 버튼을 누르면 해당 상품을 큰 사진 카드로 보여 주고, [더 보기]로 이어서 볼 수 있습니다. 검색하면 모든 카테고리에서 찾고, 검색 결과는 필터와 정렬로 좁힐 수 있습니다. 상품 카드를 누르면 상품 상세(UC-06) 화면에서 사진을 크게 보고 사이즈·색상·수량을 골라 담거나 구매할 수 있습니다. 상품은 **실제 데이터(`context.product`, 데모 데이터 370개)**로 동작합니다 (4번 참고).
 
 공통 디자인(`Theme`)과 화면 이동 규칙은 [docs/auth-view.md](auth-view.md)를 참고해 주세요.

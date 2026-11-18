@@ -47,6 +47,13 @@ public class MemberController {
         return session.currentMember();
     }
 
+    /** UC-15 4단계: 회원이면 고른 글씨 크기를 계정에 저장한다. 비회원이면 아무것도 하지 않는다. */
+    public void saveFontSize(String fontSize) {
+        if (session.isLoggedIn()) {
+            memberService.findById(session.currentMember().getId()).setFontSize(fontSize);
+        }
+    }
+
     /** UC-03 2단계. 로그인 필요. */
     public Member myInfo() {
         return memberService.findById(session.requireLogin().getId());

@@ -4,7 +4,8 @@ import com.sadamda.common.AppException;
 import com.sadamda.controller.AppContext;
 import com.sadamda.model.member.BodyProfile;
 import com.sadamda.model.member.Member;
-import com.sadamda.model.order.OrderLine;
+import com.sadamda.model.order.Order;
+import com.sadamda.model.order.OrderItem;
 import com.sadamda.model.product.ProductOption;
 import com.sadamda.view.MainFrame;
 import com.sadamda.view.ProductThumbnail;
@@ -13,9 +14,7 @@ import com.sadamda.view.Theme;
 import com.sadamda.view.WrapLayout;
 import com.sadamda.view.member.LoginPanel;
 import com.sadamda.view.member.MyInfoPanel;
-import com.sadamda.view.order.MockOrders;
 import com.sadamda.view.order.OrderHistoryPanel;
-import com.sadamda.view.product.MockProducts;
 import com.sadamda.view.product.ProductDetail;
 
 import javax.swing.BorderFactory;
@@ -82,7 +81,7 @@ public class ReviewWritePanel extends ScreenPanel {
     private final JButton submitButton = Theme.primaryButton("리뷰 등록");
     private final JPanel submitBar = new JPanel(new GridBagLayout());
 
-    private MockOrders.MockOrder order;
+    private Order order;
     private Long productId;
     private int rating;
     private final List<String> photos = new ArrayList<>();
@@ -155,10 +154,10 @@ public class ReviewWritePanel extends ScreenPanel {
     /** UC-14 1단계: 이 주문의 상품 중 아직 리뷰를 안 쓴 첫 상품으로 연다. */
     public void showOrder(Long orderId) {
         Member member = context.member.currentMember();
-        order = member == null ? null : MockOrders.orderDetail(member.getId(), orderId);
-        productId = order == null ? null : order.lines().stream().map(OrderLine::productId)
-                .filter(id -> !MockReviews.written(orderId, id)).findFirst()
-                .orElse(order.lines().get(0).productId());
+        order = member == null ? null : context.order.orderDetail(orderId);
+        productId = order == null ? null : order.getItems().stream().map(OrderItem::productId)
+                .filter(id -> !context.review.hasWritten(orderId, id)).findFirst()
+                .orElse(order.getItems().get(0).productId());
         resetForm();
         render();
     }
@@ -188,7 +187,7 @@ public class ReviewWritePanel extends ScreenPanel {
             submitBar.setVisible(false);
         } else {
             Theme.addToCard(column, productCard(), 24);
-            boolean done = MockReviews.written(order.id(), productId);
+            boolean done = context.review.hasWritten(order.getId(), productId);
             if (done) {
                 Theme.addToCard(column, Theme.label("이 상품은 리뷰를 이미 썼어요. 상품 상세에서 볼 수 있어요.",
                         1f, Font.PLAIN, Theme.HINT), 24);
@@ -211,8 +210,9 @@ public class ReviewWritePanel extends ScreenPanel {
     /** 리뷰 쓸 상품. 주문에 상품이 여러 개면 고르는 버튼을 보여 주고, 이미 쓴 상품은 "작성함"으로 막는다. */
     private JPanel productCard() {
         JPanel card = whiteCard();
-        OrderLine line = order.lines().stream().filter(l -> l.productId().equals(productId)).findFirst().orElseThrow();
-        ProductDetail product = MockProducts.detail(productId);
+        OrderItem line = order.getItems().stream().filter(l -> l.productId().equals(productId)).findFirst()
+                .orElseThrow();
+        ProductDetail product = ProductDetail.of(context.product.detail(productId));
         ProductOption option = product.options().stream()
                 .filter(o -> o.id().equals(line.optionId())).findFirst().orElseThrow();
         JPanel row = new JPanel(new BorderLayout(16, 0));
@@ -225,14 +225,14 @@ public class ReviewWritePanel extends ScreenPanel {
         row.add(text, BorderLayout.CENTER);
         Theme.addToCard(card, row, 0);
 
-        if (order.lines().size() > 1) {
+        if (order.getItems().size() > 1) {
             Theme.addToCard(card, Theme.label("어떤 상품의 리뷰를 쓸까요?", 1f, Font.BOLD, Theme.TEXT), 20);
             JPanel chips = new JPanel(new WrapLayout(FlowLayout.LEFT, 12, 8));
             chips.setOpaque(false);
             ButtonGroup group = new ButtonGroup();
-            for (OrderLine each : order.lines()) {
-                String name = MockProducts.detail(each.productId()).name();
-                boolean written = MockReviews.written(order.id(), each.productId());
+            for (OrderItem each : order.getItems()) {
+                String name = context.product.detail(each.productId()).getName();
+                boolean written = context.review.hasWritten(order.getId(), each.productId());
                 JToggleButton chip = Theme.chip(written ? name + " (작성함)" : name);
                 chip.setEnabled(!written || each.productId().equals(productId));
                 chip.setSelected(each.productId().equals(productId));
@@ -375,11 +375,9 @@ public class ReviewWritePanel extends ScreenPanel {
         frame.openProductReviews(registered); // 4단계: 상품 상세의 리뷰로
     }
 
-    // TODO ReviewService 가 구현되면 context.review.write(orderId, productId, rating, content, photoPaths) 로 바꾼다.
-    //  체형 정보는 Model 이 회원 정보에서 채우므로 넘기지 않는다.
+    /** 체형 정보는 Model 이 회원 정보에서 채우므로 넘기지 않는다. */
     private void fetchWrite(Member member, String content) {
-        MockReviews.write(member.getId(), member.getBodyProfile(), order.id(), productId, rating,
-                content.isEmpty() ? null : content, photos);
+        context.review.write(order.getId(), productId, rating, content.isEmpty() ? null : content, photos);
     }
 
     // ── 작은 부품 ──

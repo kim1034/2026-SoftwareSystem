@@ -12,10 +12,7 @@ import com.sadamda.view.ScreenPanel;
 import com.sadamda.view.Theme;
 import com.sadamda.view.WrapLayout;
 import com.sadamda.view.cart.CartPanel;
-import com.sadamda.view.cart.MockCart;
 import com.sadamda.view.member.LoginPanel;
-import com.sadamda.view.order.MockOrders;
-import com.sadamda.view.review.MockReviews;
 import com.sadamda.view.tryon.TryOnPanel;
 
 import javax.swing.BorderFactory;
@@ -136,9 +133,9 @@ public class ProductDetailPanel extends ScreenPanel {
         }
     }
 
-    // TODO ReviewService 가 구현되면 context.product.reviews(productId) 로 바꾼다.
+    /** 리뷰 쓰기(UC-14)로 쓴 리뷰, 최신순. */
     private List<Review> fetchReviews(Long productId) {
-        return MockReviews.reviews(productId); // 데모 리뷰 + 리뷰 쓰기(UC-14)로 새로 쓴 리뷰
+        return context.product.reviews(productId);
     }
 
     /** 리뷰 쓰기(UC-14 4단계)를 마치고 왔을 때 리뷰 목록이 보이게 내린다. */
@@ -290,6 +287,10 @@ public class ProductDetailPanel extends ScreenPanel {
         Theme.addToCard(panel, actionError, 32);
         Theme.addToCard(panel, buyNow, 8);
         Theme.addToCard(panel, secondary, 12);
+        // UC-10 1a 찜: 누를 때마다 찜·해제. 찜한 상품은 장바구니 화면 아래에 모아 보여 준다.
+        JButton wish = Theme.secondaryButton(wishText());
+        wish.addActionListener(e -> toggleWish(wish));
+        Theme.addToCard(panel, wish, 12);
         return panel;
     }
 
@@ -451,8 +452,7 @@ public class ProductDetailPanel extends ScreenPanel {
             return;
         }
         try {
-            // TODO CartService 가 구현되면 context.cart.add(line) 으로 바꾼다. 지금은 목업 장바구니에 담는다.
-            MockCart.add(context.member.currentMember().getId(), new OrderLine(product.id(), option.id(), quantity));
+            context.cart.add(new OrderLine(product.id(), option.id(), quantity));
         } catch (AppException e) {
             actionError.setText(e.getMessage()); // 예: 재고보다 많이 담음, 그사이 품절됨
             return;
@@ -474,9 +474,7 @@ public class ProductDetailPanel extends ScreenPanel {
         }
         OrderSheet sheet;
         try {
-            // TODO OrderController 가 구현되면 context.order.prepareDirect(line) 으로 바꾼다.
-            sheet = MockOrders.prepareDirect(new OrderLine(product.id(), option.id(), quantity),
-                    context.member.currentMember().getDefaultAddress());
+            sheet = context.order.prepareDirect(new OrderLine(product.id(), option.id(), quantity));
         } catch (AppException e) {
             actionError.setText(e.getMessage()); // 예: 그사이 품절됨
             return;
@@ -499,6 +497,24 @@ public class ProductDetailPanel extends ScreenPanel {
     }
 
     /** UC-06 4a: 비회원이면 로그인 화면으로 보낸다. 로그인하면 이 화면으로 돌아온다. */
+    private String wishText() {
+        return context.cart.isWished(product.id()) ? "♥ 찜한 상품 (누르면 해제)" : "♡ 찜하기";
+    }
+
+    private void toggleWish(JButton wish) {
+        actionError.setText("");
+        if (!loggedIn()) {
+            return;
+        }
+        try {
+            context.cart.toggleWish(product.id());
+        } catch (AppException e) {
+            actionError.setText(e.getMessage());
+            return;
+        }
+        wish.setText(wishText());
+    }
+
     private boolean loggedIn() {
         if (context.member.currentMember() != null) {
             return true;
