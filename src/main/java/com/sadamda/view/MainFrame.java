@@ -9,7 +9,6 @@ import com.sadamda.view.member.MyInfoPanel;
 import com.sadamda.view.member.SignUpPanel;
 import com.sadamda.view.order.OrderHistoryPanel;
 import com.sadamda.view.order.OrderPanel;
-import com.sadamda.view.product.MockProducts;
 import com.sadamda.view.product.ProductDetailPanel;
 import com.sadamda.view.product.ProductListPanel;
 import com.sadamda.view.product.ShopUi;
@@ -74,7 +73,6 @@ public class MainFrame extends JFrame {
     public MainFrame(AppContext context) {
         super("사담다");
         this.context = context;
-        MockProducts.connect(context.product); // 목업 장바구니·주문·리뷰도 같은 상품 데이터를 보게
         FontSize.load().apply();
         installInputMethodGuard();
         productDetail = new ProductDetailPanel(context, this);
@@ -263,8 +261,12 @@ public class MainFrame extends JFrame {
     }
 
     /** 로그인 상태·관리자 여부에 맞춰 메뉴를 보이거나 숨기고, 지금 화면을 표시한다. */
+    /** 글씨 크기를 맞춘 회원 (applyAccountFontSize). */
+    private Long fontAppliedFor;
+
     private void updateMenu(String currentScreen) {
         boolean loggedIn = context.session.isLoggedIn();
+        applyAccountFontSize();
         myInfoMenu.setVisible(loggedIn);
         logoutMenu.setVisible(loggedIn);
         loginMenu.setVisible(!loggedIn);
@@ -276,6 +278,19 @@ public class MainFrame extends JFrame {
         }
         menuBar.revalidate();
         menuBar.repaint();
+    }
+
+    /** 로그인한 회원이 바뀌면, 그 계정에 저장해 둔 글씨 크기로 맞춘다 (UC-15 4단계, 다른 PC 에서도 같은 크기). */
+    private void applyAccountFontSize() {
+        Long memberId = context.session.isLoggedIn() ? context.session.currentMember().getId() : null;
+        if (java.util.Objects.equals(memberId, fontAppliedFor)) {
+            return;
+        }
+        fontAppliedFor = memberId;
+        String saved = memberId == null ? null : context.member.myInfo().getFontSize();
+        if (saved != null && FontSize.valueOf(saved) != FontSize.load()) {
+            javax.swing.SwingUtilities.invokeLater(() -> FontSize.valueOf(saved).apply());
+        }
     }
 
     private void logout() {
@@ -291,6 +306,7 @@ public class MainFrame extends JFrame {
                 JOptionPane.PLAIN_MESSAGE, null, FontSize.values(), FontSize.load());
         if (selected != null) {
             selected.apply();
+            context.member.saveFontSize(selected.name()); // UC-15 4단계: 회원이면 계정에도 저장
         }
     }
 

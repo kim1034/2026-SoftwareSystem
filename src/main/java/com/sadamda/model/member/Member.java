@@ -12,6 +12,7 @@ public class Member {
     private String defaultAddress;
     private Role role = Role.MEMBER;
     private BodyProfile bodyProfile; // 선택 입력
+    private String fontSize; // UC-15 4단계: 계정에 저장한 글씨 크기 (FontSize 이름). 없으면 null
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -33,6 +34,9 @@ public class Member {
 
     public Role getRole() { return role; }
     public void setRole(Role role) { this.role = role; }
+
+    public String getFontSize() { return fontSize; }
+    public void setFontSize(String fontSize) { this.fontSize = fontSize; }
 
     public BodyProfile getBodyProfile() { return bodyProfile; }
     public void setBodyProfile(BodyProfile bodyProfile) { this.bodyProfile = bodyProfile; }

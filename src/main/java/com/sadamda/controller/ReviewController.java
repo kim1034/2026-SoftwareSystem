@@ -19,4 +19,10 @@ public class ReviewController {
     public Review write(Long orderId, Long productId, int rating, String content, List<String> photoPaths) {
         return reviewService.write(session.requireLogin().getId(), orderId, productId, rating, content, photoPaths);
     }
+
+    /** UC-14 이 주문의 이 상품에 리뷰를 이미 썼는지 (리뷰 쓰기 화면에서 다 쓴 상품을 표시할 때). */
+    public boolean hasWritten(Long orderId, Long productId) {
+        session.requireLogin();
+        return reviewService.hasWritten(orderId, productId);
+    }
 }

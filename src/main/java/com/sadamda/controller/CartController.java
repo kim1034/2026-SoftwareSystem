@@ -52,6 +52,11 @@ public class CartController {
         return cartService.toggleWish(memberId(), productId);
     }
 
+    /** UC-10 1a 이 상품을 찜했는지. 비회원이면 false. */
+    public boolean isWished(Long productId) {
+        return session.isLoggedIn() && cartService.isWished(memberId(), productId);
+    }
+
     /** UC-10 1a 찜 목록 */
     public List<Product> wishList() {
         return cartService.getWishList(memberId());

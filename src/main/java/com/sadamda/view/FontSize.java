@@ -10,7 +10,7 @@ import java.util.prefs.Preferences;
 
 /**
  * UC-15 글씨 크기 조절 (FR-24). 본문 최소 18px (NFR-01).
- * TODO: 회원이면 계정에 저장 (UC-15 4단계). 지금은 이 PC 에만 저장한다.
+ * 이 PC 에 저장하고, 회원이면 계정에도 저장한다 (UC-15 4단계, MainFrame.applyAccountFontSize).
  */
 public enum FontSize {
     NORMAL("보통", 18), LARGE("크게", 22), XLARGE("아주 크게", 26);
