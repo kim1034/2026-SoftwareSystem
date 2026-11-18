@@ -16,10 +16,10 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * 시연용 데이터. 관리자 화면(UC-18)이 아직 없어서 "배송 중"·"배송 완료" 주문을 만들 방법이 없으므로,
+ * 시연용 데이터. 앱을 켜자마자 "배송 중"·"배송 완료" 주문을 볼 수 있게 (관리자가 배송 처리를 하지 않아도),
  * 회원이 처음 로그인할 때 예전 주문 2건(배송 중 1, 배송 완료 1)을 실제 OrderService 에 넣어 준다.
  * 배송 완료 주문으로 리뷰 쓰기(UC-14)와 교환·반품(UC-13 6단계)을 바로 시연할 수 있다.
- * 관리자 화면이 생기면 이 클래스와 AppContext.demo 를 지워도 된다.
+ * 실제 서비스로 낼 때는 이 클래스와 AppContext.demo 를 지운다.
  */
 public class DemoData {
     /** 시연용 일반 회원. 관리자 계정은 MemberService.ADMIN_EMAIL / ADMIN_PASSWORD. */

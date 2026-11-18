@@ -3,8 +3,6 @@
 작성: 강준서 (View 담당) · 2026-11-14 · 브랜치 `feat/product-view`
 수정: 2026-11-17 · 브랜치 `feat/order-view` (실제 데이터 연결, 카테고리 10개, 상세 화면 수량·색상·AI 입어보기. 자세한 내용은 [docs/ui-data-update.md](ui-data-update.md))
 
-> **2026-11-19 통합 (`feat/integrate-real-models`):** 목업(`MockCart`, `MockOrders`, `MockReviews`, `MockProducts`)을 지우고 실제 Controller·Model로 연결했습니다. 아래의 "목업" 설명은 지난 기록입니다. 지금 동작은 [docs/integration.md](integration.md)를 보세요.
-
 상품 목록(UC-04 카테고리별 상품 조회)과 검색(UC-05 상품 검색 및 필터) 화면을 만들었습니다. 큰 카테고리 버튼을 누르면 해당 상품을 큰 사진 카드로 보여 주고, [더 보기]로 이어서 볼 수 있습니다. 검색하면 모든 카테고리에서 찾고, 검색 결과는 필터와 정렬로 좁힐 수 있습니다. 상품 카드를 누르면 상품 상세(UC-06) 화면에서 사진을 크게 보고 사이즈·색상·수량을 골라 담거나 구매할 수 있습니다. 상품은 **실제 데이터(`context.product`, 데모 데이터 370개)**로 동작합니다 (4번 참고).
 
 공통 디자인(`Theme`)과 화면 이동 규칙은 [docs/auth-view.md](auth-view.md)를 참고해 주세요.
@@ -37,7 +35,7 @@
 | `view/product/ProductCard.java` (새 파일) | 상품 카드 한 장 |
 | `view/ProductImages.java` (새 파일) | 상품 사진을 불러오고 저장해 두는 공통 부품 (5번 참고) |
 | `view/product/ProductItem.java` (새 파일) | 카드에 보여 줄 정보: 번호, 상품명, 가격, 대표 사진 주소 |
-| `view/product/MockProducts.java` (새 파일) | 처음에는 임시 목업 상품. 11-17부터는 목업 장바구니·주문·리뷰가 실제 상품 데이터를 보게 하는 통로 (4번 참고) |
+| ~~`view/product/MockProducts.java`~~ | 처음에는 임시 목업 상품. 11-17부터는 목업 장바구니·주문·리뷰가 실제 상품 데이터를 보게 하는 통로. **11-19 통합 때 지움** |
 | `view/product/OptionColors.java` (11-17 새 파일) | 색상 옵션 이름("다크 브라운")을 화면에 칠할 색으로 바꿈 |
 | `view/Theme.java` | 카테고리·정렬·사이즈·색상용 선택 버튼 `chip()` 추가. 고를 수 없는(품절) 버튼은 흰 바탕·테두리·회색 글씨 |
 | `view/member/SignUpPanel.java` | 연령대·체형·사이즈 선택지를 `public`으로 바꿈. 검색 필터가 같은 값을 쓴다 (내용은 그대로) |
@@ -45,7 +43,7 @@
 | `view/product/ProductDetail.java` (새 파일) | 상세 화면에 보여 줄 정보: 번호, 상품명, 가격, 소재, 사진 목록, 옵션 |
 | `view/product/ProductPhoto.java` (새 파일) | 상세 화면의 큰 사진·리뷰 사진, 누르면 여는 "사진 크게 보기" 창 |
 | `view/WrapLayout.java` (새 파일) | 폭이 모자라면 다음 줄로 넘기는 배치 (사이즈·색상 버튼) |
-| `view/MainFrame.java` | 상품 번호로 상세 화면을 여는 `openProduct(id)` 추가. 11-17: 시작할 때 `MockProducts.connect(context.product)` |
+| `view/MainFrame.java` | 상품 번호로 상세 화면을 여는 `openProduct(id)` 추가 (11-17에 넣었던 `MockProducts.connect`는 통합 때 지움) |
 
 처음 작업에서는 Model·Controller 코드를 수정하지 않았습니다. 11-17에 데모 데이터(`products.tsv`)를 370개로 바꾸고 `Category`에 가방·스카프를 추가했습니다 ([docs/ui-data-update.md](ui-data-update.md)).
 
@@ -99,7 +97,7 @@
 
 **결과가 없을 때 (2a)**: "'○○'에 맞는 상품이 없어요" 아래에 **자주 찾는 검색어** 버튼(가디건, 니트, 블라우스, 슬랙스, 스커트)과 "지금 인기 있는 상품"을 보여 줍니다. 검색어 버튼을 누르면 그 단어로 바로 검색합니다.
 
-> 명세의 "비슷한 검색어"를 만들어 주는 Controller 기능이 없어서, 화면에 정해 둔 자주 찾는 검색어로 대신했습니다.
+> 처음 만들 때는 명세의 "비슷한 검색어"를 만들어 주는 Controller 기능이 없어서, 화면에 정해 둔 자주 찾는 검색어로 대신했습니다. 지금은 `ProductController.suggestKeywords(keyword)`가 생겼지만 화면은 아직 이것을 부르지 않고 고정 검색어를 씁니다.
 
 ### 필터와 정렬 (UC-05 3~4단계)
 
@@ -136,7 +134,8 @@
 |---|---|
 | 왼쪽 | 큰 사진 (전체가 보이게, 3:4 칸). 아래에 "사진을 누르면 크게 볼 수 있어요". 사진이 여러 장이면 번호 버튼으로 바꿔 볼 수 있음 |
 | 가운데 | 얇은 세로 구분선 |
-| 오른쪽 | 큰 가격 → 상품명 → "★ 4.7 리뷰 3개"(누르면 리뷰로 내려감) → 소재 → 사이즈 → 색상 → 수량 → [바로 구매] → [장바구니 담기] [AI로 입어보기] |
+| 오른쪽 | 큰 가격 → 상품명 → "★ 4.7 리뷰 3개"(누르면 리뷰로 내려감) → 소재 → 사이즈 → 색상 → 수량 → [AI로 입어보기] |
+| 아래 고정 줄 | 화면을 내려도 늘 보이는 구매 줄: [♡ 찜] · 합계 금액 ········ [장바구니 담기] [바로 구매]. 오류 문장은 버튼 바로 위에 나옵니다 |
 | 아래 | 사이즈표, 리뷰 |
 
 창이 좁거나 글씨가 크면 사진이 위, 정보가 아래로 바뀝니다.
@@ -151,19 +150,21 @@
 
 **수량**: 색상 아래 `[−] N개 [+]   합계 ○○원`. 1개보다 줄지 않고, 고른 사이즈·색상의 재고까지만 늘어납니다(넘으면 "최대 10개까지 살 수 있어요"). 다른 상품을 열면 1개로 돌아갑니다.
 
-**버튼 (4단계, 4a)**: [바로 구매]·[장바구니 담기]는 고른 수량을 넘깁니다. 비회원이 누르면 **로그인 화면**으로 가고, 로그인하면 이 화면으로 돌아옵니다. 고른 사이즈·색상도 그대로 남아 있습니다.
+**버튼 (4단계, 4a)**: [바로 구매]·[장바구니 담기]는 고른 수량을 넘깁니다. 비회원이 [바로 구매]·[장바구니 담기]·[찜하기]를 누르면 **로그인 화면**으로 가고, 로그인하면 이 화면으로 돌아옵니다. 고른 사이즈·색상도 그대로 남아 있습니다.
 
 | 버튼 | 부르는 것 | 결과 |
 |---|---|---|
-| [바로 구매] | `context.order.prepareDirect(OrderLine)` | 이 상품 하나로 주문서 화면을 엽니다. **Controller는 구현됐지만 주문 Model이 TODO라 지금은 목업 주문서(`MockOrders`)를 엽니다** ([docs/order-view.md](order-view.md)) |
-| [장바구니 담기] | `context.cart.add(OrderLine)` | "장바구니에 담았어요"와 [장바구니로 가기] [계속 쇼핑하기]. **지금은 Model이 TODO라 목업 장바구니(`MockCart`)에 담습니다** ([docs/order-view.md](order-view.md)) |
+| [바로 구매] | `context.order.prepareDirect(OrderLine)` | 이 상품 하나로 주문서를 만들고 `frame.openOrder(sheet)`로 주문서 화면을 엽니다 ([docs/order-view.md](order-view.md)) |
+| [장바구니 담기] | `context.cart.add(OrderLine)` | 화면을 막지 않는 알림(`Toast`) "장바구니에 담았어요 · [장바구니 보기]"가 5초 동안 뜨고, 상단 메뉴가 "장바구니 n"으로 바뀝니다. 같은 옵션이 이미 있으면 수량을 더합니다 ([docs/order-view.md](order-view.md)) |
 | [AI로 입어보기] | `TryOnPanel.wear(상품 번호)` | 옷 입혀보기 화면의 맞는 칸(모자·상의·하의·주얼리·신발)에 넣고, AI가 연결되어 있으면 바로 입혀 봄. 원피스·아우터·양말·가방·스카프는 "아직 입어 볼 수 없어요" 안내. 사이즈·색상은 고르지 않아도 됨 |
 
-`AppException`(예: 그사이 품절)이 오면 [바로 구매] 위에 빨간 글씨로 그대로 보여 줍니다.
+| [♡ 찜] (UC-10 1a) | `context.cart.toggleWish(상품 번호)` | 찜하면 버튼이 "♥ 찜"으로 바뀌고 "찜했어요 · [찜 목록 보기]" 알림이 뜹니다. 다시 누르면 해제됩니다. 찜 여부는 `context.cart.isWished(상품 번호)`로 확인(비회원이면 늘 찜 안 함). 찜한 상품은 장바구니 화면 아래에 모여 보입니다 |
+
+`AppException`(예: 그사이 품절)이 오면 아래 고정 줄의 버튼 바로 위에 빨간 글씨로 그대로 보여 줍니다. 사이즈·색상을 고르지 않고 누르면 "사이즈를 먼저 골라 주세요"를 보여 주고 고를 곳으로 화면을 올립니다.
 
 **사이즈표**: `Product`에 치수 정보가 없어서 **모든 상품에 공통인 사담다 표준 치수**(S(55)~XXL(99)의 가슴·허리·엉덩이 둘레, cm)를 보여 주고 "상품마다 조금 다를 수 있어요"라고 안내합니다.
 
-**리뷰 (FR-23 조회)**: 데모 리뷰와 리뷰 쓰기(UC-14, [docs/review.md](review.md))로 새로 쓴 리뷰를 보여 줍니다(새 리뷰가 먼저). "리뷰 3개 ★ 4.7" 아래에 별점(★★★★☆ 4점), 쓴 사람의 체형 정보("50대 · 160cm · M (66) · 보통 체형"), 내용, 리뷰 사진을 보여 줍니다. 리뷰가 없으면 "아직 리뷰가 없어요."
+**리뷰 (FR-23 조회)**: `context.product.reviews(상품 번호)`로 리뷰 쓰기(UC-14, [docs/review.md](review.md))에서 쓴 리뷰를 보여 줍니다. 예전 목업에 있던 데모 리뷰는 통합 때 사라졌습니다. "리뷰 3개 ★ 4.7" 아래에 별점(★★★★☆ 4점), 쓴 사람의 체형 정보("50대 · 160cm · M (66) · 보통 체형"), 내용, 리뷰 사진을 보여 줍니다. 리뷰가 없으면 "아직 리뷰가 없어요."
 
 ### 이번에 넣지 않은 것
 
@@ -174,7 +175,6 @@
 | 순위 번호 | 명세에 없음 (인기순 정렬로 대신) |
 | 할인율 | `Product`에 할인 정보가 없음 |
 | 거래 수 | 명세에 없음 |
-| 관심(북마크)·[찜] 버튼 | UC-10 1a 범위. 넣지 않음, 할지 말지는 나중에 정함 (우선순위 Low) |
 | 카테고리 목록에서 필터 | `SearchFilter`에 카테고리 조건이 없음 |
 
 ---
@@ -195,11 +195,12 @@
 | `ProductListPanel.fetchPopular()` | `context.product.popular()` → `ProductItem.of` |
 | `ProductListPanel.fetchSearch(filter)` | `context.product.search(filter)` → `ProductItem.of` |
 | `ProductDetailPanel.fetchDetail(id)` | `context.product.detail(id)` → `ProductDetail.of`. 없는 상품이면 "상품을 찾을 수 없어요" |
-| `ProductDetailPanel.fetchReviews(id)` | 아직 `MockReviews.reviews(id)` (데모 리뷰 + 리뷰 쓰기로 쓴 리뷰). `ReviewService`가 구현되면 `context.product.reviews(id)`로 바꿉니다 |
+| `ProductDetailPanel.fetchReviews(id)` | `context.product.reviews(id)` (리뷰 쓰기로 쓴 리뷰) |
 
 - 한 페이지 상품 수는 `ProductService.PAGE_SIZE`(8개)를 씁니다.
 - 데모 데이터는 모든 옵션의 재고가 10개라서, 지금은 **품절 칩(4b)을 볼 수 없습니다.**
-- `MockProducts`에는 상품이 없습니다. `context`가 없는 목업 장바구니·주문·리뷰(`MockCart`, `MockOrders`, `MockReviews`)가 같은 상품을 보도록 `ProductController`를 넘겨주는 통로만 남았습니다. 데모 주문·리뷰는 상품 코드(`TOP-KR-01` 등)로 상품을 찾습니다. 이 목업들이 Controller로 바뀌면 지웁니다.
+- 상품 데이터는 메모리에만 있어서, 관리자가 등록·수정한 상품은 앱을 다시 켜면 `products.tsv` 상태로 돌아갑니다.
+- 시연용 예전 주문(`controller/DemoData`)은 상품 코드(`TOP-KR-02`, `BOT-KR-03`, `BOT-KR-09`)로 상품을 찾습니다.
 
 | `ProductItem` | 가져올 곳 |
 |---|---|
@@ -268,11 +269,11 @@ group.add(chip);
 
 ### 백예원 님 (장바구니·리뷰)
 
-- 상세 화면의 [장바구니 담기]는 `CartService.add`, 리뷰는 `ReviewService.findByProduct`를 씁니다. 구현되면 화면 수정 없이 동작합니다. 품절 등 실패는 `AppException`에 보여 줄 문장을 담아 주세요.
+- 상세 화면의 [장바구니 담기]는 `CartService.add`, [찜하기]는 `CartService.toggleWish`, 리뷰는 `ReviewService.findByProduct`를 씁니다. 구현해 주셔서 통합 때 모두 연결했습니다.
 
 ### 김대원 님 (Controller)
 
-- 명세의 `listByCategory(category, page)`, `popular()`, `search(filter)`, `detail(id)`를 연결했습니다. `reviews(id)`는 `ReviewService`가 구현되면 연결합니다.
+- 명세의 `listByCategory(category, page)`, `popular()`, `search(filter)`, `detail(id)`, `reviews(id)`를 연결했습니다.
 - [바로 구매]는 `order.prepareDirect(OrderLine)` 자리에 연결합니다. 비회원이면 화면이 먼저 로그인 화면으로 보냅니다 (UC-06 4a). 주문서는 `frame.openOrder(sheet)`로 엽니다 ([docs/order-view.md](order-view.md)).
 - `SearchFilter`에 카테고리 조건이 없어서 필터는 검색 결과에서만 보이게 했습니다. 카테고리 목록에서도 필터를 쓰려면 `SearchFilter`에 카테고리를 추가해 주셔야 합니다 (지금은 필요 없음).
 

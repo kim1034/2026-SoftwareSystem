@@ -27,7 +27,7 @@ public class AppContext {
     public final ReviewController review;
     public final AdminController admin;
     public final DressUpController dressUp; // 옷 입혀보기 (정우진)
-    /** 시연용 예전 주문. 관리자 화면(UC-18)이 생기면 지운다. */
+    /** 시연용 회원·예전 주문 (DemoData). 실제 서비스로 낼 때는 지운다. */
     public final DemoData demo;
 
     public AppContext() {

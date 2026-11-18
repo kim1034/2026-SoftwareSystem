@@ -55,8 +55,8 @@ UC7~9 브랜치(`feat/product-recommend-model-compat`)를 합친 뒤, 화면 모
 
 - **`Category`**: 가방(`BAG`)·스카프(`SCARF`)를 추가했습니다. 두 카테고리의 사이즈 옵션은 `FREE` 하나입니다.
 - **상품 목록·상세**: `ProductListPanel`·`ProductDetailPanel`의 fetch 메서드가 `context.product`를 씁니다. 예전에 모델 담당에게 부탁하려던 "fetch 메서드 5개 교체"는 끝났습니다.
-- **`MockProducts`**: 가짜 상품 20개를 지웠습니다. `context`가 없는 장바구니·주문·리뷰 목업이 같은 상품 데이터를 보도록 연결하는 통로만 남았습니다. 앱이 시작할 때 `MainFrame`이 `MockProducts.connect(context.product)`를 부릅니다.
-- **데모 주문·리뷰**: 상품 번호 대신 상품 코드(`TOP-KR-02` 등)로 상품을 찾습니다. 그래서 예전과 같은 상품(가디건, 스커트, 슬랙스)에 붙어 나옵니다.
+- **`MockProducts`**: 가짜 상품 20개를 지웠습니다. 이때는 장바구니·주문·리뷰 목업이 같은 상품 데이터를 보도록 연결하는 통로만 남겨 두었고, 11-19 통합(`feat/integrate-real-models`, [docs/integration.md](integration.md))에서 목업과 함께 `MockProducts`도 지웠습니다. 지금 `MainFrame`은 `MockProducts.connect`를 부르지 않습니다.
+- **데모 주문·리뷰**: 상품 번호 대신 상품 코드(`TOP-KR-02` 등)로 상품을 찾게 했습니다. 통합 뒤 데모 리뷰는 없어졌고, 시연용 예전 주문은 `controller/DemoData`가 같은 방식(상품 코드)으로 실제 `OrderService`에 넣습니다.
 - **변환 메서드**: `ProductItem.of(Product)`, `ProductDetail.of(Product)`를 추가했습니다.
 
 > 시트 데이터는 모든 옵션의 재고가 10개입니다. 그래서 상세 화면의 품절 칩(UC-06 4b)은 지금 볼 수 없습니다.

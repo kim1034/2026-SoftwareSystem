@@ -2,9 +2,7 @@
 
 작성: 강준서 (View 담당) · 2026-11-15 · 브랜치 `feat/order-view`
 
-> **2026-11-19 통합 (`feat/integrate-real-models`):** 목업(`MockCart`, `MockOrders`, `MockReviews`, `MockProducts`)을 지우고 실제 Controller·Model로 연결했습니다. 아래의 "목업" 설명은 지난 기록입니다. 지금 동작은 [docs/integration.md](integration.md)를 보세요.
-
-리뷰 작성(UC-14) 화면을 만들었습니다. 주문 내역의 배송 완료 주문에서 **[리뷰 쓰기]**를 누르면 별점·내용·사진을 입력하고, 등록하면 그 상품의 상세 화면에서 리뷰가 보입니다. 리뷰 Model(`ReviewService`)이 아직 TODO라서 **목업 리뷰로 동작**합니다 (4번 참고).
+리뷰 작성(UC-14) 화면을 만들었습니다. 주문 내역의 배송 완료 주문에서 **[리뷰 쓰기]**를 누르면 별점·내용·사진을 입력하고, 등록하면 그 상품의 상세 화면에서 리뷰가 보입니다. 화면은 `ReviewController`(`write`, `hasWritten`)와 리뷰 Model(`ReviewService`)에 연결되어 있습니다 (4번 참고). 처음에는 목업 리뷰(`MockReviews`)로 만들었고, 2026-11-19 통합([docs/integration.md](integration.md))에서 실제 Model로 바꿨습니다.
 
 공통 디자인(`Theme`)은 [docs/auth-view.md](auth-view.md), 주문 내역은 [docs/order-view.md](order-view.md), 상품 상세의 리뷰 목록은 [docs/product-view.md](product-view.md)를 참고해 주세요.
 
@@ -12,9 +10,9 @@
 
 ## 1. 바로 보기
 
-1. 앱을 실행하고 **로그인**합니다. (체형 정보를 넣어 가입하면 리뷰에 함께 보입니다)
+1. 앱을 실행하고 **로그인**합니다. (체형 정보를 넣어 가입하면 리뷰에 함께 보입니다. 시연용 회원 `demo@sadamda.com` / `demo1234`에는 체형 정보가 들어 있습니다)
 2. 상단 **[주문 내역]** → "배송완료" 주문의 **[리뷰 쓰기]**
-   - 주문 내역을 처음 열면 시연용 예전 주문(배송중 1건, 배송완료 1건)이 들어 있습니다.
+   - 일반 회원이 처음 로그인하면 시연용 예전 주문(배송중 1건, 배송완료 1건)이 들어갑니다 (`controller/DemoData`). 관리자 화면(UC-18)에서 주문을 배송완료로 바꿔도 리뷰를 쓸 수 있습니다.
 3. 별점을 고르고 **[리뷰 등록]** → 상품 상세 화면의 리뷰로 이동합니다.
 
 화면 구성 (위에서 아래로):
@@ -33,14 +31,14 @@
 | 파일 | 내용 |
 |---|---|
 | `view/review/ReviewWritePanel.java` (새 파일) | 리뷰 쓰기 화면 |
-| `view/review/MockReviews.java` (새 파일) | **임시 목업 리뷰.** `ReviewService`가 구현되면 지울 파일 |
+| ~~`view/review/MockReviews.java`~~ | 임시 목업 리뷰. **통합 때 지움** |
 | `view/MainFrame.java` | 리뷰 쓰기 화면 등록, `openReview(orderId)`, `openProductReviews(productId)` 추가 |
 | `view/order/OrderHistoryPanel.java` | [리뷰 쓰기]가 리뷰 쓰기 화면을 열도록 연결 |
 | `view/product/ProductDetailPanel.java` | 새로 쓴 리뷰도 보이게 하고, 리뷰 위치로 내려가는 `scrollToReviews()` 추가 |
-| `view/product/MockProducts.java` | 데모 리뷰를 목업 리뷰가 읽을 수 있게 `public`으로 바꿈 (내용은 그대로) |
+| ~~`view/product/MockProducts.java`~~ | 데모 리뷰를 목업 리뷰가 읽을 수 있게 `public`으로 바꿈. **통합 때 지움** (데모 리뷰도 함께 사라짐) |
 | `view/Theme.java` | 여러 줄 입력칸 `textArea(안내문구, 줄 수)` 추가 |
 
-Model·Controller 코드는 **수정하지 않았습니다.**
+처음 작업에서는 Model·Controller 코드를 **수정하지 않았습니다.** 통합 때 `ReviewController.hasWritten(orderId, productId)`가 추가되었습니다.
 
 ---
 
@@ -77,36 +75,31 @@ Model·Controller 코드는 **수정하지 않았습니다.**
 
 ---
 
-## 4. 목업 리뷰와 교체 방법
+## 4. Controller 연결
 
-`MockReviews`는 `ReviewController`와 같은 방식으로 동작합니다 (앱을 켜 둔 동안만 기억).
-
-| `MockReviews` | 바꿀 메서드 | 쓰는 곳 |
+| 하는 일 | Controller 메서드 | 쓰는 곳 |
 |---|---|---|
-| `write(memberId, 체형, orderId, productId, rating, content, photoPaths)` | `context.review.write(orderId, productId, rating, content, photoPaths)` | 리뷰 쓰기 `fetchWrite()` |
-| `reviews(productId)` — 새로 쓴 리뷰 + 데모 리뷰 | `context.product.reviews(productId)` | 상품 상세 `fetchReviews()` |
-| `written(orderId, productId)` — 이미 썼는지 | (명세에 없음, 아래 부탁 참고) | 상품 고르는 버튼 |
+| 리뷰 등록 | `context.review.write(orderId, productId, rating, content, photoPaths)` | 리뷰 쓰기 `fetchWrite()` |
+| 이미 썼는지 확인 | `context.review.hasWritten(orderId, productId)` | 처음 고를 상품, 상품 고르는 버튼의 "(작성함)" |
+| 상품의 리뷰 목록 (최근 것이 먼저) | `context.product.reviews(productId)` | 상품 상세 `fetchReviews()` |
 
-- 별점이 없거나(3a) 배송 완료 전 주문이거나 이미 쓴 상품이면 `AppException`을 던지고, 화면은 그 문장을 그대로 보여 줍니다.
-- 체형 정보는 실제 Model처럼 회원 정보에서 채웁니다. 실제 `write`로 바꿀 때는 체형 정보를 넘기지 않습니다.
-- 사진은 PC의 **파일 경로**로 넘깁니다. 상품 상세의 리뷰 사진은 상품 사진 부품(`ProductImages`)이 파일 경로도 읽어서 그대로 보입니다.
+- 별점이 없거나(3a, "별점을 골라 주세요."), 배송 완료 전 주문이거나("배송이 끝난 상품만 리뷰를 쓸 수 있어요."), 이미 쓴 상품이면("이미 리뷰를 쓴 상품이에요.") Model이 `AppException`을 던지고, 화면은 그 문장을 그대로 보여 줍니다.
+- 체형 정보는 넘기지 않습니다. Model(`ReviewService.write`)이 회원 정보에서 채웁니다.
+- 사진은 PC의 **파일 경로**로 넘기고, Model은 경로만 저장합니다 (파일을 복사하지 않음). 상품 상세의 리뷰 사진은 상품 사진 부품(`ProductImages`)이 파일 경로도 읽어서 그대로 보입니다.
+- 리뷰는 메모리에만 저장되어 앱을 다시 켜면 사라집니다. 예전 목업에 있던 데모 리뷰도 없어서, 앱을 처음 켜면 모든 상품에 리뷰가 없습니다.
 
 ---
 
-## 5. 담당자께 부탁드릴 일
+## 5. 담당자께 부탁드렸던 일 (처리됨)
 
 ### 백예원 님 (리뷰 Model)
 
-- `ReviewService.write`, `findByProduct`를 구현해 주시면 4번 표대로 바꿔 연결하겠습니다. 실패는 `AppException`에 보여 줄 문장을 담아 주세요.
-- 화면은 다음처럼 동작한다고 보고 만들었습니다. 다르면 알려 주세요.
-  - **같은 주문의 같은 상품에는 리뷰를 한 번만** 쓸 수 있다.
-  - 리뷰 목록은 **최근에 쓴 리뷰가 먼저** 온다.
-- 이미 쓴 상품을 화면에서 막으려면 "이 주문·상품에 리뷰를 썼는지" 알 수 있는 방법(예: `Review` 목록에 `orderId` 포함, 또는 확인 메서드)이 필요합니다.
-- `photoPaths`는 PC 파일 경로입니다. 저장할 때 복사할지 경로만 둘지 정해 주세요.
+- `ReviewService.write`, `findByProduct`, `hasWritten`이 구현되어 통합 때 연결했습니다. 화면이 기대한 대로 **같은 주문의 같은 상품에는 리뷰를 한 번만** 쓸 수 있고, 리뷰 목록은 **최근에 쓴 리뷰가 먼저** 옵니다.
+- `photoPaths`는 지금 경로만 저장합니다. 원래 파일을 옮기거나 지우면 리뷰 사진이 "사진 없음"이 됩니다. 복사해 둘지는 아직 정하지 않았습니다.
 
 ### 김대원 님 (Controller)
 
-- `ReviewController.write`는 명세 그대로 부를 예정입니다. 체형 정보는 넘기지 않습니다.
+- `ReviewController.write`를 명세 그대로 부릅니다. 체형 정보는 넘기지 않습니다.
 
 ---
 
@@ -116,6 +109,6 @@ Model·Controller 코드는 **수정하지 않았습니다.**
 |---|---|
 | 별점 | 필수, 1~5점 |
 | 내용 | 선택, 500자까지 (임시) |
-| 사진 | 선택, 3장까지, JPG·PNG (임시, 용량 제한 없음) |
+| 사진 | 선택, 3장까지, JPG·PNG (임시, 용량 제한 없음). 파일 경로만 저장 |
 | 체형 정보 | 리뷰 화면에서는 보기만, 고치기는 내 정보 화면 (팀 결정) |
 | 체형별 리뷰 보기 (FR-23) | 나중에 |
