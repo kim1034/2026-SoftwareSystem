@@ -116,7 +116,7 @@ public class DressUpController {
         return DressUpSettings.load();
     }
 
-    /** 환경 변수로 키가 주어져 화면 설정보다 우선하는 상태인지. */
+    /** 환경 변수에 키가 있는지. 화면에 키를 저장하지 않았을 때만 그 키를 쓴다. */
     public boolean dressUpKeyFromEnvironment() {
         return DressUpClients.keyFromEnvironment();
     }
