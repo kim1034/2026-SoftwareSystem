@@ -28,6 +28,11 @@ public interface DressUpImageClient {
         return true;
     }
 
+    /** 연결되지 않았을 때 화면에 보여줄 안내 (왜 안 되는지, 무엇을 하면 되는지). 연결되어 있으면 null. */
+    default String setupHint() {
+        return null;
+    }
+
     /** 응답을 기다리는 최대 시간(초). 화면의 안내 문구에 쓴다. */
     default int timeoutSeconds() {
         return AiImageClient.TIMEOUT_SECONDS;
