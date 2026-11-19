@@ -60,21 +60,22 @@ AI 합성에는 이용 열쇠(API 키)가 필요합니다. 아래는 학교에�
 
 ![연동 키 관리 화면](images/api-key-01-menu.webp)
 
-**2. 연동 키(API Key)와 OpenAI 호환 주소(baseURL)를 복사합니다.**
+**2. 연동 키(API Key)를 복사합니다.**
 - 연동 키는 `tgpt_s`로 시작합니다. 키가 없으면 [재발급]을 누릅니다. 새 키를 받으면 전에 쓰던 키는 더 이상 쓸 수 없습니다.
-- OpenAI 호환 주소는 오른쪽 복사 버튼으로 복사합니다.
+- 화면의 OpenAI 호환 주소(baseURL)는 복사하지 않아도 됩니다. 이 주소는 2026년 11월 18일에 종료되었습니다.
 
-![연동 키와 baseURL 복사](images/api-key-02-copy.webp)
+![연동 키 복사](images/api-key-02-copy.webp)
 
 **3. 사담다에서 [옷 입혀보기] → [AI 연결 설정]을 누르고 값을 넣습니다.**
 - 이용 열쇠 (API 키): 2단계에서 복사한 연동 키
-- 서비스 주소: 2단계에서 복사한 OpenAI 호환 주소
-- 모델 이름: 비워 둡니다. 비우면 기본 모델(`google/gemini-3.1-flash-image`)을 씁니다.
-- [저장]을 누르면 화면 위쪽에 "그림 만드는 곳: 중계 서비스 (google/gemini-3.1-flash-image)"가 보입니다.
+- 서비스 주소, 모델 이름: 비워 둡니다. 타임리 연동 키는 적어도 쓰지 않습니다.
+- [저장]을 누르면 화면 위쪽에 "그림 만드는 곳: 타임리 AI (edit_image)"가 보입니다.
 
 ![사담다 AI 연결 설정](images/api-key-03-app-settings.webp)
 
-> 타임리 연동 키(`tgpt_`로 시작)는 서비스 주소를 비워도 타임리 주소로 연결됩니다. 다른 중계 서비스는 서비스 주소를 꼭 넣어야 합니다. 비우면 OpenAI 공식 주소로 연결되어 실패합니다.
+> 타임리 AI는 2026년 11월 18일에 OpenAI 호환 주소(`.../bridge/openai`)를 닫았고, 새 Timely API(`.../direct/...`)는 글만 돌려줍니다. 그래서 사담다는 타임리 연동 키(`tgpt_`로 시작)를 받으면 타임리 SDK API의 내장 도구 `edit_image`로 그림을 만듭니다. 기본 캐릭터와 상품 사진을 참조 그림으로 보내면 타임리가 gpt-image 계열 모델로 새로 그려 줍니다 (`TimelyDressUpClient`). 한 번에 15~25초쯤 걸리고 타임리 크레딧이 듭니다.
+> 만든 그림을 내려받는 주소(`timelyai.io/proxy/api/file/...`)는 타임리 웹 화면이 쓰는 주소이고 공개 문서에는 없습니다. 타임리가 이 주소를 바꾸면 "그림은 만들었지만 내려받지 못했습니다"가 나오므로 `TimelyDressUpClient.FILE_BASE`를 고쳐야 합니다.
+> 예전에 저장해 둔 타임리 OpenAI 호환 주소는 자동으로 지웁니다. 다른 중계 서비스는 서비스 주소를 꼭 넣어야 합니다. 비우면 OpenAI 공식 주소로 연결되어 실패합니다.
 > 키·주소를 복사할 때 섞여 들어온 앞뒤 공백, 줄바꿈, 따옴표, `Bearer `, 주소 끝의 `/chat/completions`는 저장할 때 자동으로 지웁니다.
 > 키가 거절되면 타임리 AI에서 연동 키를 다시 복사해 넣으세요. [재발급]을 누르면 전에 쓰던 키는 더 이상 쓸 수 없습니다.
 > 넣은 값은 이 PC의 사용자 설정(`java.util.prefs`)에만 저장됩니다. 코드, 저장소, jar 파일에는 들어가지 않습니다.
@@ -86,7 +87,7 @@ AI 합성에는 이용 열쇠(API 키)가 필요합니다. 아래는 학교에�
 
 | 환경 변수 | 뜻 | 기본값 |
 |-----------|----|--------|
-| `OPENAI_API_KEY` | OpenAI 공식 또는 호환 중계 서비스 키 | (없음) |
+| `OPENAI_API_KEY` | 타임리 연동 키, OpenAI 공식 또는 호환 중계 서비스 키 | (없음) |
 | `OPENAI_BASE_URL` | 중계 서비스 주소 | `https://api.openai.com/v1` |
 | `GEMINI_API_KEY` | Google Gemini 키 (`AIza…`) | (없음) |
 | `SADAMDA_AI_PROVIDER` | `openai` · `gemini` 로 강제 지정 | 키 모양으로 자동 선택 |
@@ -96,14 +97,14 @@ AI 합성에는 이용 열쇠(API 키)가 필요합니다. 아래는 학교에�
 | `SADAMDA_AI_TIMEOUT` | 기다리는 시간(초) | 60 |
 
 ```powershell
-$env:OPENAI_API_KEY="연동키"; $env:OPENAI_BASE_URL="https://hello.timelyai.io/api/v2/chat/bridge/openai"; java -jar target/sadamda-0.1.0-SNAPSHOT.jar
+$env:OPENAI_API_KEY="연동키"; java -jar target/sadamda-0.1.0-SNAPSHOT.jar
 ```
 
 키가 하나도 없으면 외부로 아무것도 보내지 않고, 화면에 연결 설정 안내만 보여 줍니다 (`UnconnectedDressUpClient`).
 
 ## 점검
 
-상품·추천·보관함 도메인과 옷 입혀보기 연동을 한 번에 확인하는 실행형 검사입니다 (인터넷·API 키 불필요, 130개).
+상품·추천·보관함 도메인과 옷 입혀보기 연동을 한 번에 확인하는 실행형 검사입니다 (인터넷·API 키 불필요, 152개).
 
 ```bash
 mvn test-compile

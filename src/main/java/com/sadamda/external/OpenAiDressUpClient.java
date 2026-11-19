@@ -162,18 +162,9 @@ public class OpenAiDressUpClient implements DressUpImageClient {
         return response.body();
     }
 
-    /** 열쇠가 거절됐을 때 덧붙일 안내. 타임리 키를 OpenAI 공식 주소로 보내는 등 흔한 실수를 짚어 준다. */
+    /** 열쇠가 거절됐을 때 덧붙일 안내. (타임리 키는 TimelyDressUpClient 가 맡으므로 여기로 오지 않는다) */
     String keyHint(int status) {
-        if (status != 401 && status != 403) {
-            return "";
-        }
-        if (DressUpSettings.isTimelyKey(apiKey) && !baseUrl.equals(DressUpSettings.TIMELY_BASE_URL)) {
-            return "\n타임리 AI 연동 키는 서비스 주소를 비우거나 " + DressUpSettings.TIMELY_BASE_URL + " 로 적어 주세요.";
-        }
-        if (DressUpSettings.isTimelyKey(apiKey)) {
-            return "\n타임리 AI 에서 연동 키를 다시 복사해 넣어 주세요. [재발급]을 누르면 전에 쓰던 키는 쓸 수 없습니다.";
-        }
-        return "\n[AI 연결 설정]에서 열쇠를 다시 복사해 넣어 주세요.";
+        return status == 401 || status == 403 ? "\n[AI 연결 설정]에서 열쇠를 다시 복사해 넣어 주세요." : "";
     }
 
     /** b64_json 이 있으면 풀고, 없으면 url 의 그림을 내려받는다. */

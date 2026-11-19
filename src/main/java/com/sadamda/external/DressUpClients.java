@@ -7,11 +7,13 @@ package com.sadamda.external;
  * 화면에서 열쇠를 저장했으면 그 열쇠·주소·모델을 쓴다. 다른 프로그램용으로 OPENAI_API_KEY 를 넣어 둔 PC 에서
  * 화면에 넣은 열쇠가 무시되지 않게 하기 위해서다. 화면에 열쇠가 없을 때만 환경 변수를 쓴다.
  *
- * 타임리 AI 연동 키("tgpt_" 로 시작)는 서비스 주소를 비워도 타임리 주소(DressUpSettings.TIMELY_BASE_URL)로 보낸다.
+ * 기본은 OpenAI 공식 이미지 API(gpt-image-2): OpenAI 열쇠("sk-")만 넣고 서비스 주소는 비워 두면 된다.
  *
  * 서비스 고르기 (SADAMDA_AI_PROVIDER = openai | gemini, 없으면 자동)
- * - 자동: Google 키("AIza" 로 시작)는 gemini, 그 밖의 키(타임리 "tgpt_" 포함)는 OpenAI 형식(공식 또는 호환 중계 서비스)
+ * - 자동: Google 키("AIza" 로 시작)는 gemini, 그 밖의 키는 OpenAI 형식(공식 또는 호환 중계 서비스)
  * - 키가 없으면 UnconnectedDressUpClient: 외부로 아무것도 보내지 않고 연결 설정을 안내한다
+ * - 타임리 AI 연동 키("tgpt_")는 TimelyDressUpClient: 타임리 SDK API 의 내장 도구 edit_image 로 그린다.
+ *   (2026-11-18 에 타임리 OpenAI 호환 주소가 닫혀서 chat 방식으로는 그릴 수 없다. 서비스 주소·모델 이름은 쓰지 않는다)
  *
  * OpenAI 형식 (공식 또는 호환 중계 서비스)
  * - OPENAI_API_KEY (또는 SADAMDA_AI_KEY, GEMINI_API_KEY) : 이용 열쇠
@@ -48,17 +50,20 @@ public final class DressUpClients {
         String model;
         String environmentUrl = DressUpSettings.normalizeBaseUrl(setting("OPENAI_BASE_URL"));
         if (saved.apiKey() != null) {
-            // 화면에서 넣은 열쇠: 화면에서 넣은 주소 → (타임리 키면) 타임리 주소 → 환경 변수 주소
+            // 화면에서 넣은 열쇠: 화면에서 넣은 주소 → 환경 변수 주소
             key = saved.apiKey();
-            baseUrl = first(saved.baseUrlFor(key), environmentUrl);
+            baseUrl = first(saved.baseUrl(), environmentUrl);
             model = first(saved.model(), setting("SADAMDA_AI_MODEL"));
         } else {
             key = environmentKey();
             if (key == null) {
                 return new UnconnectedDressUpClient();
             }
-            baseUrl = first(first(environmentUrl, saved.baseUrl()), DressUpSettings.defaultBaseUrl(key));
+            baseUrl = first(environmentUrl, saved.baseUrl());
             model = first(setting("SADAMDA_AI_MODEL"), saved.model());
+        }
+        if (DressUpSettings.isTimelyKey(key)) {
+            return new TimelyDressUpClient(key, timeout());
         }
 
         String provider = setting("SADAMDA_AI_PROVIDER");

@@ -13,8 +13,11 @@ import java.util.prefs.Preferences;
 public record DressUpSettings(String apiKey, String baseUrl, String model) {
     /** 학교에서 쓰는 타임리 AI 연동 키는 이것으로 시작한다. */
     public static final String TIMELY_KEY_PREFIX = "tgpt_";
-    /** 타임리 AI 의 OpenAI 호환 주소. 타임리 키를 넣고 서비스 주소를 비우면 이 주소를 쓴다. */
-    public static final String TIMELY_BASE_URL = "https://hello.timelyai.io/api/v2/chat/bridge/openai";
+    /**
+     * 타임리 AI 서버 주소. 타임리 키는 TimelyDressUpClient 가 정해진 주소로 보내므로 서비스 주소가 필요 없다.
+     * 예전에 저장해 둔 타임리 OpenAI 호환 주소(2026-11-18 종료)로 다른 회사 열쇠를 보내지 않도록 저장값에서 지운다.
+     */
+    private static final String[] TIMELY_HOSTS = {"timelyai.io", "timelygpt.co.kr"};
 
     private static final Preferences PREFS = Preferences.userNodeForPackage(DressUpSettings.class);
     private static final String KEY = "dressUp.apiKey";
@@ -42,16 +45,6 @@ public record DressUpSettings(String apiKey, String baseUrl, String model) {
         return apiKey != null;
     }
 
-    /** 이 열쇠로 쓸 서비스 주소. 적은 주소가 없고 타임리 키이면 타임리 주소. 그 밖에는 null (호출하는 쪽 기본값). */
-    public String baseUrlFor(String key) {
-        return baseUrl != null ? baseUrl : defaultBaseUrl(key);
-    }
-
-    /** 열쇠 모양으로 알 수 있는 서비스 주소. 타임리 키면 타임리 주소, 아니면 null. */
-    public static String defaultBaseUrl(String key) {
-        return isTimelyKey(key) ? TIMELY_BASE_URL : null;
-    }
-
     public static boolean isTimelyKey(String key) {
         return key != null && key.startsWith(TIMELY_KEY_PREFIX);
     }
@@ -76,8 +69,24 @@ public record DressUpSettings(String apiKey, String baseUrl, String model) {
     /**
      * 붙여넣은 서비스 주소를 다듬는다: 공백·따옴표·끝의 "/" 를 지우고, 실수로 함께 복사한
      * /chat/completions·/images/edits 같은 끝 경로를 뗀다 (프로그램이 붙이므로 두 번 붙지 않게).
+     * 타임리 AI 주소는 지운다 (타임리 키는 주소가 필요 없고, 예전에 저장한 값이 OpenAI 열쇠를 타임리로 보내지 않게).
      */
     public static String normalizeBaseUrl(String value) {
+        String url = trimBaseUrl(value);
+        return url == null || isTimelyUrl(url) ? null : url;
+    }
+
+    static boolean isTimelyUrl(String url) {
+        String lower = url.toLowerCase(Locale.ROOT);
+        for (String host : TIMELY_HOSTS) {
+            if (lower.contains(host)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String trimBaseUrl(String value) {
         if (value == null) {
             return null;
         }

@@ -348,7 +348,7 @@ public class TryOnPanel extends ScreenPanel {
         DressUpSettings saved = context.dressUp.dressUpSettings();
         JPasswordField key = Theme.passwordField("");
         key.setText(saved.apiKey() == null ? "" : saved.apiKey());
-        JTextField baseUrl = Theme.textField("비우면 OpenAI 공식 주소 (타임리 키는 타임리 주소)");
+        JTextField baseUrl = Theme.textField("비우면 OpenAI 공식 주소 (타임리 키는 비워 두기)");
         baseUrl.setText(saved.baseUrl() == null ? "" : saved.baseUrl());
         JTextField model = Theme.textField("비우면 기본 모델");
         model.setText(saved.model() == null ? "" : saved.model());

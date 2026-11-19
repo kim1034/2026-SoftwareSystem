@@ -406,15 +406,48 @@ public class DomainSelfCheck {
             exchange.getResponseBody().write(reply);
             exchange.close();
         });
-        // 타임리 AI 처럼 열쇠를 확인하는 chat/completions 중계 서비스
-        server.createContext("/timely/chat/completions", exchange -> {
+        // 타임리 SDK API 흉내: 연동 키 → 토큰, edit_image 도구 → file-server 이름, 이름 → 내려받을 주소
+        int[] tokenCount = {0};
+        server.createContext("/timely-api/sdk-auth/authenticate", exchange -> {
+            boolean ok = "tgpt_s-abc123".equals(exchange.getRequestHeaders().getFirst("X-Timely-API"));
+            byte[] reply = (ok
+                    ? "{\"success\":true,\"status\":200,\"data\":{\"access_token\":\"jwt-" + (++tokenCount[0]) + "\"}}"
+                    : "{\"success\":false,\"status\":401,\"message\":\"Invalid API key\"}").getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(ok ? 200 : 401, reply.length);
+            exchange.getResponseBody().write(reply);
+            exchange.close();
+        });
+        server.createContext("/timely-api/built-in-tool-node/", exchange -> {
             path.set(exchange.getRequestURI().getPath());
             auth.set(exchange.getRequestHeaders().getFirst("Authorization"));
-            exchange.getRequestBody().readAllBytes();
-            byte[] reply = ("{\"choices\":[{\"message\":{\"images\":[{\"image_url\":{\"url\":\"data:image/png;base64,"
-                    + b64 + "\"}}]}}]}").getBytes(StandardCharsets.UTF_8);
-            exchange.sendResponseHeaders(200, reply.length);
+            body.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            // 토큰은 가장 최근에 받은 것만 통한다 (만료 흉내)
+            boolean fresh = ("Bearer jwt-" + tokenCount[0]).equals(auth.get());
+            byte[] reply = (fresh
+                    ? "{\"success\":true,\"name\":\"OpenaiTool\",\"output\":\"file-server:p_OPENAI_IMAGE_TEST.png\","
+                    + "\"metadata\":{\"status\":\"SUCCEEDED\",\"type\":\"IMAGE_URL\"}}"
+                    : "{\"success\":false,\"status\":401,\"message\":\"Access token expired\"}").getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(fresh ? 201 : 401, reply.length);
             exchange.getResponseBody().write(reply);
+            exchange.close();
+        });
+        server.createContext("/timely-file/files/by/name/", exchange -> {
+            boolean ok = exchange.getRequestURI().getPath().equals("/timely-file/files/by/name/p_OPENAI_IMAGE_TEST.png/get-url")
+                    && exchange.getRequestHeaders().getFirst("Authorization").startsWith("Bearer jwt-");
+            byte[] reply = ("{\"downloadUrl\":\"" + base[0] + "/blob/p_OPENAI_IMAGE_TEST.png?sv=1\\u0026sig=x\"}")
+                    .getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(ok ? 200 : 403, ok ? reply.length : -1);
+            if (ok) {
+                exchange.getResponseBody().write(reply);
+            }
+            exchange.close();
+        });
+        server.createContext("/blob/", exchange -> {
+            boolean ok = "sv=1&sig=x".equals(exchange.getRequestURI().getQuery());
+            exchange.sendResponseHeaders(ok ? 200 : 403, ok ? pixel.length : -1);
+            if (ok) {
+                exchange.getResponseBody().write(pixel);
+            }
             exchange.close();
         });
         server.createContext("/bad/images/", exchange -> {
@@ -459,47 +492,57 @@ public class DomainSelfCheck {
             expectAiError(() -> new OpenAiDressUpClient("bad", base[0] + "/bad", null, null, 5).dressUp(withPhotos),
                     "이용 열쇠", "중계 서비스 키 오류 → 쉬운 한국어 안내");
 
-            timelyKey(base[0], withPhotos, pixel, path, auth);
+            timelyKey(base[0], withPhotos, pixel, path, auth, body, tokenCount);
         } finally {
             server.stop(0);
         }
     }
 
-    /** 다른 PC 에서 타임리 AI 연동 키를 넣었을 때 열쇠를 제대로 알아보는지. */
+    /** 타임리 AI 연동 키: 붙여넣은 열쇠 다듬기, edit_image 도구로 그리기, 토큰 다시 받기, 열쇠 고르는 순서. */
     private static void timelyKey(String base, DressUpImageClient.Request withPhotos, byte[] pixel,
-                                  AtomicReference<String> path, AtomicReference<String> auth) throws Exception {
-        // 복사·붙여넣기로 섞여 들어오는 따옴표·공백·줄바꿈·보이지 않는 문자·"Bearer "·끝 경로
+                                  AtomicReference<String> path, AtomicReference<String> auth,
+                                  AtomicReference<String> body, int[] tokenCount) throws Exception {
+        // 복사·붙여넣기로 섞여 들어오는 따옴표·공백·줄바꿈·보이지 않는 문자·"Bearer ", 예전에 저장한 타임리 OpenAI 호환 주소
         DressUpSettings pasted = new DressUpSettings(" \"Bearer tgpt_s-abc" + (char) 0x200B + "123\n\" ",
-                " '" + base + "/timely/chat/completions/' ", "  ");
+                " 'https://hello.timelyai.io/api/v2/chat/bridge/openai/chat/completions/' ", "  ");
         check("tgpt_s-abc123".equals(pasted.apiKey()), "붙여넣은 열쇠 다듬기");
-        check((base + "/timely").equals(pasted.baseUrl()) && pasted.model() == null, "붙여넣은 서비스 주소 다듬기");
-        DressUpImageClient timely = DressUpClients.create(pasted);
-        check(java.util.Arrays.equals(timely.dressUp(withPhotos), pixel)
-                && "/timely/chat/completions".equals(path.get()) && "Bearer tgpt_s-abc123".equals(auth.get()),
-                "타임리 키: 다듬은 열쇠·주소로 요청");
-
-        // 서비스 주소를 비운 타임리 키 → OpenAI 공식 주소가 아니라 타임리 주소
-        check(DressUpSettings.TIMELY_BASE_URL.equals(new DressUpSettings("tgpt_s-x", "", null).baseUrlFor("tgpt_s-x")),
-                "주소를 비운 타임리 키는 타임리 주소");
-        check(DressUpClients.create(new DressUpSettings("tgpt_s-x", null, null)).name().startsWith("중계 서비스"),
-                "주소를 비운 타임리 키는 중계 서비스(chat) 방식");
+        check(pasted.baseUrl() == null && pasted.model() == null, "종료된 타임리 OpenAI 호환 주소는 저장하지 않음");
+        DressUpImageClient chosen = DressUpClients.create(pasted);
+        check(chosen instanceof com.sadamda.external.TimelyDressUpClient && chosen.connected()
+                && chosen.name().startsWith("타임리 AI"), "타임리 키는 타임리 이미지 도구로 연결");
+        check(DressUpClients.create(new DressUpSettings("tgpt_s-x", "https://relay.example/v1", "m")).name()
+                .startsWith("타임리 AI"), "타임리 키는 서비스 주소·모델 이름을 적어도 타임리 이미지 도구");
         check(DressUpClients.create(new DressUpSettings("sk-x", null, null)).name().startsWith("OpenAI"),
                 "타임리 키가 아니면 그대로 OpenAI 공식");
+
+        DressUpImageClient timely = new com.sadamda.external.TimelyDressUpClient(pasted.apiKey(),
+                base + "/timely-api/", base + "/timely-file", 5);
+        check(java.util.Arrays.equals(timely.dressUp(withPhotos), pixel), "타임리: 토큰 → edit_image → 내려받기");
+        check("/timely-api/built-in-tool-node/edit_image/invoke".equals(path.get()) && "Bearer jwt-1".equals(auth.get()),
+                "타임리: 연동 키로 받은 토큰을 Bearer 로 전달");
+        check(body.get().contains("\"aspectRatio\":\"portrait\"")
+                        && body.get().split("data:image/png;base64,", -1).length - 1 == 1
+                        && body.get().split("data:image/jpeg;base64,", -1).length - 1 == 2,
+                "타임리: 기본 캐릭터 1장 + 상품 사진 2장을 referenceImageUrls 로 첨부");
+        timely.dressUp(withPhotos);
+        check(tokenCount[0] == 1, "타임리: 받아 둔 토큰을 다시 씀");
+        tokenCount[0]++; // 서버 쪽에서 토큰이 만료됨
+        check(java.util.Arrays.equals(timely.dressUp(withPhotos), pixel) && tokenCount[0] == 3
+                && "Bearer jwt-3".equals(auth.get()), "타임리: 토큰이 만료되면 한 번 새로 받아 다시 요청");
+
+        expectAiError(() -> new com.sadamda.external.TimelyDressUpClient("tgpt_s-wrong", base + "/timely-api",
+                base + "/timely-file", 5).dressUp(withPhotos), "연동 키", "타임리 키 오류 → 다시 복사 안내");
 
         // 다른 프로그램용 OPENAI_API_KEY 가 있는 PC: 화면에 넣은 열쇠가 먼저
         System.setProperty("OPENAI_API_KEY", "sk-other-program");
         try {
             check(DressUpClients.keyFromEnvironment(), "환경 변수 열쇠 알아보기");
-            DressUpClients.create(pasted).dressUp(withPhotos);
-            check("Bearer tgpt_s-abc123".equals(auth.get()), "환경 변수 열쇠가 있어도 화면에 넣은 열쇠를 씀");
+            check(DressUpClients.create(pasted).name().startsWith("타임리 AI"), "환경 변수 열쇠가 있어도 화면에 넣은 열쇠를 씀");
             check(DressUpClients.create(new DressUpSettings(null, null, null)).name().startsWith("OpenAI"),
                     "화면에 열쇠가 없으면 환경 변수 열쇠");
         } finally {
             System.clearProperty("OPENAI_API_KEY");
         }
-
-        expectAiError(() -> new OpenAiDressUpClient("tgpt_s-x", base + "/bad", null, null, 5).dressUp(withPhotos),
-                DressUpSettings.TIMELY_BASE_URL, "타임리 키를 다른 주소로 보내 거절되면 타임리 주소 안내");
     }
 
     /** 기본 캐릭터와 신체 스펙(키·몸무게) 반영. */
