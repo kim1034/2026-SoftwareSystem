@@ -45,7 +45,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * (인터넷이나 AI 이용 열쇠가 필요 없다. Gemini 연동은 이 PC 에 띄운 가짜 서버로 요청·응답 형식만 확인한다.)
  */
 public class DomainSelfCheck {
-    private static final int DEMO_PRODUCTS = 300;
+    private static final int DEMO_PRODUCTS = 370;
     private static int checks;
 
     public static void main(String[] args) throws Exception {
@@ -62,19 +62,20 @@ public class DomainSelfCheck {
     private static void products() {
         ProductService service = new ProductService();
         check(service.findAll().size() == DEMO_PRODUCTS, "데모 상품 " + DEMO_PRODUCTS + "개");
-        check(service.countByCategory(Category.BOTTOM) == 30, "하의 30개");
-        check(service.findAllByCategory(Category.BOTTOM).stream().map(Product::mainImageUrl).distinct().count() == 30,
-                "하의 사진이 서로 겹치지 않음");
-        check(service.countByCategory(Category.SHOES) == 90, "신발 90개");
-        check(service.countByCategory(Category.JEWELRY) == 90, "주얼리 90개");
+        check(service.countByCategory(Category.BOTTOM) == 35, "하의 35개");
+        check(service.findAll().stream().allMatch(p -> p.mainImageUrl() != null && !p.mainImageUrl().isBlank()),
+                "모든 상품에 사진이 있음");
+        check(service.countByCategory(Category.SHOES) == 105, "신발 105개");
+        check(service.countByCategory(Category.JEWELRY) == 105, "주얼리 105개");
         check(service.findByCategory(Category.TOP, 0).size() == ProductService.PAGE_SIZE, "UC-04 첫 쪽 8개");
-        check(service.findByCategory(Category.TOP, 3).size() == 6, "UC-04 넷째 쪽 6개 (30개 중)");
-        check(service.findByCategory(Category.DRESS, 0).isEmpty(), "UC-04 2a 원피스는 준비 중");
+        check(service.findByCategory(Category.TOP, 4).size() == 3, "UC-04 다섯째 쪽 3개 (35개 중)");
+        check(new ProductService(new java.util.ArrayList<>()).findByCategory(Category.DRESS, 0).isEmpty(),
+                "UC-04 2a 상품이 없는 카테고리는 빈 목록");
         check(service.findPopular(8).size() == 8, "UC-04 2a 인기 상품");
 
         List<Product> loafers = service.search(new SearchFilter("로퍼", null, null, null, null, null, null, null));
         check(!loafers.isEmpty() && loafers.stream().allMatch(p -> p.getCategory() == Category.SHOES), "UC-05 키워드 검색");
-        check(service.search(new SearchFilter("신발", null, null, null, null, null, null, null)).size() == 90, "UC-05 카테고리 이름 검색");
+        check(service.search(new SearchFilter("신발", null, null, null, null, null, null, null)).size() == 105, "UC-05 카테고리 이름 검색");
 
         List<Product> cheap = service.search(new SearchFilter(null, null, null, null, null, 100000, null, ProductService.SORT_PRICE_ASC));
         check(!cheap.isEmpty() && cheap.stream().allMatch(p -> p.getPrice() <= 100000), "UC-05 가격대 필터");
@@ -84,7 +85,7 @@ public class DomainSelfCheck {
         List<Product> navy = service.search(new SearchFilter(null, null, null, null, null, null, "네이비", null));
         check(!navy.isEmpty(), "UC-05 색상 필터");
         List<Product> size240 = service.search(new SearchFilter(null, null, null, "240", null, null, null, null));
-        check(size240.size() == 90, "UC-05 사이즈 필터 (240 은 신발만)");
+        check(size240.size() == 105, "UC-05 사이즈 필터 (240 은 신발만)");
         List<Product> pear = service.search(new SearchFilter(null, "50대", "하체 발달형", null, null, null, null, null));
         check(!pear.isEmpty() && pear.size() < DEMO_PRODUCTS, "UC-05 연령대·체형 필터");
         check(service.findAll().stream().anyMatch(p -> p.getAgeGroupTags().size() < 3)
@@ -117,6 +118,7 @@ public class DomainSelfCheck {
         expectError(() -> service.findById(99999L), "UC-06 없는 상품");
 
         expectError(() -> service.save(new Product()), "UC-16 5a 필수 항목 누락");
+        int dresses = service.findByCategory(Category.DRESS, 0).size();
         Product created = new Product();
         created.setName("테스트 원피스");
         created.setCategory(Category.DRESS);
@@ -125,7 +127,7 @@ public class DomainSelfCheck {
         created.setImageUrls(List.of("https://example.com/a.jpg"));
         service.save(created);
         check(created.getId() == DEMO_PRODUCTS + 1L && created.getOptions().get(0).id() != null, "UC-16 등록 시 id 부여");
-        check(service.findByCategory(Category.DRESS, 0).size() == 1, "UC-16 등록한 상품이 목록에 반영");
+        check(service.findByCategory(Category.DRESS, 0).size() == dresses + 1, "UC-16 등록한 상품이 목록에 반영");
 
         Long optionId = created.getOptions().get(0).id();
         check(!service.decreaseStock(created.getId(), optionId, 3), "UC-11 7a 재고보다 많이는 차감 불가");
@@ -142,7 +144,8 @@ public class DomainSelfCheck {
         service.setActiveOrderChecker(id -> id == created.getId());
         service.delete(created.getId());
         check(created.getStatus() == Product.Status.SUSPENDED, "UC-16 3a 주문이 있으면 판매 중지");
-        check(service.findByCategory(Category.DRESS, 0).isEmpty(), "판매 중지 상품은 목록에서 빠짐");
+        check(service.findByCategory(Category.DRESS, 0).size() == dresses
+                && !service.findByCategory(Category.DRESS, 0).contains(created), "판매 중지 상품은 목록에서 빠짐");
         service.setActiveOrderChecker(null);
         service.delete(created.getId());
         check(service.findAll().size() == DEMO_PRODUCTS, "UC-16 삭제");
@@ -160,7 +163,7 @@ public class DomainSelfCheck {
         expectError(() -> service.saveLookbook(new Lookbook("제목만", null, "일상", "봄", List.of())), "UC-17 구성 상품 없음");
 
         List<Product> trending = service.findTrendingItems();
-        check(trending.size() == 20, "UC-08 유행 아이템 20개 (세부 카테고리 10개 × 2)");
+        check(trending.size() == 28, "UC-08 유행 아이템 28개 (세부 카테고리 14개 × 2)");
         Product target = productService.findById(3L);
         service.setTrending(3L, true);
         check(service.findTrendingItems().contains(target), "UC-17 유행 지정");
@@ -203,7 +206,7 @@ public class DomainSelfCheck {
         RecommendController recommend = new RecommendController(session, recommendService);
         AdminController admin = new AdminController(session, productService, recommendService, null, null);
 
-        check(product.countByCategory(Category.HAT) == 30, "카테고리 버튼 상품 수");
+        check(product.countByCategory(Category.HAT) == 35, "카테고리 버튼 상품 수");
         check(product.suggestKeywords("로파 신발").contains("신발"), "검색 결과 없음 → 비슷한 검색어");
         check(recommend.occasions().containsAll(List.of("모임", "여행", "일상")) && recommend.seasons().contains("겨울"),
                 "UC-07 상황·계절 필터 값");

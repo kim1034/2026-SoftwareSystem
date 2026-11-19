@@ -15,7 +15,9 @@ import com.sadamda.model.tryon.Outfit;
 import com.sadamda.view.MainFrame;
 import com.sadamda.view.ScreenPanel;
 import com.sadamda.view.Theme;
+import com.sadamda.view.Toast;
 import com.sadamda.view.WrapLayout;
+import com.sadamda.view.cart.CartPanel;
 
 import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
@@ -503,10 +505,11 @@ public class TryOnPanel extends ScreenPanel {
         try {
             context.cart.addAll(lines); // Controller 명세: 여러 상품은 addAll(List<OrderLine>)
             setStatus(lines.size() + "개 상품을 장바구니에 담았습니다. 사이즈는 장바구니에서 바꿀 수 있습니다.");
+            // 상품 상세와 같은 방식: 상단 [장바구니 n]을 바로 고치고, 잠깐 뜨는 알림에 [장바구니 보기]
+            frame.refreshCartBadge();
+            Toast.show(this, "장바구니에 담았어요", "장바구니 보기", () -> frame.navigate(CartPanel.NAME));
         } catch (LoginRequiredException e) {
             JOptionPane.showMessageDialog(this, "장바구니는 로그인한 뒤에 쓸 수 있습니다.");
-        } catch (UnsupportedOperationException e) {
-            JOptionPane.showMessageDialog(this, "장바구니는 아직 준비 중입니다.");
         } catch (RuntimeException e) {
             JOptionPane.showMessageDialog(this, "장바구니에 담지 못했습니다.\n" + e.getMessage());
         }
