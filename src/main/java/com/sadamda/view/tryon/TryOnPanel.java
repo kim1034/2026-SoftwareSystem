@@ -15,7 +15,9 @@ import com.sadamda.model.tryon.Outfit;
 import com.sadamda.view.MainFrame;
 import com.sadamda.view.ScreenPanel;
 import com.sadamda.view.Theme;
+import com.sadamda.view.Toast;
 import com.sadamda.view.WrapLayout;
+import com.sadamda.view.cart.CartPanel;
 
 import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
@@ -346,7 +348,7 @@ public class TryOnPanel extends ScreenPanel {
         DressUpSettings saved = context.dressUp.dressUpSettings();
         JPasswordField key = Theme.passwordField("");
         key.setText(saved.apiKey() == null ? "" : saved.apiKey());
-        JTextField baseUrl = Theme.textField("비우면 OpenAI 공식 주소");
+        JTextField baseUrl = Theme.textField("비우면 OpenAI 공식 주소 (타임리 키는 타임리 주소)");
         baseUrl.setText(saved.baseUrl() == null ? "" : saved.baseUrl());
         JTextField model = Theme.textField("비우면 기본 모델");
         model.setText(saved.model() == null ? "" : saved.model());
@@ -362,7 +364,7 @@ public class TryOnPanel extends ScreenPanel {
         form.add(Theme.label("모델 이름", 1f, Font.BOLD, Theme.TEXT));
         form.add(model);
         form.add(Theme.label(context.dressUp.dressUpKeyFromEnvironment()
-                ? "지금은 환경 변수에 넣은 열쇠가 먼저 쓰입니다."
+                ? "환경 변수에도 열쇠가 있습니다. 여기에 열쇠를 넣으면 이 열쇠를 먼저 씁니다."
                 : "이 PC 에만 저장되고, 다른 사람에게 보내는 파일에는 들어가지 않습니다.", 1f, Font.PLAIN, Theme.HINT));
 
         Object[] choices = {"저장", "취소"};
@@ -503,10 +505,11 @@ public class TryOnPanel extends ScreenPanel {
         try {
             context.cart.addAll(lines); // Controller 명세: 여러 상품은 addAll(List<OrderLine>)
             setStatus(lines.size() + "개 상품을 장바구니에 담았습니다. 사이즈는 장바구니에서 바꿀 수 있습니다.");
+            // 상품 상세와 같은 방식: 상단 [장바구니 n]을 바로 고치고, 잠깐 뜨는 알림에 [장바구니 보기]
+            frame.refreshCartBadge();
+            Toast.show(this, "장바구니에 담았어요", "장바구니 보기", () -> frame.navigate(CartPanel.NAME));
         } catch (LoginRequiredException e) {
             JOptionPane.showMessageDialog(this, "장바구니는 로그인한 뒤에 쓸 수 있습니다.");
-        } catch (UnsupportedOperationException e) {
-            JOptionPane.showMessageDialog(this, "장바구니는 아직 준비 중입니다.");
         } catch (RuntimeException e) {
             JOptionPane.showMessageDialog(this, "장바구니에 담지 못했습니다.\n" + e.getMessage());
         }
