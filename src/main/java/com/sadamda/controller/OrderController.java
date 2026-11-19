@@ -80,6 +80,12 @@ public class OrderController {
         return sheet(memberId, List.of(line), false);
     }
 
+    /** 가족에게 물어본 상품들의 결제 금액 (상품 + 배송비). 품절이면 AppException. */
+    public int prepareLinesTotal(List<OrderLine> lines) {
+        session.requireLogin();
+        return orderService.calculateTotal(lines);
+    }
+
     private OrderSheet sheet(Long memberId, List<OrderLine> lines, boolean fromCart) {
         // 세션의 회원 정보는 오래됐을 수 있어 기본 배송지는 새로 읽는다.
         String defaultAddress = memberService.findById(memberId).getDefaultAddress();

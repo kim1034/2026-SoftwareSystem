@@ -11,6 +11,7 @@ import com.sadamda.view.ProductThumbnail;
 import com.sadamda.view.ScreenPanel;
 import com.sadamda.view.Theme;
 import com.sadamda.view.WrapLayout;
+import com.sadamda.view.family.AskFamilyDialog;
 import com.sadamda.view.member.LoginPanel;
 import com.sadamda.view.order.OrderPanel;
 import com.sadamda.view.product.ProductDetail;
@@ -286,6 +287,12 @@ public class CartPanel extends ScreenPanel {
         Theme.addToCard(card, amountRow("배송비", price(OrderPanel.SHIPPING_FEE), false), 12);
         Theme.addToCard(card, line(), 16);
         Theme.addToCard(card, amountRow("총 결제 예정금액", price(total + OrderPanel.SHIPPING_FEE), true), 16);
+        // 사담다 차별 기능: 장바구니를 통째로 가족에게 물어보기 (가족이 대신 결제해 줄 수도 있다)
+        JButton askFamily = Theme.secondaryButton("가족에게 물어보기");
+        askFamily.addActionListener(e -> AskFamilyDialog.open(this, context, frame,
+                "장바구니 상품 " + context.cart.cart().size() + "개",
+                (email, message) -> context.family.askCart(email, message)));
+        Theme.addToCard(card, askFamily, 20);
         return card;
     }
 

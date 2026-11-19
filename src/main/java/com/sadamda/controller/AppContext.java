@@ -7,6 +7,7 @@ import com.sadamda.external.DressUpClients;
 import com.sadamda.external.DressUpImageClient;
 import com.sadamda.external.PaymentGateway;
 import com.sadamda.model.cart.CartService;
+import com.sadamda.model.family.AskService;
 import com.sadamda.model.member.MemberService;
 import com.sadamda.model.order.OrderService;
 import com.sadamda.model.product.ProductService;
@@ -27,6 +28,8 @@ public class AppContext {
     public final ReviewController review;
     public final AdminController admin;
     public final DressUpController dressUp; // 옷 입혀보기 (정우진)
+    /** 가족에게 물어보기 (사담다 차별 기능). */
+    public final FamilyController family;
     /** 시연용 회원·예전 주문 (DemoData). 실제 서비스로 낼 때는 지운다. */
     public final DemoData demo;
 
@@ -54,10 +57,12 @@ public class AppContext {
         review = new ReviewController(session, reviewService);
         admin = new AdminController(session, productService, recommendService, orderService, paymentGateway);
         dressUp = new DressUpController(session, dressUpClient, productService);
+        family = new FamilyController(session, new AskService(), memberService, cartService, order);
         demo = new DemoData(orderService, productService);
         // 로그인하자마자 넣어야 시연용 주문이 회원이 새로 한 주문보다 아래(예전 주문)에 놓인다.
         session.onLogin(member -> {
-            if (member != null && member.getRole() != com.sadamda.model.member.Member.Role.ADMIN) {
+            if (member != null && member.getRole() != com.sadamda.model.member.Member.Role.ADMIN
+                    && !DemoData.FAMILY_EMAIL.equals(member.getEmail())) {
                 demo.seedOrdersOnce(member.getId());
             }
         });
