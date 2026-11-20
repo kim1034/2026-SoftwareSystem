@@ -10,8 +10,10 @@ import com.sadamda.model.cart.CartService;
 import com.sadamda.model.member.MemberService;
 import com.sadamda.model.order.OrderService;
 import com.sadamda.model.product.ProductService;
+import com.sadamda.model.recommend.OutfitHelper;
 import com.sadamda.model.recommend.RecommendService;
 import com.sadamda.model.review.ReviewService;
+import com.sadamda.model.tryon.CodiBookService;
 import com.sadamda.model.tryon.TryOnService;
 
 /** Model·외부 연동·Controller 객체를 한곳에서 생성해 View 에 넘긴다. */
@@ -27,6 +29,7 @@ public class AppContext {
     public final ReviewController review;
     public final AdminController admin;
     public final DressUpController dressUp; // 옷 입혀보기 (정우진)
+    public final CodiBookController codiBook; // 내 코디북 UC-19 (정우진)
     /** 시연용 회원·예전 주문 (DemoData). 실제 서비스로 낼 때는 지운다. */
     public final DemoData demo;
 
@@ -47,13 +50,14 @@ public class AppContext {
 
         member = new MemberController(session, memberService);
         product = new ProductController(productService, reviewService);
-        recommend = new RecommendController(session, recommendService);
+        recommend = new RecommendController(session, recommendService, new OutfitHelper(productService));
         tryOn = new TryOnController(session, aiImageClient, tryOnService);
         cart = new CartController(session, cartService);
         order = new OrderController(session, orderService, cartService, memberService, paymentGateway);
         review = new ReviewController(session, reviewService);
         admin = new AdminController(session, productService, recommendService, orderService, paymentGateway);
         dressUp = new DressUpController(session, dressUpClient, productService);
+        codiBook = new CodiBookController(session, new CodiBookService(), productService);
         demo = new DemoData(orderService, productService);
         // 로그인하자마자 넣어야 시연용 주문이 회원이 새로 한 주문보다 아래(예전 주문)에 놓인다.
         session.onLogin(member -> {
