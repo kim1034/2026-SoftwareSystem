@@ -17,13 +17,18 @@ import com.sadamda.model.product.ProductService;
 import com.sadamda.model.product.SearchFilter;
 import com.sadamda.model.recommend.Lookbook;
 import com.sadamda.model.recommend.RecommendService;
+import com.sadamda.model.tryon.Background;
+import com.sadamda.model.tryon.BackgroundCatalog;
 import com.sadamda.model.tryon.CharacterFigure;
 import com.sadamda.model.tryon.CharacterSpec;
 import com.sadamda.model.tryon.CharacterStyle;
+import com.sadamda.model.tryon.DressUpPrompt;
 import com.sadamda.model.tryon.DressUpSlot;
 import com.sadamda.model.tryon.Outfit;
 import com.sadamda.model.tryon.TryOnImage;
 import com.sadamda.model.tryon.TryOnService;
+import com.sadamda.model.tryon.UserPhoto;
+import com.sadamda.controller.DressUpController;
 import com.sadamda.common.AppException;
 import com.sadamda.controller.AdminController;
 import com.sadamda.controller.ProductController;
@@ -58,6 +63,7 @@ public class DomainSelfCheck {
         dressUp();
         openAiRelay();
         character();
+        photoTryOn();
         System.out.println("모두 통과: " + checks + "개 확인");
     }
 
@@ -605,6 +611,196 @@ public class DomainSelfCheck {
 
     private interface AiCall {
         void run() throws DressUpException;
+    }
+
+    /** 옷 칸 14개, 원피스 규칙, 배경 목록, 내 사진 확인, 내 사진 지시문 (2026-11-20 추가). */
+    private static void photoTryOn() throws Exception {
+        ProductService productService = new ProductService();
+        check(DressUpSlot.values().length == 14, "옷 칸 14개");
+        check(productService.findAll().stream().allMatch(p -> DressUpSlot.slotFor(p) != null),
+                "모든 데모 상품을 입힐 칸이 있음 (원피스·아우터·양말·가방·스카프 포함)");
+        Map<DressUpSlot, Long> jewelry = new java.util.EnumMap<>(DressUpSlot.class);
+        for (Product product : productService.findAllByCategory(Category.JEWELRY)) {
+            jewelry.merge(DressUpSlot.slotFor(product), 1L, Long::sum);
+        }
+        check(jewelry.getOrDefault(DressUpSlot.NECKLACE, 0L) == 35 && jewelry.getOrDefault(DressUpSlot.BRACELET, 0L) == 35
+                        && jewelry.getOrDefault(DressUpSlot.EARRINGS, 0L) == 24 && jewelry.getOrDefault(DressUpSlot.BROOCH, 0L) == 9
+                        && jewelry.getOrDefault(DressUpSlot.RING, 0L) == 2,
+                "주얼리 105개를 귀걸이 24·목걸이 35·팔찌 35·반지 2·브로치 9 로 나눔 " + jewelry);
+        Product earring = productService.findAllByCategory(Category.JEWELRY).stream()
+                .filter(DressUpSlot.EARRINGS::accepts).findFirst().orElseThrow();
+        Outfit outfit = new Outfit();
+        expectError(() -> outfit.put(DressUpSlot.NECKLACE, earring), "귀걸이를 목걸이 칸에 넣으면 거절");
+
+        Product top = productService.findAllByCategory(Category.TOP).get(0);
+        Product bottom = productService.findAllByCategory(Category.BOTTOM).get(0);
+        Product dress = productService.findAllByCategory(Category.DRESS).get(0);
+        outfit.put(DressUpSlot.TOP, top);
+        outfit.put(DressUpSlot.BOTTOM, bottom);
+        List<DressUpSlot> removed = outfit.put(DressUpSlot.DRESS, dress);
+        check(removed.equals(List.of(DressUpSlot.TOP, DressUpSlot.BOTTOM)) && outfit.size() == 1,
+                "원피스를 입히면 상의·하의를 벗김");
+        check(outfit.put(DressUpSlot.TOP, top).equals(List.of(DressUpSlot.DRESS)) && outfit.get(DressUpSlot.DRESS) == null,
+                "상의를 입히면 원피스를 벗김");
+
+        // 캐릭터 지시문: 원피스는 흰 티·반바지를 대신하고, 양말만 신으면 맨발이 아님
+        Outfit dressed = new Outfit();
+        dressed.put(DressUpSlot.DRESS, dress);
+        dressed.put(DressUpSlot.SOCKS, productService.findAllByCategory(Category.SOCKS).get(0));
+        String characterPrompt = DressUpPrompt.build(CharacterStyle.REAL, CharacterSpec.defaults(), dressed,
+                List.of(DressUpSlot.DRESS));
+        check(characterPrompt.contains("the dress replaces her white t-shirt and shorts")
+                && characterPrompt.contains("she wears only the socks")
+                && !characterPrompt.contains("keep the plain white t-shirt"), "캐릭터: 원피스·양말 지시");
+
+        // 아우터: 아우터 사진 속 안쪽 옷 대신 고른 상의를 안에 입힌다 (2026-11-20 수정)
+        Product outer = productService.findAllByCategory(Category.OUTER).get(0);
+        Outfit layered = new Outfit();
+        layered.put(DressUpSlot.TOP, top);
+        layered.put(DressUpSlot.OUTER, outer);
+        byte[] photoBytes = {9};
+        String layeredCharacter = new DressUpImageClient.Request(CharacterStyle.REAL, CharacterSpec.defaults(), layered,
+                Map.of(DressUpSlot.TOP, photoBytes, DressUpSlot.OUTER, photoBytes), photoBytes).prompt();
+        check(layeredCharacter.contains("ONLY the coat or jacket itself")
+                        && layeredCharacter.contains("She wears the top from Image 2 UNDER the outerwear")
+                        && layeredCharacter.contains("In Image 3 the model wears other clothes")
+                        && layeredCharacter.contains("knit cuffs")
+                        && layeredCharacter.contains("wear it open at the front"),
+                "캐릭터: 아우터 사진(Image 3)의 안쪽 옷 대신 고른 상의(Image 2)를 안에 입힘");
+        String layeredPhoto = DressUpImageClient.Request.photo(layered,
+                Map.of(DressUpSlot.TOP, photoBytes, DressUpSlot.OUTER, photoBytes), photoBytes, photoBytes).prompt();
+        check(layeredPhoto.contains("She wears the top from Image 3 UNDER the outerwear")
+                        && layeredPhoto.contains("In Image 4 the model wears other clothes"),
+                "내 사진: 배경이 Image 2 라 상의 Image 3, 아우터 Image 4");
+        Outfit outerOnly = new Outfit();
+        outerOnly.put(DressUpSlot.OUTER, outer);
+        String outerCharacter = DressUpPrompt.build(CharacterStyle.REAL, CharacterSpec.defaults(), outerOnly,
+                List.of(DressUpSlot.OUTER));
+        check(outerCharacter.contains("She wears the plain white t-shirt from Image 1 UNDER the outerwear")
+                        && !outerCharacter.contains("wear it open at the front"),
+                "상의를 안 고르면 캐릭터의 흰 티셔츠를 안에 입힘");
+        String outerPhoto = DressUpImageClient.Request.photo(outerOnly, Map.of(DressUpSlot.OUTER, photoBytes),
+                photoBytes, null).prompt();
+        check(outerPhoto.contains("She wears her own top from Image 1 UNDER the outerwear"), "내 사진은 원래 상의를 안에 입힘");
+        check(!characterPrompt.contains("LAYERING"), "아우터가 없으면 겹쳐 입기 지시 없음");
+
+        // 칸마다 그 물건 하나만: 상의 사진에서는 상의만, 하의 사진에서는 하의만 (2026-11-21 수정)
+        Outfit everySlot = new Outfit();
+        Map<DressUpSlot, byte[]> everyPhoto = new java.util.EnumMap<>(DressUpSlot.class);
+        for (DressUpSlot slot : DressUpSlot.values()) {
+            if (slot != DressUpSlot.DRESS) { // 원피스는 상의·하의와 같이 입지 않는다
+                everySlot.put(slot, productService.findAllByCategory(slot.category()).stream()
+                        .filter(slot::accepts).findFirst().orElseThrow());
+                everyPhoto.put(slot, photoBytes);
+            }
+        }
+        String everyPrompt = new DressUpImageClient.Request(CharacterStyle.REAL, CharacterSpec.defaults(), everySlot,
+                everyPhoto, photoBytes).prompt();
+        long takeLines = everyPrompt.lines().filter(line -> line.contains(". TAKE ") && line.contains(". IGNORE ")).count();
+        check(takeLines == 13, "사진을 보낸 13칸 모두 가져올 것·무시할 것을 칸별로 적음 (" + takeLines + "줄)");
+        check(everyPrompt.contains("top: the exact top shown in Image 2. TAKE only the upper-body garment")
+                        && everyPrompt.contains("IGNORE trousers, skirts")
+                        && everyPrompt.contains("bottom: the exact bottom shown in Image 3. TAKE only the trousers or skirt")
+                        && everyPrompt.contains("IGNORE the top, knit, shirt"),
+                "상의 사진에서는 상의만, 하의 사진에서는 하의만");
+        check(everyPrompt.contains("SOURCE CHECK") && everyPrompt.contains("From Image 2 take only the top.")
+                        && everyPrompt.contains("From Image 3 take only the bottom.")
+                        && everyPrompt.contains("the trousers in a top's photo"),
+                "몸의 부분마다 어느 사진에서만 오는지 확인 지시");
+        check(!characterPrompt.contains("SOURCE CHECK") || characterPrompt.contains("From Image 2 take only the dress"),
+                "사진을 보낸 칸만 출처 확인에 들어감");
+
+        BackgroundCatalog catalog = new BackgroundCatalog();
+        check(catalog.all().size() == 20, "배경 20개");
+        check(BackgroundCatalog.SEASONS.stream().allMatch(season -> catalog.bySeason(season).size() == 5),
+                "계절마다 배경 5개");
+        check(catalog.all().stream().allMatch(b -> b.imageUrl().startsWith("https://i.pinimg.com/")
+                        && !b.shortName().isBlank() && b.source().contains("pinterest.com")
+                        && b.name().startsWith(b.season() + " · " + b.country())),
+                "배경마다 사진 주소·짧은 이름·출처(핀 주소)가 있음");
+        Background first = catalog.find("BG-01");
+        check(first != null && "봄 · 일본".equals(first.caption()), "배경 버튼 윗줄: 계절 · 나라");
+
+        // 내 사진 확인 (UC-09 2a 동의, 3a 형식·용량)
+        byte[] png = RemoteImages.toPng(new BufferedImage(400, 600, BufferedImage.TYPE_INT_RGB));
+        expectError(() -> UserPhoto.of("me.png", png, false), "2a 동의하지 않으면 거절");
+        expectError(() -> UserPhoto.of("me.png", new byte[0], true), "빈 사진 거절");
+        expectError(() -> UserPhoto.of("me.gif", png, true), "3a GIF 거절");
+        expectError(() -> UserPhoto.of("photo.jpg.exe", png, true), "3a 확장자 속이기 거절");
+        expectError(() -> UserPhoto.of("big.jpg", new byte[(int) UserPhoto.MAX_BYTES + 1], true), "3a 10MB 초과 거절");
+        expectError(() -> UserPhoto.of("fake.jpg", "not an image".getBytes(StandardCharsets.UTF_8), true),
+                "사진이 아닌 파일 거절");
+        byte[] tiny = RemoteImages.toPng(new BufferedImage(100, 120, BufferedImage.TYPE_INT_RGB));
+        expectError(() -> UserPhoto.of("tiny.png", tiny, true), "너무 작은 사진 거절");
+        UserPhoto ok = UserPhoto.of("ME.PNG", png, true);
+        check(ok.image().getWidth() == 400 && ok.image().getHeight() == 600, "대문자 확장자 PNG 통과");
+
+        BufferedImage forAi = RemoteImages.decode(UserPhoto.of("big.jpg", jpeg(2000, 3000), true).jpegForAi());
+        check(forAi != null && forAi.getHeight() == 1536 && forAi.getWidth() == 1024,
+                "AI 로는 긴 변 1536px JPEG 로 줄여 보냄");
+        UserPhoto upright = UserPhoto.of("phone.jpg", withExifOrientation(jpeg(600, 400), 6), true);
+        check(upright.image().getWidth() == 400 && upright.image().getHeight() == 600, "휴대폰 사진 EXIF 방향(6)대로 세움");
+        check(!new String(upright.jpegForAi(), StandardCharsets.ISO_8859_1).contains("Exif"),
+                "AI 로 보내는 사진에는 EXIF 가 없음");
+
+        // 내 사진 요청: 이미지 순서와 지시문 번호
+        Outfit wearing = new Outfit();
+        wearing.put(DressUpSlot.TOP, top);
+        wearing.put(DressUpSlot.EARRINGS, earring);
+        byte[] person = {1};
+        byte[] place = {2};
+        byte[] garment = {3};
+        DressUpImageClient.Request withPlace = DressUpImageClient.Request.photo(wearing,
+                Map.of(DressUpSlot.TOP, garment), person, place);
+        check(withPlace.images().size() == 3 && withPlace.images().get(0) == person && withPlace.images().get(1) == place
+                && withPlace.images().get(2) == garment, "내 사진 요청: 1=내 사진, 2=배경, 3~=상품 사진");
+        String prompt = withPlace.prompt();
+        check(prompt.contains("a real photograph of a woman") && prompt.contains("location shown in Image 2")
+                && prompt.contains("top: the exact top shown in Image 3")
+                && prompt.contains("Image 3 is the product photo for the top")
+                && prompt.contains("earrings: [") && prompt.contains("same face and identity")
+                && prompt.contains("photorealistic"), "내 사진 지시문: 배경 Image 2, 상품 Image 3~, 얼굴·몸 유지");
+        String keepBackground = DressUpImageClient.Request.photo(wearing, Map.of(DressUpSlot.TOP, garment), person, null)
+                .prompt();
+        check(keepBackground.contains("Keep the original background of Image 1")
+                && keepBackground.contains("top: the exact top shown in Image 2"), "배경을 고르지 않으면 원래 배경, 상품은 Image 2~");
+        String placeOnly = DressUpImageClient.Request.photo(new Outfit(), Map.of(), person, place).prompt();
+        check(placeOnly.contains("Place her in the location shown in Image 2")
+                && placeOnly.contains("keep everything she wears in Image 1"), "옷 없이 배경만 바꾸기");
+
+        DressUpController controller = new DressUpController(new Session(), new UnconnectedDressUpClient(),
+                productService, catalog);
+        check(controller.backgrounds().size() == 20, "Controller 배경 목록");
+        check(controller.productsFor(DressUpSlot.RING).size() == 2
+                && controller.productsFor(DressUpSlot.RING).stream().allMatch(DressUpSlot.RING::accepts), "반지 칸에는 반지만");
+        expectAiError(() -> controller.dressUpPhoto(null, null, wearing), "사진", "사진 없이 입혀보기 거절");
+        expectAiError(() -> controller.dressUpPhoto(ok, null, new Outfit()), "배경", "옷도 배경도 없으면 거절");
+        expectAiError(() -> controller.dressUpPhoto(ok, first, new Outfit()), "AI 연결 설정", "AI 미연결이면 연결 안내");
+    }
+
+    private static byte[] jpeg(int width, int height) throws Exception {
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB), "jpg", out);
+        return out.toByteArray();
+    }
+
+    /** JPEG 맨 앞(SOI 뒤)에 EXIF 방향값만 든 APP1 을 끼운다 (휴대폰 사진 흉내). */
+    private static byte[] withExifOrientation(byte[] jpeg, int orientation) {
+        byte[] tiff = {'M', 'M', 0, 42, 0, 0, 0, 8, 0, 1, 0x01, 0x12, 0, 3, 0, 0, 0, 1, 0, (byte) orientation, 0, 0,
+                0, 0, 0, 0};
+        byte[] exif = new byte[6 + tiff.length];
+        System.arraycopy("Exif".getBytes(StandardCharsets.US_ASCII), 0, exif, 0, 4);
+        System.arraycopy(tiff, 0, exif, 6, tiff.length);
+        int length = exif.length + 2;
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        out.write(jpeg, 0, 2);
+        out.write(0xFF);
+        out.write(0xE1);
+        out.write(length >> 8);
+        out.write(length & 0xFF);
+        out.write(exif, 0, exif.length);
+        out.write(jpeg, 2, jpeg.length - 2);
+        return out.toByteArray();
     }
 
     private static void expectAiError(AiCall call, String expectedWord, String name) {
