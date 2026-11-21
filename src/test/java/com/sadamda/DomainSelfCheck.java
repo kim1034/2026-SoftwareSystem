@@ -684,6 +684,32 @@ public class DomainSelfCheck {
         check(outerPhoto.contains("She wears her own top from Image 1 UNDER the outerwear"), "내 사진은 원래 상의를 안에 입힘");
         check(!characterPrompt.contains("LAYERING"), "아우터가 없으면 겹쳐 입기 지시 없음");
 
+        // 칸마다 그 물건 하나만: 상의 사진에서는 상의만, 하의 사진에서는 하의만 (2026-11-21 수정)
+        Outfit everySlot = new Outfit();
+        Map<DressUpSlot, byte[]> everyPhoto = new java.util.EnumMap<>(DressUpSlot.class);
+        for (DressUpSlot slot : DressUpSlot.values()) {
+            if (slot != DressUpSlot.DRESS) { // 원피스는 상의·하의와 같이 입지 않는다
+                everySlot.put(slot, productService.findAllByCategory(slot.category()).stream()
+                        .filter(slot::accepts).findFirst().orElseThrow());
+                everyPhoto.put(slot, photoBytes);
+            }
+        }
+        String everyPrompt = new DressUpImageClient.Request(CharacterStyle.REAL, CharacterSpec.defaults(), everySlot,
+                everyPhoto, photoBytes).prompt();
+        long takeLines = everyPrompt.lines().filter(line -> line.contains(". TAKE ") && line.contains(". IGNORE ")).count();
+        check(takeLines == 13, "사진을 보낸 13칸 모두 가져올 것·무시할 것을 칸별로 적음 (" + takeLines + "줄)");
+        check(everyPrompt.contains("top: the exact top shown in Image 2. TAKE only the upper-body garment")
+                        && everyPrompt.contains("IGNORE trousers, skirts")
+                        && everyPrompt.contains("bottom: the exact bottom shown in Image 3. TAKE only the trousers or skirt")
+                        && everyPrompt.contains("IGNORE the top, knit, shirt"),
+                "상의 사진에서는 상의만, 하의 사진에서는 하의만");
+        check(everyPrompt.contains("SOURCE CHECK") && everyPrompt.contains("From Image 2 take only the top.")
+                        && everyPrompt.contains("From Image 3 take only the bottom.")
+                        && everyPrompt.contains("the trousers in a top's photo"),
+                "몸의 부분마다 어느 사진에서만 오는지 확인 지시");
+        check(!characterPrompt.contains("SOURCE CHECK") || characterPrompt.contains("From Image 2 take only the dress"),
+                "사진을 보낸 칸만 출처 확인에 들어감");
+
         BackgroundCatalog catalog = new BackgroundCatalog();
         check(catalog.all().size() == 20, "배경 20개");
         check(BackgroundCatalog.SEASONS.stream().allMatch(season -> catalog.bySeason(season).size() == 5),

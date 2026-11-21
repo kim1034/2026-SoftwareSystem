@@ -24,8 +24,10 @@ import java.util.Map;
  * 3) 캐릭터는 옷도 같은 그림체로, 사진은 실제 사진처럼. 같은 제품임을 알아볼 수 있게 디자인은 유지할 것
  * 4) 사진을 보낸 상품은 사진만 따를 것 (상품명·색상 글은 보내지 않는다). 사진을 못 구한 상품만 글로 설명한다
  * 5) 내 사진에 배경을 고르면 그 장소에서 찍은 사진처럼 자연스럽게 넣을 것 (빛·크기·원근·그림자)
- * 6) 아우터 상품 사진 속 모델이 안에 입은 옷(니트·셔츠·치마 등)은 따라 그리지 말고, 고른 상의(없으면 원래 상의)를
- *    아우터 안에 입힐 것. 아우터를 열어 고른 상의가 보이게 한다 (LAYERING)
+ * 6) 상품 사진마다 그 칸의 물건 하나만 가져올 것. 상의 사진에서는 상의만, 하의 사진에서는 하의만 …
+ *    사진 속 모델이 함께 입은 다른 옷·신발·가방·장신구는 따라 그리지 않는다 (TAKE ONLY / IGNORE, 칸별로 정함)
+ * 7) 몸의 각 부분은 그 칸의 사진에서만 온다 (SOURCE CHECK). 아우터를 입히면 안에는 고른 상의를 입히고,
+ *    가려지면 아우터를 열어 보이게 한다 (LAYERING)
  */
 public final class DressUpPrompt {
     private static final Map<String, String> SHAPE = Map.of(
@@ -41,6 +43,58 @@ public final class DressUpPrompt {
             + "around her neck or shoulders, earrings on her ears, a necklace around her neck, a bracelet on her wrist, "
             + "a ring on a finger, a brooch pinned on her chest or lapel, socks on her feet (under the shoes if she "
             + "wears shoes), shoes on her feet standing on the floor, and a bag on her shoulder or in her hand. ";
+
+    /**
+     * 칸별로 상품 사진에서 가져올 것과 무시할 것. 상품 사진의 모델은 다른 옷·신발·가방을 함께 입고 있어서,
+     * 이것을 칸마다 분명히 적지 않으면 AI 가 고른 상품 대신 사진 속 다른 옷을 그리는 일이 있었다 (2026-11-21 확인).
+     */
+    private static final Map<DressUpSlot, String[]> ISOLATION = Map.ofEntries(
+            Map.entry(DressUpSlot.TOP, new String[]{
+                    "only the upper-body garment itself (the knit, cardigan, blouse or shirt), from neckline to hem and cuffs",
+                    "trousers, skirts, any coat or jacket over it, any layer peeking out under it that is not part of it, "
+                            + "shoes, bags, scarves, hats and jewelry"}),
+            Map.entry(DressUpSlot.BOTTOM, new String[]{
+                    "only the trousers or skirt itself, from the waistband down to its hem",
+                    "the top, knit, shirt, coat or jacket worn above it, a tucked-in top, belts that are not part of it, "
+                            + "socks, shoes and bags"}),
+            Map.entry(DressUpSlot.DRESS, new String[]{
+                    "only the dress or the matching set itself (both pieces of a two-piece set)",
+                    "any coat, jacket or cardigan worn over it, a top or shirt layered under it, tights, shoes, bags, "
+                            + "scarves and jewelry"}),
+            Map.entry(DressUpSlot.OUTER, new String[]{
+                    "ONLY the coat or jacket itself, worn as the outer layer",
+                    "the clothes the model wears under or with it (knit, cardigan, turtleneck, shirt, skirt, trousers, "
+                            + "knit cuffs or collars peeking out), shoes, bags, scarves and hats"}),
+            Map.entry(DressUpSlot.HAT, new String[]{
+                    "only the hat itself",
+                    "the model's hair, face, clothes and any other accessory"}),
+            Map.entry(DressUpSlot.SCARF, new String[]{
+                    "only the scarf, muffler or shawl itself",
+                    "the coat, knit or top it is styled with, bags and jewelry"}),
+            Map.entry(DressUpSlot.EARRINGS, new String[]{
+                    "only the pair of earrings itself",
+                    "the model's clothes and any other jewelry (necklace, ring, bracelet)"}),
+            Map.entry(DressUpSlot.NECKLACE, new String[]{
+                    "only the necklace or pendant itself",
+                    "the model's clothes and any other jewelry (earrings, ring, bracelet)"}),
+            Map.entry(DressUpSlot.BRACELET, new String[]{
+                    "only the bracelet or bangle itself",
+                    "the model's clothes, watch and any other jewelry (ring, necklace, earrings)"}),
+            Map.entry(DressUpSlot.RING, new String[]{
+                    "only the ring itself",
+                    "the model's hand pose, nails, clothes and any other jewelry"}),
+            Map.entry(DressUpSlot.BROOCH, new String[]{
+                    "only the brooch itself",
+                    "the jacket, coat or top it is pinned on, and any other jewelry"}),
+            Map.entry(DressUpSlot.SOCKS, new String[]{
+                    "only the socks themselves",
+                    "the shoes, trousers or skirt worn with them"}),
+            Map.entry(DressUpSlot.SHOES, new String[]{
+                    "only the pair of shoes itself",
+                    "the socks, tights, trouser hems or skirt shown with them"}),
+            Map.entry(DressUpSlot.BAG, new String[]{
+                    "only the bag itself (with its own strap or handles)",
+                    "the clothes, coat, scarf and jewelry of the model carrying it"}));
 
     private DressUpPrompt() {
     }
@@ -89,6 +143,7 @@ public final class DressUpPrompt {
         text.append("\n");
 
         appendProductPhotos(text, referenceSlots, 2);
+        appendSourceCheck(text, referenceSlots, 2, false);
         appendLayering(text, outfit, referenceSlots, 2, false);
 
         text.append("HOW TO DRESS HER: Redraw each product as a real garment or accessory that she is actually wearing. ")
@@ -164,6 +219,7 @@ public final class DressUpPrompt {
         text.append("\n");
 
         appendProductPhotos(text, referenceSlots, firstProduct);
+        appendSourceCheck(text, referenceSlots, firstProduct, true);
         appendLayering(text, outfit, referenceSlots, firstProduct, true);
 
         if (!outfit.isEmpty()) {
@@ -188,12 +244,9 @@ public final class DressUpPrompt {
         if (index >= 0) {
             // 사진이 있으면 사진만 근거로 삼는다. 데이터의 상품명·색상 글이 사진과 다른 상품을 가리키는 경우가 있어서
             // 글을 함께 보내면 AI 가 글을 따라 그려 화면의 상품 사진과 다른 결과가 나온다.
-            String line = "- " + slot.english() + ": the exact " + slot.english() + " shown in Image " + (index + firstImage);
-            if (slot == DressUpSlot.OUTER) {
-                line += ", ONLY the coat or jacket itself, worn as the outer layer (not the clothes the model wears "
-                        + "under it in that photo)";
-            }
-            return line + "\n";
+            String[] rule = ISOLATION.get(slot);
+            return "- " + slot.english() + ": the exact " + slot.english() + " shown in Image " + (index + firstImage)
+                    + ". TAKE " + rule[0] + ". IGNORE " + rule[1] + " in that photo.\n";
         }
         return "- " + slot.english() + ": " + describe(product) + " (no photo; draw it from this description)\n";
     }
@@ -271,6 +324,26 @@ public final class DressUpPrompt {
         }
         text.append("Final check before you answer: the visible inner layer is ").append(inner)
                 .append(", not the inner clothes of the outerwear photo.\n\n");
+    }
+
+    /**
+     * 몸의 각 부분이 어느 이미지에서만 오는지 한 번 더 못 박는다. 사진마다 "그 칸 물건 하나"만 쓰고,
+     * 한 상품 사진에 보이는 다른 옷이 다른 칸 자리에 들어가지 않게 한다.
+     */
+    private static void appendSourceCheck(StringBuilder text, List<DressUpSlot> referenceSlots, int firstImage,
+                                          boolean photo) {
+        if (referenceSlots.isEmpty()) {
+            return;
+        }
+        text.append("SOURCE CHECK: Each product photo gives exactly ONE item and nothing else. ");
+        for (int i = 0; i < referenceSlots.size(); i++) {
+            DressUpSlot slot = referenceSlots.get(i);
+            text.append("From Image ").append(i + firstImage).append(" take only the ").append(slot.english()).append(". ");
+        }
+        text.append("Any part of her outfit that is not one of these items must come from ")
+                .append(photo ? "what she already wears in Image 1" : "Image 1 as listed in the OUTFIT list")
+                .append(", never from a product photo of another item. For example, the trousers in a top's photo, ")
+                .append("the top in a trousers' photo, or the shoes in a dress's photo must not appear on her.\n\n");
     }
 
     /** 그 자리 상품 사진이 몇 번째 이미지인지. 사진을 보내지 않았으면 -1. */
