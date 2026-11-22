@@ -53,6 +53,7 @@ public class HomePanel extends ScreenPanel {
     private final CategoryBar categoryBar;
     private final JPanel greeting = new JPanel(new GridLayout(0, 1, 0, 4));
     private final JPanel forMe = new JPanel(new BorderLayout(0, 12));
+    private final AttendanceRow attendanceRow;
     private final ProductGrid trendingGrid;
     private final JButton trendingMore = ShopUi.secondaryButton("유행 아이템 모두 보기");
     private final JPanel lookbookRow = new JPanel(new GridLayout(1, LOOKBOOK_PREVIEW, 16, 0));
@@ -64,6 +65,7 @@ public class HomePanel extends ScreenPanel {
         super(context, frame, "홈", "UC-08 유행·맞춤 아이템 추천 보기");
         hideTitle();
         setBackground(ShopUi.PAGE);
+        attendanceRow = new AttendanceRow(context, frame);
         trendingGrid = new ProductGrid(this::openProduct);
         newestGrid = new ProductGrid(this::openProduct);
         categoryBar = new CategoryBar(context, false, this::openCategory);
@@ -78,6 +80,11 @@ public class HomePanel extends ScreenPanel {
         body.setBorder(BorderFactory.createEmptyBorder(8, 8, 32, 8));
 
         block(hero(), 0);
+
+        // UC-21: 매일 들어올 이유. 인사말 바로 아래에 두어 켜자마자 보이게 한다
+        block(ShopUi.sectionHeader("옷장 출석", "하루 한 번 출석하면 오늘의 코디를 드려요. 칸을 눌러 그날 코디를 다시 볼 수 있어요.",
+                null), 32);
+        block(attendanceRow, 12);
 
         block(ShopUi.sectionHeader("카테고리로 찾기", "보고 싶은 종류를 누르세요. 숫자는 판매 중인 상품 수입니다.",
                 linkButton("전체 상품 보기", () -> openCategory(null))), 32);
@@ -225,6 +232,7 @@ public class HomePanel extends ScreenPanel {
     /** 화면이 보일 때마다 로그인 상태·관리자 변경을 반영해 다시 그린다. */
     private void refresh() {
         renderGreeting();
+        attendanceRow.refresh();
         categoryBar.refreshCounts();
         renderForMe();
         renderTrending();

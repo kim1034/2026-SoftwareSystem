@@ -2,7 +2,9 @@ package com.sadamda.controller;
 
 import com.sadamda.common.AccessDeniedException;
 import com.sadamda.common.AppException;
+import com.sadamda.common.OwnerKeys;
 import com.sadamda.common.RetryableException;
+import com.sadamda.model.attendance.AttendanceService;
 import com.sadamda.external.PaymentGateway;
 import com.sadamda.model.cart.CartService;
 import com.sadamda.model.member.MemberService;
@@ -31,6 +33,7 @@ public class OrderController {
     static final String MSG_SAVE_FAILED = "주문을 저장하지 못해 결제를 취소했습니다.";
     static final String MSG_CANCEL_FAILED = "결제 취소에 실패했습니다. 고객센터로 연락해 주세요.";
     static final String MSG_IN_PROGRESS = "결제가 진행 중입니다. 잠시만 기다려 주세요.";
+    static final String MSG_NO_COUPON = "쓸 수 있는 무료배송 쿠폰이 없습니다. 쿠폰을 빼고 다시 결제해 주세요.";
     static final String MSG_NOT_OWNER = "본인 주문만 볼 수 있습니다.";
     static final String MSG_ALREADY_SHIPPED = "이미 배송이 시작되어 취소할 수 없습니다. 배송 완료 후 반품을 신청해 주세요.";
     static final String MSG_NOT_CANCELABLE = "취소할 수 없는 주문입니다.";
@@ -49,14 +52,31 @@ public class OrderController {
     private final CartService cartService;
     private final MemberService memberService;
     private final PaymentGateway paymentGateway;
+    private final AttendanceService attendance;
 
     public OrderController(Session session, OrderService orderService, CartService cartService,
                            MemberService memberService, PaymentGateway paymentGateway) {
+        this(session, orderService, cartService, memberService, paymentGateway, null);
+    }
+
+    /** attendance 는 무료배송 쿠폰(UC-21)을 꺼내 쓰는 곳. null 이면 쿠폰을 쓸 수 없다. */
+    public OrderController(Session session, OrderService orderService, CartService cartService,
+                           MemberService memberService, PaymentGateway paymentGateway,
+                           AttendanceService attendance) {
         this.session = session;
         this.orderService = orderService;
         this.cartService = cartService;
         this.memberService = memberService;
         this.paymentGateway = paymentGateway;
+        this.attendance = attendance;
+    }
+
+    /** UC-11 2단계 주문서에 보여줄 무료배송 쿠폰 수 (UC-21 옷장 출석으로 받음). 비회원이면 0. */
+    public int freeShippingCoupons() {
+        if (attendance == null || !session.isLoggedIn()) {
+            return 0;
+        }
+        return attendance.coupons(OwnerKeys.of(session.currentMember().getEmail()));
     }
 
     /** UC-10 5단계 [주문하기] → UC-11 2단계 장바구니 전체로 주문서를 만든다. */
@@ -99,9 +119,18 @@ public class OrderController {
             throw new AppException(MSG_IN_PROGRESS);
         }
         try {
-            int total = orderService.calculateTotal(request.lines());
+            boolean freeShipping = request.freeShippingCoupon();
+            if (freeShipping && freeShippingCoupons() <= 0) {
+                throw new AppException(MSG_NO_COUPON);
+            }
+            // 쿠폰을 안 쓰면 예전과 같은 메서드를 불러, 기존 JUnit(Mockito) 테스트의 호출 검증이 그대로 맞게 한다
+            int total = freeShipping ? orderService.calculateTotal(request.lines(), true)
+                    : orderService.calculateTotal(request.lines());
             String paymentId = approve(total, request.paymentMethod());
             Order order = placeOrCancel(memberId, request, shippingAddress, paymentId);
+            if (freeShipping) {
+                useCouponQuietly(memberId);
+            }
             if (request.fromCart()) {
                 clearCartQuietly(memberId, request);
             }
@@ -152,6 +181,10 @@ public class OrderController {
     /** 주문을 저장한다. 어떤 이유로든 실패하면 결제를 취소한다 (UC-11 7a). */
     private Order placeOrCancel(Long memberId, CheckoutRequest request, String shippingAddress, String paymentId) {
         try {
+            if (request.freeShippingCoupon()) {
+                return orderService.placeOrder(memberId, request.lines(), shippingAddress, request.giftInfo(),
+                        paymentId, true);
+            }
             return orderService.placeOrder(memberId, request.lines(), shippingAddress, request.giftInfo(), paymentId);
         } catch (RuntimeException placeFailure) {
             if (!cancelPayment(paymentId)) {
@@ -176,6 +209,15 @@ public class OrderController {
             orderService.clearOrderedFromCart(memberId, request.lines());
         } catch (RuntimeException e) {
             LOG.log(System.Logger.Level.WARNING, "주문 완료 후 장바구니 비우기 실패: memberId=" + memberId, e);
+        }
+    }
+
+    /** 결제와 주문은 이미 끝났으므로 쿠폰 차감 실패는 기록만 한다 (장바구니 비우기와 같은 이유). */
+    private void useCouponQuietly(Long memberId) {
+        try {
+            attendance.useCoupon(OwnerKeys.of(session.currentMember().getEmail()));
+        } catch (RuntimeException e) {
+            LOG.log(System.Logger.Level.WARNING, "주문 완료 후 무료배송 쿠폰 차감 실패: memberId=" + memberId, e);
         }
     }
 

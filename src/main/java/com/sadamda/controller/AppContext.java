@@ -14,6 +14,7 @@ import com.sadamda.model.recommend.OutfitHelper;
 import com.sadamda.model.recommend.RecommendService;
 import com.sadamda.model.review.ReviewService;
 import com.sadamda.model.tryon.CodiBookService;
+import com.sadamda.model.attendance.AttendanceService;
 import com.sadamda.model.tryon.TryOnService;
 
 /** Model·외부 연동·Controller 객체를 한곳에서 생성해 View 에 넘긴다. */
@@ -30,6 +31,7 @@ public class AppContext {
     public final AdminController admin;
     public final DressUpController dressUp; // 옷 입혀보기 (정우진)
     public final CodiBookController codiBook; // 내 코디북 UC-19 (정우진)
+    public final AttendanceController attendance; // 옷장 출석 UC-21 (정우진)
     /** 시연용 회원·예전 주문 (DemoData). 실제 서비스로 낼 때는 지운다. */
     public final DemoData demo;
 
@@ -50,10 +52,14 @@ public class AppContext {
 
         member = new MemberController(session, memberService);
         product = new ProductController(productService, reviewService);
-        recommend = new RecommendController(session, recommendService, new OutfitHelper(productService));
+        OutfitHelper outfitHelper = new OutfitHelper(productService);
+        AttendanceService attendanceService = new AttendanceService();
+        recommend = new RecommendController(session, recommendService, outfitHelper);
+        attendance = new AttendanceController(session, attendanceService, outfitHelper);
         tryOn = new TryOnController(session, aiImageClient, tryOnService);
         cart = new CartController(session, cartService);
-        order = new OrderController(session, orderService, cartService, memberService, paymentGateway);
+        order = new OrderController(session, orderService, cartService, memberService, paymentGateway,
+                attendanceService);
         review = new ReviewController(session, reviewService);
         admin = new AdminController(session, productService, recommendService, orderService, paymentGateway);
         dressUp = new DressUpController(session, dressUpClient, productService);

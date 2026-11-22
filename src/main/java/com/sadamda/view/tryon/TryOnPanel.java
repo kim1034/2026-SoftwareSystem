@@ -490,7 +490,17 @@ public class TryOnPanel extends ScreenPanel {
                 context.recommend, spec, occasion);
         dialog.setVisible(true);
         OutfitSuggestion chosen = dialog.chosen();
-        if (chosen == null) {
+        if (chosen != null) {
+            wearOutfit(chosen);
+        }
+    }
+
+    /**
+     * 추천 코디 한 벌을 칸에 넣고, AI 가 연결되어 있으면 바로 입혀 본다.
+     * 코디 도우미(UC-20)와 옷장 출석의 오늘의 코디(UC-21)에서 부른다.
+     */
+    public void wearOutfit(OutfitSuggestion chosen) {
+        if (working || chosen == null) {
             return;
         }
         outfit.clear();

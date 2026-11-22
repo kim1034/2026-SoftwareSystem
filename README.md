@@ -58,6 +58,7 @@ IDE에서는 `com.sadamda.App`의 `main`을 실행하면 됩니다.
 | UC-18 | 주문 관리 | `AdminPanel` (`OrderAdminTab`) | `AdminController` | `OrderService`, `PaymentGateway` | 완료 |
 | UC-19 | 내 코디북 (추가 기능) | `TryOnPanel`, `CodiBookDialog` | `CodiBookController` | `CodiBookService`, `SavedCodi` | 완료 — 이 PC 에 저장되어 다시 켜도 남음 |
 | UC-20 | 상황별 코디 도우미 (추가 기능) | `HomePanel`, `TryOnPanel`, `CodiHelperDialog` | `RecommendController` | `OutfitHelper`, `OutfitSuggestion` | 완료 — 상황·계절은 상품 문구 낱말로 추정 (임시 규칙) |
+| UC-21 | 옷장 출석 (추가 기능) | `HomePanel` (`AttendanceRow`, `AttendanceDialog`), `OrderPanel` 쿠폰 칸 | `AttendanceController`, `OrderController` | `AttendanceService`, `OutfitHelper.dailyOutfit` | 완료 — 주 5칸이면 무료배송 쿠폰, 이 PC 에 저장 |
 
 ### 아직 남은 것
 
@@ -126,3 +127,4 @@ src/test/java/com/sadamda
 | [docs/review.md](docs/review.md) | 리뷰 쓰기 화면 (UC-14) |
 | [docs/product-recommend.md](docs/product-recommend.md) | 상품·추천 도메인, 홈·룩북, 옷 입혀보기와 AI 키 설정 |
 | [docs/codibook-helper.md](docs/codibook-helper.md) | 체류시간 기능: 내 코디북 (UC-19), 상황별 코디 도우미 (UC-20) |
+| [docs/closet-attendance.md](docs/closet-attendance.md) | 체류시간 기능: 옷장 출석 (UC-21), 무료배송 쿠폰 |
