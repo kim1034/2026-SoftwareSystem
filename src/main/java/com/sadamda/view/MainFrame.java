@@ -27,7 +27,6 @@ import javax.swing.UIManager;
 import javax.swing.text.JTextComponent;
 import javax.swing.plaf.basic.BasicButtonUI;
 import java.awt.AWTEvent;
-import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Cursor;
@@ -38,7 +37,6 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.Toolkit;
 import java.awt.event.FocusEvent;
-import java.awt.geom.RoundRectangle2D;
 import java.awt.im.InputContext;
 import java.util.ArrayList;
 import java.util.List;
@@ -223,6 +221,7 @@ public class MainFrame extends JFrame {
 
         JButton fontButton = Theme.secondaryButton("글씨 크기", MENU_FONT_SIZE); // UC-15: 화면 상단 고정
         fontButton.setBorder(BorderFactory.createEmptyBorder(12, 20, 12, 20));
+        fontButton.setFocusable(false); // 메뉴와 같이 포커스를 받지 않아 테두리가 생기지 않는다
         fontButton.addActionListener(e -> chooseFontSize());
         right.add(fontButton);
 
@@ -234,6 +233,7 @@ public class MainFrame extends JFrame {
     private JButton logo() {
         SadamdaLogo logo = new SadamdaLogo(MENU_FONT_SIZE * 1.5f);
         logo.setToolTipText("홈으로");
+        logo.setFocusable(false); // 메뉴와 같이 포커스를 받지 않아 테두리가 생기지 않는다
         logo.addActionListener(e -> {
             navigate(HomePanel.NAME);
             HomePanel home = ShopUi.findScreen(this, HomePanel.class);
@@ -326,6 +326,8 @@ public class MainFrame extends JFrame {
             this.screenName = screenName;
             setContentAreaFilled(false);
             setFocusPainted(false);
+            // 상단 메뉴는 포커스를 받지 않는다. 화면이 바뀔 때 포커스가 저절로 메뉴로 옮겨 와 테두리가 생기지 않게 한다.
+            setFocusable(false);
             setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12)); // 높이 48px 이상
             setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             setForeground(Theme.TEXT);
@@ -352,11 +354,6 @@ public class MainFrame extends JFrame {
             if (current) {
                 g2.setColor(Theme.PRIMARY);
                 g2.fillRect(12, getHeight() - 6, getWidth() - 24, 3);
-            }
-            if (isFocusOwner()) {
-                g2.setColor(Theme.PRIMARY);
-                g2.setStroke(new BasicStroke(2f));
-                g2.draw(new RoundRectangle2D.Float(2, 2, getWidth() - 5, getHeight() - 5, 10, 10));
             }
             g2.dispose();
         }

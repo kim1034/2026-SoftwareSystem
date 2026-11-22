@@ -22,6 +22,7 @@ import javax.swing.JLabel;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
+import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.JToggleButton;
@@ -135,7 +136,7 @@ public class ProductListPanel extends ScreenPanel {
         });
     }
 
-    /** 위쪽 머리말: [검색창 검색] / 카테고리 탭. 목록을 내려도 그대로 보인다. */
+    /** 위쪽 머리말: [검색창 검색] / 카테고리 탭. 목록을 내리면 검색창은 올라가 사라지고 탭은 맨 위에 붙어 따라온다 (withStickyTabs). */
     private JPanel createHeader() {
         // 간격을 탭 사이에만 둔다 (FlowLayout 의 간격은 왼쪽 끝에도 생겨서 제목과 줄이 어긋난다).
         JPanel tabRow = new JPanel(new WrapLayout(FlowLayout.LEFT, 0, 0));
@@ -223,10 +224,51 @@ public class ProductListPanel extends ScreenPanel {
         // 결과가 적어 스크롤이 필요 없을 때도 스크롤바 자리를 남겨, 오른쪽 링크와 카드 폭이 흔들리지 않게 한다.
         scroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
 
-        JPanel screen = new JPanel(new BorderLayout());
+        return withStickyTabs(header, body);
+    }
+
+    /**
+     * 머리말을 목록 위에 겹쳐 두고, 목록을 내린 만큼 머리말을 위로 밀어 올린다.
+     * 검색창은 위로 올라가 사라지고, 카테고리 탭이 맨 위에 닿으면 더 올라가지 않고 붙어서 따라온다.
+     * 목록 맨 위에는 머리말 높이만큼 여백을 두어 처음에는 아무것도 가려지지 않는다.
+     */
+    private JPanel withStickyTabs(JPanel header, Body body) {
+        header.setOpaque(true);
+        header.setBackground(Theme.CARD); // 밑으로 지나가는 카드를 가린다
+        Component tabRow = ((BorderLayout) header.getLayout()).getLayoutComponent(BorderLayout.CENTER);
+
+        JPanel screen = new JPanel(null) {
+            private int headerHeight = -1;
+
+            @Override
+            public void doLayout() {
+                scroll.setBounds(0, 0, getWidth(), getHeight());
+                JScrollBar bar = scroll.getVerticalScrollBar();
+                int width = getWidth() - (bar.isVisible() ? bar.getWidth() : 0); // 스크롤바는 가리지 않는다
+                header.setSize(width, header.getHeight()); // 탭 줄 바꿈(WrapLayout)이 이 폭으로 계산되게
+                int height = header.getPreferredSize().height;
+                header.doLayout();
+                int maxOffset = tabRow.getY(); // 이만큼 올리면 탭이 맨 위에 닿는다
+                int offset = Math.min(scroll.getViewport().getViewPosition().y, Math.max(0, maxOffset));
+                header.setBounds(0, -offset, width, height);
+                if (height != headerHeight) { // 목록 위 여백 = 머리말 높이
+                    headerHeight = height;
+                    body.setTopSpace(height);
+                }
+            }
+
+            @Override
+            public boolean isOptimizedDrawingEnabled() {
+                return false; // 머리말이 목록 위에 겹친다
+            }
+        };
         screen.setOpaque(false);
-        screen.add(header, BorderLayout.NORTH);
-        screen.add(scroll, BorderLayout.CENTER);
+        screen.add(header); // 먼저 넣은 것이 위에 그려진다
+        screen.add(scroll);
+        scroll.getViewport().addChangeListener(e -> {
+            screen.doLayout();
+            screen.repaint();
+        });
         return screen;
     }
 
@@ -586,7 +628,13 @@ public class ProductListPanel extends ScreenPanel {
         Body() {
             super(new BorderLayout());
             setBackground(Theme.CARD);
-            setBorder(BorderFactory.createEmptyBorder(32, 48, 48, 48));
+            setTopSpace(0);
+        }
+
+        /** 목록 위에 겹쳐 있는 머리말 높이만큼 위쪽을 비운다. */
+        void setTopSpace(int headerHeight) {
+            setBorder(BorderFactory.createEmptyBorder(headerHeight + 32, 48, 48, 48));
+            revalidate();
         }
 
         @Override

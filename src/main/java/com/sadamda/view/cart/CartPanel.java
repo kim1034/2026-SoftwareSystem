@@ -205,11 +205,22 @@ public class CartPanel extends ScreenPanel {
         c.anchor = GridBagConstraints.SOUTHEAST;
         info.add(Theme.label(price(product.price() * item.quantity()), 1.2f, Font.BOLD, Theme.TEXT), c);
 
+        // [옵션 변경]은 수량 줄 아래 따로 둔다. 같은 줄에 두면 카드가 좁을 때 다음 줄로 넘어가 잘려서
+        // 버튼 윗부분만 흰 줄처럼 보이고 누를 수 없었다.
+        JButton changeOption = Theme.secondaryButton("옵션 변경");
+        changeOption.setBorder(BorderFactory.createEmptyBorder(14, 24, 14, 24)); // 높이 48px 이상 (NFR-02)
+        changeOption.addActionListener(e -> openOptionDialog(item, product));
+        c.gridy = 3;
+        c.gridx = 0;
+        c.insets = new Insets(8, 0, 0, 0);
+        c.anchor = GridBagConstraints.WEST;
+        info.add(changeOption, c);
+
         String message = messages.get(item.id());
         if (message != null) {
             JLabel error = Theme.errorLabel();
             error.setText(message);
-            c.gridy = 3;
+            c.gridy = 4;
             c.gridx = 0;
             c.gridwidth = 2;
             c.insets = new Insets(8, 0, 0, 0);
@@ -220,7 +231,7 @@ public class CartPanel extends ScreenPanel {
         return card;
     }
 
-    /** [−] 2 [+]  [옵션 변경] */
+    /** [−] 2 [+] */
     private JPanel quantityRow(CartItem item, ProductDetail product) {
         JButton minus = smallButton("−", "수량 줄이기");
         JButton plus = smallButton("+", "수량 늘리기");
@@ -237,17 +248,19 @@ public class CartPanel extends ScreenPanel {
             change(item, item.optionId(), item.quantity() - 1);
         });
         plus.addActionListener(e -> change(item, item.optionId(), item.quantity() + 1));
-        JButton changeOption = Theme.secondaryButton("옵션 변경");
-        changeOption.setBorder(BorderFactory.createEmptyBorder(14, 24, 14, 24));
-        changeOption.addActionListener(e -> openOptionDialog(item, product));
 
-        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        // 창이 좁으면 GridBagLayout 은 최소 크기로 칸을 잡는데, FlowLayout 의 최소 폭은 실제 필요한 폭보다 좁아서
+        // 마지막 [+] 버튼이 다음 줄로 밀려 잘렸다. 최소 크기를 필요한 크기와 같게 해서 세 개가 항상 한 줄에 보이게 한다.
+        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0)) {
+            @Override
+            public Dimension getMinimumSize() {
+                return getPreferredSize();
+            }
+        };
         row.setOpaque(false);
         row.add(minus);
         row.add(count);
         row.add(plus);
-        row.add(javax.swing.Box.createHorizontalStrut(16));
-        row.add(changeOption);
         return row;
     }
 

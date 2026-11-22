@@ -98,7 +98,7 @@ public class TryOnPanel extends ScreenPanel {
     public TryOnPanel(AppContext context, MainFrame frame) {
         super(context, frame, "AI 입어보기", "UC-09 AI 착용 이미지 생성");
         removeAll(); // 공통 부모가 넣어 둔 "TODO" 안내를 걷어내고 실제 화면을 넣는다
-        setBackground(Theme.PAGE);
+        setBackground(Theme.CARD);
         setBorder(BorderFactory.createEmptyBorder(24, 48, 24, 48));
         spec = context.dressUp.initialSpec();
 
