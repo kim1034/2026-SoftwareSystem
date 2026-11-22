@@ -1,9 +1,11 @@
 package com.sadamda.view;
 
 import com.sadamda.controller.AppContext;
+import com.sadamda.model.member.Member;
 import com.sadamda.controller.OrderSheet;
 import com.sadamda.view.admin.AdminPanel;
 import com.sadamda.view.cart.CartPanel;
+import com.sadamda.view.member.KeepLogin;
 import com.sadamda.view.member.LoginPanel;
 import com.sadamda.view.member.MyInfoPanel;
 import com.sadamda.view.member.SignUpPanel;
@@ -101,7 +103,29 @@ public class MainFrame extends JFrame {
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setSize(1280, 860);
         setLocationRelativeTo(null);
+        restoreKeptLogin();
         navigate(HomePanel.NAME);
+    }
+
+    /**
+     * FR-02 로그인 상태 유지: 지난번에 저장해 둔 회원으로 로그인한다. 쓸 수 없는 저장값이면 지운다.
+     * 앱을 닫을 때는 그동안 바뀐 내 정보·글씨 크기를 다시 저장한다.
+     */
+    private void restoreKeptLogin() {
+        Member saved = KeepLogin.saved();
+        if (saved != null && context.member.restoreLogin(saved) == null) {
+            KeepLogin.forget();
+        }
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent e) {
+                Member kept = KeepLogin.saved();
+                Member current = context.session.currentMember();
+                if (kept != null && current != null && current.getEmail().equals(kept.getEmail())) {
+                    KeepLogin.remember(current);
+                }
+            }
+        });
     }
 
     /**
@@ -305,6 +329,7 @@ public class MainFrame extends JFrame {
 
     private void logout() {
         context.member.logout();
+        KeepLogin.forget(); // 로그아웃하면 다음에 자동으로 로그인하지 않는다 (FR-02)
         screenBeforeLogin = null;
         navigate(HomePanel.NAME);
         JOptionPane.showMessageDialog(this, "로그아웃되었습니다."); // 조용히 끝나지 않도록 결과를 알린다

@@ -99,7 +99,12 @@ public class LoginPanel extends ScreenPanel {
         }
 
         passwordField.setText("");
-        // TODO FR-02: keepLoginBox 가 체크되면 로그인 상태 유지
+        // FR-02: 체크하면 다음에 앱을 켤 때 자동으로 로그인한다. 체크하지 않으면 전에 기억한 것도 지운다.
+        if (keepLoginBox.isSelected()) {
+            KeepLogin.remember(member);
+        } else {
+            KeepLogin.forget();
+        }
         // UC-02 4단계: 관리자는 관리자 화면으로, 일반 회원은 로그인 전에 보던 화면으로.
         if (member.getRole() == Member.Role.ADMIN) {
             frame.navigate(AdminPanel.NAME);
