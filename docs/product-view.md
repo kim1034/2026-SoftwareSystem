@@ -263,7 +263,7 @@ group.add(chip);
 ### 정우진 님 (상품)
 
 - ~~`Product` getter, 한 페이지 상품 수, `search(SearchFilter)` 값 맞추기~~: 반영되어 실제 데이터로 연결했습니다(11-17). 고맙습니다.
-- 11-17에 담당 파일(`Category`, `ProductSeedLoader`, `products.tsv`)을 고쳤습니다. [docs/ui-data-update.md](ui-data-update.md) 7번을 봐 주세요.
+- 11-17에 담당 파일(`Category`, `ProductSeedLoader`, `products.tsv`)을 고쳤습니다. [docs/ui-data-update.md](ui-data-update.md) 10번을 봐 주세요.
 - 데모 데이터의 재고가 모두 10개라 품절 칩(UC-06 4b)이 보이지 않습니다. 시연용으로 일부 옵션을 재고 0으로 둘지 정해 주세요.
 - 상품별 **치수 정보**가 생기면 공통 사이즈표 대신 그 값을 보여 줄 수 있습니다.
 
