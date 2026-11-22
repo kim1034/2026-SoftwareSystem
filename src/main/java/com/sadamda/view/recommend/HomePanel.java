@@ -64,8 +64,8 @@ public class HomePanel extends ScreenPanel {
         super(context, frame, "홈", "UC-08 유행·맞춤 아이템 추천 보기");
         hideTitle();
         setBackground(ShopUi.PAGE);
-        trendingGrid = new ProductGrid(this::openProduct);
-        newestGrid = new ProductGrid(this::openProduct);
+        trendingGrid = new ProductGrid(this::openProduct, context, frame);
+        newestGrid = new ProductGrid(this::openProduct, context, frame);
         categoryBar = new CategoryBar(context, false, this::openCategory);
         setContent(build());
         ShopUi.whenShown(this, this::refresh);
@@ -237,7 +237,7 @@ public class HomePanel extends ScreenPanel {
         String description = hasBody ? "등록하신 연령대·체형에 잘 맞는 상품이에요."
                 : "체형 정보를 입력하면 더 잘 맞는 상품을 골라 드려요. 지금은 같은 연령대의 인기 상품이에요.";
         forMe.add(ShopUi.sectionHeader("나에게 어울리는 상품", description, action), BorderLayout.NORTH);
-        ProductGrid grid = new ProductGrid(this::openProduct);
+        ProductGrid grid = new ProductGrid(this::openProduct, context, frame);
         grid.setProducts(context.recommend.recommendedForMe());
         forMe.add(grid, BorderLayout.CENTER);
     }

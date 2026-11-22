@@ -48,6 +48,10 @@ public class MainFrame extends JFrame {
     private final AppContext context;
     private final CardLayout cards = new CardLayout();
     private final JPanel content = new JPanel(cards);
+    /**
+     * 상단 메뉴 줄의 글씨 크기. [글씨 크기]와 상관없이 "보통"(본문 18px) 기준으로 고정해, 글씨를 키워도 메뉴가 한 줄에 들어가게 한다.
+     */
+    private static final float MENU_FONT_SIZE = FontSize.NORMAL.px();
     private final JPanel menuBar = new JPanel(new BorderLayout());
 
     /** 화면 이름이 있는 메뉴. 지금 화면이면 밑줄로 표시한다. */
@@ -217,7 +221,7 @@ public class MainFrame extends JFrame {
         right.add(screenMenu(adminMenu));
         right.add(Box.createHorizontalStrut(12));
 
-        JButton fontButton = Theme.secondaryButton("글씨 크기"); // UC-15: 화면 상단 고정
+        JButton fontButton = Theme.secondaryButton("글씨 크기", MENU_FONT_SIZE); // UC-15: 화면 상단 고정
         fontButton.setBorder(BorderFactory.createEmptyBorder(12, 20, 12, 20));
         fontButton.addActionListener(e -> chooseFontSize());
         right.add(fontButton);
@@ -226,20 +230,9 @@ public class MainFrame extends JFrame {
         menuBar.add(right, BorderLayout.EAST);
     }
 
-    /** 왼쪽 끝 로고. 누르면 홈으로 간다. */
+    /** 왼쪽 끝 로고. 누르면 홈으로 간다. 글씨 크기와 상관없이 고정된 크기로 그린다. */
     private JButton logo() {
-        JButton logo = new JButton("사담다") {
-            @Override
-            public void updateUI() {
-                setUI(new BasicButtonUI());
-                Font base = UIManager.getFont("Button.font");
-                setFont(base.deriveFont(Font.BOLD, base.getSize2D() * 1.5f));
-            }
-        };
-        logo.setForeground(Theme.PRIMARY);
-        logo.setContentAreaFilled(false);
-        logo.setBorder(BorderFactory.createEmptyBorder(8, 4, 8, 4));
-        logo.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        SadamdaLogo logo = new SadamdaLogo(MENU_FONT_SIZE * 1.5f);
         logo.setToolTipText("홈으로");
         logo.addActionListener(e -> {
             navigate(HomePanel.NAME);
@@ -342,7 +335,7 @@ public class MainFrame extends JFrame {
         public void updateUI() {
             setUI(new BasicButtonUI());
             Font base = UIManager.getFont("Button.font");
-            setFont(base.deriveFont(current ? Font.BOLD : Font.PLAIN, base.getSize2D() + 2));
+            setFont(base.deriveFont(current ? Font.BOLD : Font.PLAIN, MENU_FONT_SIZE + 2)); // [글씨 크기]와 상관없이 고정
         }
 
         void setCurrent(boolean current) {
