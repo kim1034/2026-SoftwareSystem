@@ -31,6 +31,11 @@ public enum FontSize {
         return label;
     }
 
+    /** 본문 글씨 크기(px). 글씨 크기와 상관없이 고정하는 곳(상단 메뉴 등)은 NORMAL.px() 를 쓴다. */
+    public int px() {
+        return px;
+    }
+
     public static FontSize load() {
         return FontSize.valueOf(PREFS.get(KEY, NORMAL.name()));
     }

@@ -37,7 +37,7 @@ import java.util.List;
  * 룩북 화면 (UC-07 룩북 코디 추천 보기, FR-09·FR-10).
  * - 목록: 상황·계절로 고르기, 코디 카드
  * - 코디 보기: 큰 코디 사진, 구성 상품, [코디 전체 담기]
- * - 관리자: [새 코디 올리기], 코디 [수정]·[삭제] (UC-17, FR-26)
+ * - 관리자: 코디 [수정]·[삭제] (UC-17, FR-26). 새 코디는 관리자 화면의 룩북 탭 [새 코디 등록]에서 올린다.
  *
  * 다른 화면에서 특정 코디를 열 때는 showLookbook(id) 를 부른 뒤 navigate(NAME) 한다.
  */
@@ -53,7 +53,6 @@ public class LookbookPanel extends ScreenPanel {
 
     private final JComboBox<String> occasionBox = Theme.comboBox();
     private final JComboBox<String> seasonBox = Theme.comboBox();
-    private final JButton createButton = ShopUi.primaryButton("새 코디 올리기");
     private final JLabel listSummary = ShopUi.label("", 1.1f, Font.BOLD, ShopUi.TEXT);
     private final JPanel listGrid = new JPanel(new GridLayout(0, 3, 16, 16));
     private final JPanel detail = new JPanel(new BorderLayout(0, 20));
@@ -66,7 +65,7 @@ public class LookbookPanel extends ScreenPanel {
     public LookbookPanel(AppContext context, MainFrame frame) {
         super(context, frame, "룩북", "UC-07 룩북 코디 추천 보기");
         hideTitle();
-        setBackground(ShopUi.PAGE);
+        setBackground(ShopUi.CARD);
         viewHolder.add(buildList(), LIST);
         viewHolder.add(buildDetailHolder(), DETAIL);
         setContent(viewHolder);
@@ -82,7 +81,6 @@ public class LookbookPanel extends ScreenPanel {
 
     /** 지금 보고 있는 화면(목록 또는 코디 보기)을 최신 내용으로 다시 그린다. */
     private void refresh() {
-        createButton.setVisible(context.session.isAdmin());
         if (openLookbookId != null) {
             renderDetail(openLookbookId);
         } else {
@@ -96,12 +94,11 @@ public class LookbookPanel extends ScreenPanel {
     private JComponent buildList() {
         JPanel body = new JPanel();
         body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
-        body.setBackground(ShopUi.PAGE);
+        body.setBackground(ShopUi.CARD);
         body.setBorder(BorderFactory.createEmptyBorder(8, 8, 24, 8));
 
         addBlock(body, ShopUi.pageHeader("룩북 코디", "상황과 계절에 맞춘 코디를 골라 보세요. 코디를 누르면 구성 상품을 볼 수 있어요.",
-                createButton), 0);
-        createButton.addActionListener(e -> openEditor(null));
+                null), 0);
 
         occasionBox.getAccessibleContext().setAccessibleName("상황");
         seasonBox.getAccessibleContext().setAccessibleName("계절");
@@ -119,7 +116,7 @@ public class LookbookPanel extends ScreenPanel {
         listGrid.setOpaque(false);
         addBlock(body, listGrid, 12);
 
-        listScroll = ShopUi.verticalScroll(body);
+        listScroll = ShopUi.verticalScroll(body, ShopUi.CARD);
         return listScroll;
     }
 
@@ -189,9 +186,9 @@ public class LookbookPanel extends ScreenPanel {
     // ---------- 코디 보기 ----------
 
     private JComponent buildDetailHolder() {
-        detail.setBackground(ShopUi.PAGE);
+        detail.setBackground(ShopUi.CARD);
         detail.setBorder(BorderFactory.createEmptyBorder(8, 8, 24, 8));
-        detailScroll = ShopUi.verticalScroll(detail);
+        detailScroll = ShopUi.verticalScroll(detail, ShopUi.CARD);
         return detailScroll;
     }
 

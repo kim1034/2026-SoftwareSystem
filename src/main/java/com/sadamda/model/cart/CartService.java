@@ -114,6 +114,11 @@ public class CartService {
         return true;
     }
 
+    /** 이 상품을 찜한 회원 수. 상품 목록 카드의 "♥ 12" 에 쓴다. */
+    public synchronized int countWishes(Long productId) {
+        return (int) wishes.values().stream().filter(wished -> wished.contains(productId)).count();
+    }
+
     public synchronized boolean isWished(Long memberId, Long productId) {
         return wishes.getOrDefault(memberId, Set.of()).contains(productId);
     }

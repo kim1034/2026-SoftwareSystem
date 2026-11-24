@@ -29,7 +29,6 @@ import javax.swing.UIManager;
 import javax.swing.text.JTextComponent;
 import javax.swing.plaf.basic.BasicButtonUI;
 import java.awt.AWTEvent;
-import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Cursor;
@@ -40,7 +39,6 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.Toolkit;
 import java.awt.event.FocusEvent;
-import java.awt.geom.RoundRectangle2D;
 import java.awt.im.InputContext;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,6 +48,10 @@ public class MainFrame extends JFrame {
     private final AppContext context;
     private final CardLayout cards = new CardLayout();
     private final JPanel content = new JPanel(cards);
+    /**
+     * 상단 메뉴 줄의 글씨 크기. [글씨 크기]와 상관없이 "보통"(본문 18px) 기준으로 고정해, 글씨를 키워도 메뉴가 한 줄에 들어가게 한다.
+     */
+    private static final float MENU_FONT_SIZE = FontSize.NORMAL.px();
     private final JPanel menuBar = new JPanel(new BorderLayout());
 
     /** 화면 이름이 있는 메뉴. 지금 화면이면 밑줄로 표시한다. */
@@ -241,8 +243,9 @@ public class MainFrame extends JFrame {
         right.add(screenMenu(adminMenu));
         right.add(Box.createHorizontalStrut(12));
 
-        JButton fontButton = Theme.secondaryButton("글씨 크기"); // UC-15: 화면 상단 고정
+        JButton fontButton = Theme.secondaryButton("글씨 크기", MENU_FONT_SIZE); // UC-15: 화면 상단 고정
         fontButton.setBorder(BorderFactory.createEmptyBorder(12, 20, 12, 20));
+        fontButton.setFocusable(false); // 메뉴와 같이 포커스를 받지 않아 테두리가 생기지 않는다
         fontButton.addActionListener(e -> chooseFontSize());
         right.add(fontButton);
 
@@ -250,21 +253,11 @@ public class MainFrame extends JFrame {
         menuBar.add(right, BorderLayout.EAST);
     }
 
-    /** 왼쪽 끝 로고. 누르면 홈으로 간다. */
+    /** 왼쪽 끝 로고. 누르면 홈으로 간다. 글씨 크기와 상관없이 고정된 크기로 그린다. */
     private JButton logo() {
-        JButton logo = new JButton("사담다") {
-            @Override
-            public void updateUI() {
-                setUI(new BasicButtonUI());
-                Font base = UIManager.getFont("Button.font");
-                setFont(base.deriveFont(Font.BOLD, base.getSize2D() * 1.5f));
-            }
-        };
-        logo.setForeground(Theme.PRIMARY);
-        logo.setContentAreaFilled(false);
-        logo.setBorder(BorderFactory.createEmptyBorder(8, 4, 8, 4));
-        logo.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        SadamdaLogo logo = new SadamdaLogo(MENU_FONT_SIZE * 1.5f);
         logo.setToolTipText("홈으로");
+        logo.setFocusable(false); // 메뉴와 같이 포커스를 받지 않아 테두리가 생기지 않는다
         logo.addActionListener(e -> {
             navigate(HomePanel.NAME);
             HomePanel home = ShopUi.findScreen(this, HomePanel.class);
@@ -358,6 +351,8 @@ public class MainFrame extends JFrame {
             this.screenName = screenName;
             setContentAreaFilled(false);
             setFocusPainted(false);
+            // 상단 메뉴는 포커스를 받지 않는다. 화면이 바뀔 때 포커스가 저절로 메뉴로 옮겨 와 테두리가 생기지 않게 한다.
+            setFocusable(false);
             setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12)); // 높이 48px 이상
             setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             setForeground(Theme.TEXT);
@@ -367,7 +362,7 @@ public class MainFrame extends JFrame {
         public void updateUI() {
             setUI(new BasicButtonUI());
             Font base = UIManager.getFont("Button.font");
-            setFont(base.deriveFont(current ? Font.BOLD : Font.PLAIN, base.getSize2D() + 2));
+            setFont(base.deriveFont(current ? Font.BOLD : Font.PLAIN, MENU_FONT_SIZE + 2)); // [글씨 크기]와 상관없이 고정
         }
 
         void setCurrent(boolean current) {
@@ -384,11 +379,6 @@ public class MainFrame extends JFrame {
             if (current) {
                 g2.setColor(Theme.PRIMARY);
                 g2.fillRect(12, getHeight() - 6, getWidth() - 24, 3);
-            }
-            if (isFocusOwner()) {
-                g2.setColor(Theme.PRIMARY);
-                g2.setStroke(new BasicStroke(2f));
-                g2.draw(new RoundRectangle2D.Float(2, 2, getWidth() - 5, getHeight() - 5, 10, 10));
             }
             g2.dispose();
         }
