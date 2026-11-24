@@ -52,7 +52,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * (인터넷이나 AI 이용 열쇠가 필요 없다. Gemini 연동은 이 PC 에 띄운 가짜 서버로 요청·응답 형식만 확인한다.)
  */
 public class DomainSelfCheck {
-    private static final int DEMO_PRODUCTS = 370;
+    private static final int DEMO_PRODUCTS = 350;
     private static int checks;
 
     public static void main(String[] args) throws Exception {
@@ -70,20 +70,20 @@ public class DomainSelfCheck {
     private static void products() {
         ProductService service = new ProductService();
         check(service.findAll().size() == DEMO_PRODUCTS, "데모 상품 " + DEMO_PRODUCTS + "개");
-        check(service.countByCategory(Category.BOTTOM) == 35, "하의 35개");
+        check(service.countByCategory(Category.BOTTOM) == 33, "하의 33개");
         check(service.findAll().stream().allMatch(p -> p.mainImageUrl() != null && !p.mainImageUrl().isBlank()),
                 "모든 상품에 사진이 있음");
-        check(service.countByCategory(Category.SHOES) == 105, "신발 105개");
-        check(service.countByCategory(Category.JEWELRY) == 105, "주얼리 105개");
+        check(service.countByCategory(Category.SHOES) == 95, "신발 95개");
+        check(service.countByCategory(Category.JEWELRY) == 100, "주얼리 100개");
         check(service.findByCategory(Category.TOP, 0).size() == ProductService.PAGE_SIZE, "UC-04 첫 쪽 8개");
-        check(service.findByCategory(Category.TOP, 4).size() == 3, "UC-04 다섯째 쪽 3개 (35개 중)");
+        check(service.findByCategory(Category.TOP, 4).size() == 2, "UC-04 다섯째 쪽 2개 (34개 중)");
         check(new ProductService(new java.util.ArrayList<>()).findByCategory(Category.DRESS, 0).isEmpty(),
                 "UC-04 2a 상품이 없는 카테고리는 빈 목록");
         check(service.findPopular(8).size() == 8, "UC-04 2a 인기 상품");
 
         List<Product> loafers = service.search(new SearchFilter("로퍼", null, null, null, null, null, null, null));
         check(!loafers.isEmpty() && loafers.stream().allMatch(p -> p.getCategory() == Category.SHOES), "UC-05 키워드 검색");
-        check(service.search(new SearchFilter("신발", null, null, null, null, null, null, null)).size() == 105, "UC-05 카테고리 이름 검색");
+        check(service.search(new SearchFilter("신발", null, null, null, null, null, null, null)).size() == 95, "UC-05 카테고리 이름 검색");
 
         List<Product> cheap = service.search(new SearchFilter(null, null, null, null, null, 100000, null, ProductService.SORT_PRICE_ASC));
         check(!cheap.isEmpty() && cheap.stream().allMatch(p -> p.getPrice() <= 100000), "UC-05 가격대 필터");
@@ -93,7 +93,7 @@ public class DomainSelfCheck {
         List<Product> navy = service.search(new SearchFilter(null, null, null, null, null, null, "네이비", null));
         check(!navy.isEmpty(), "UC-05 색상 필터");
         List<Product> size240 = service.search(new SearchFilter(null, null, null, "240", null, null, null, null));
-        check(size240.size() == 105, "UC-05 사이즈 필터 (240 은 신발만)");
+        check(size240.size() == 95, "UC-05 사이즈 필터 (240 은 신발만)");
         List<Product> pear = service.search(new SearchFilter(null, "50대", "하체 발달형", null, null, null, null, null));
         check(!pear.isEmpty() && pear.size() < DEMO_PRODUCTS, "UC-05 연령대·체형 필터");
         check(service.findAll().stream().anyMatch(p -> p.getAgeGroupTags().size() < 3)
@@ -617,24 +617,38 @@ public class DomainSelfCheck {
     private static void photoTryOn() throws Exception {
         ProductService productService = new ProductService();
         check(DressUpSlot.values().length == 14, "옷 칸 14개");
-        check(productService.findAll().stream().allMatch(p -> DressUpSlot.slotFor(p) != null),
-                "모든 데모 상품을 입힐 칸이 있음 (원피스·아우터·양말·가방·스카프 포함)");
+        check(productService.findAll().stream().filter(p -> !DressUpSlot.isSetProduct(p))
+                        .allMatch(p -> DressUpSlot.slotFor(p) != null),
+                "세트가 아닌 모든 데모 상품을 입힐 칸이 있음 (원피스·아우터·양말·가방·스카프 포함)");
+        List<Product> sets = productService.findAll().stream().filter(DressUpSlot::isSetProduct).toList();
+        check(sets.size() == 11 && sets.stream().allMatch(p -> DressUpSlot.slotFor(p) == null),
+                "세트 상품 11개는 옷 입혀보기에서 고를 수 없음");
+        check(java.util.Arrays.stream(DressUpSlot.values())
+                        .allMatch(slot -> new DressUpController(new Session(), new UnconnectedDressUpClient(), productService).productsFor(slot)
+                                .stream().noneMatch(DressUpSlot::isSetProduct)),
+                "아이템 고르기 목록에 세트 상품이 없음");
         Map<DressUpSlot, Long> jewelry = new java.util.EnumMap<>(DressUpSlot.class);
         for (Product product : productService.findAllByCategory(Category.JEWELRY)) {
-            jewelry.merge(DressUpSlot.slotFor(product), 1L, Long::sum);
+            DressUpSlot slot = DressUpSlot.slotFor(product);
+            if (slot != null) { // 세트 상품은 칸이 없다
+                jewelry.merge(slot, 1L, Long::sum);
+            }
         }
-        check(jewelry.getOrDefault(DressUpSlot.NECKLACE, 0L) == 35 && jewelry.getOrDefault(DressUpSlot.BRACELET, 0L) == 35
-                        && jewelry.getOrDefault(DressUpSlot.EARRINGS, 0L) == 24 && jewelry.getOrDefault(DressUpSlot.BROOCH, 0L) == 9
+        check(jewelry.getOrDefault(DressUpSlot.NECKLACE, 0L) == 34 && jewelry.getOrDefault(DressUpSlot.BRACELET, 0L) == 33
+                        && jewelry.getOrDefault(DressUpSlot.EARRINGS, 0L) == 23 && jewelry.getOrDefault(DressUpSlot.BROOCH, 0L) == 7
                         && jewelry.getOrDefault(DressUpSlot.RING, 0L) == 2,
-                "주얼리 105개를 귀걸이 24·목걸이 35·팔찌 35·반지 2·브로치 9 로 나눔 " + jewelry);
+                "주얼리 100개 중 세트 1개를 빼고 귀걸이 23·목걸이 34·팔찌 33·반지 2·브로치 7 로 나눔 " + jewelry);
         Product earring = productService.findAllByCategory(Category.JEWELRY).stream()
                 .filter(DressUpSlot.EARRINGS::accepts).findFirst().orElseThrow();
         Outfit outfit = new Outfit();
         expectError(() -> outfit.put(DressUpSlot.NECKLACE, earring), "귀걸이를 목걸이 칸에 넣으면 거절");
 
-        Product top = productService.findAllByCategory(Category.TOP).get(0);
-        Product bottom = productService.findAllByCategory(Category.BOTTOM).get(0);
-        Product dress = productService.findAllByCategory(Category.DRESS).get(0);
+        Product top = productService.findAllByCategory(Category.TOP).stream()
+                .filter(p -> !DressUpSlot.isSetProduct(p)).findFirst().orElseThrow();
+        Product bottom = productService.findAllByCategory(Category.BOTTOM).stream()
+                .filter(p -> !DressUpSlot.isSetProduct(p)).findFirst().orElseThrow();
+        Product dress = productService.findAllByCategory(Category.DRESS).stream()
+                .filter(p -> !DressUpSlot.isSetProduct(p)).findFirst().orElseThrow();
         outfit.put(DressUpSlot.TOP, top);
         outfit.put(DressUpSlot.BOTTOM, bottom);
         List<DressUpSlot> removed = outfit.put(DressUpSlot.DRESS, dress);
@@ -654,7 +668,8 @@ public class DomainSelfCheck {
                 && !characterPrompt.contains("keep the plain white t-shirt"), "캐릭터: 원피스·양말 지시");
 
         // 아우터: 아우터 사진 속 안쪽 옷 대신 고른 상의를 안에 입힌다 (2026-11-20 수정)
-        Product outer = productService.findAllByCategory(Category.OUTER).get(0);
+        Product outer = productService.findAllByCategory(Category.OUTER).stream()
+                .filter(p -> !DressUpSlot.isSetProduct(p)).findFirst().orElseThrow();
         Outfit layered = new Outfit();
         layered.put(DressUpSlot.TOP, top);
         layered.put(DressUpSlot.OUTER, outer);

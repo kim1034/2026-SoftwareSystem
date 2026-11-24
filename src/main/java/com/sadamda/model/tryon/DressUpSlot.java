@@ -94,9 +94,21 @@ public enum DressUpSlot {
         return product != null && slotFor(product) == this;
     }
 
-    /** 상품을 입힐 자리. 주얼리인데 종류를 알 수 없으면 null. */
+    /**
+     * 여러 개를 묶어 파는 세트 상품인지 ("[SET] … 세트", "양말 3종", "원피스 3P", "앙상블").
+     * 한 장의 상품 사진에 여러 물건이 있어 AI 가 무엇을 입힐지 헷갈리므로 옷 입혀보기에서는 쓰지 않는다. 쇼핑몰에서는 그대로 판다.
+     */
+    public static boolean isSetProduct(Product product) {
+        String name = product.getName() == null ? "" : product.getName();
+        return SET_NAME.matcher(name).find();
+    }
+
+    private static final java.util.regex.Pattern SET_NAME = java.util.regex.Pattern.compile(
+            "세트|앙상블|\\bset\\b|\\d\\s*종(?![가-힣])|\\b\\d\\s*P\\b", java.util.regex.Pattern.CASE_INSENSITIVE);
+
+    /** 상품을 입힐 자리. 주얼리인데 종류를 알 수 없거나 세트 상품이면 null (옷 입혀보기에서 고를 수 없음). */
     public static DressUpSlot slotFor(Product product) {
-        if (product == null || product.getCategory() == null) {
+        if (product == null || product.getCategory() == null || isSetProduct(product)) {
             return null;
         }
         if (product.getCategory() == Category.JEWELRY) {

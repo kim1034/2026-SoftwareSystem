@@ -19,7 +19,7 @@ java -jar target/sadamda-0.1.0-SNAPSHOT.jar
 IDE에서는 `com.sadamda.App`의 `main`을 실행하면 됩니다.
 
 - 상품 사진은 쇼핑몰 이미지 주소에서 받아 오므로 **인터넷 연결**이 필요합니다. 연결이 없으면 "사진 없음"으로 나오고 나머지는 동작합니다.
-- 데이터는 **메모리에만** 저장됩니다. 앱을 끄면 가입한 회원, 장바구니, 주문, 리뷰, 관리자가 바꾼 상품·룩북이 모두 사라집니다. 상품은 켤 때마다 `src/main/resources/data/products.tsv`(370개)에서 다시 읽습니다.
+- 데이터는 **메모리에만** 저장됩니다. 앱을 끄면 가입한 회원, 장바구니, 주문, 리뷰, 관리자가 바꾼 상품·룩북이 모두 사라집니다. 상품은 켤 때마다 `src/main/resources/data/products.tsv`(350개)에서 다시 읽습니다.
 - 결제는 늘 승인하는 가짜 결제 시스템(`MockPaymentGateway`)을 씁니다.
 - 옷 입혀보기의 AI 그림은 이용 열쇠(API 키)를 넣어야 동작합니다. 방법은 [docs/product-recommend.md](docs/product-recommend.md)를 보세요.
 
@@ -101,7 +101,7 @@ src/main/java/com/sadamda
     └── admin/                관리자 (상품·룩북·주문 관리 탭)
 
 src/main/resources
-├── data/products.tsv         데모 상품 370개
+├── data/products.tsv         데모 상품 350개
 ├── data/backgrounds.tsv      내 사진으로 입어보기 배경 20장 (구글 시트 "background")
 └── characters/               옷 입혀보기 캐릭터 그림
 
