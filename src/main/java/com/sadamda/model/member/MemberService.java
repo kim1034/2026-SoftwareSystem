@@ -117,6 +117,35 @@ public class MemberService {
         return findByEmail(normalizeEmail(email));
     }
 
+    /**
+     * FR-02 로그인 상태 유지: 이 PC 에 저장해 둔 회원으로 다시 로그인할 회원을 돌려준다.
+     * 같은 이메일의 회원이 있으면 그 회원을, 없으면(앱을 다시 켜서 사라진 회원) 저장값으로 다시 만들어 돌려준다.
+     * 관리자·시연 회원은 켤 때마다 새로 만들어져 비밀번호 해시(솔트)가 달라지므로 해시는 비교하지 않는다.
+     * 다시 만드는 회원은 항상 일반 회원이다. 쓸 수 없는 저장값이면 null.
+     */
+    public synchronized Member restore(Member saved) {
+        String normalizedEmail = normalizeEmail(saved.getEmail());
+        if (normalizedEmail.isEmpty()) {
+            return null;
+        }
+        Member existing = findByEmail(normalizedEmail);
+        if (existing != null) {
+            return existing;
+        }
+        if (saved.getPasswordHash() == null) {
+            return null;
+        }
+        Member member = new Member();
+        member.setEmail(normalizedEmail);
+        member.setPasswordHash(saved.getPasswordHash());
+        member.setName(saved.getName());
+        member.setPhone(saved.getPhone());
+        member.setDefaultAddress(saved.getDefaultAddress());
+        member.setBodyProfile(saved.getBodyProfile());
+        member.setFontSize(saved.getFontSize());
+        return store(member);
+    }
+
     private Member findByEmail(String normalizedEmail) {
         for (Member member : members.values()) {
             if (member.getEmail().equals(normalizedEmail)) {

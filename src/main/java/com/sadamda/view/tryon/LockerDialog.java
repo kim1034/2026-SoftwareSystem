@@ -76,7 +76,7 @@ class LockerDialog extends JDialog {
         JPanel content = new JPanel(new BorderLayout(0, 12));
         content.setBackground(Theme.CARD);
         content.setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
-        content.add(new JScrollPane(list), BorderLayout.CENTER);
+        content.add(ModernScrollBar.apply(new JScrollPane(list)), BorderLayout.CENTER);
         content.add(bottom, BorderLayout.SOUTH);
         setContentPane(content);
         setSize(new Dimension(560, 640));

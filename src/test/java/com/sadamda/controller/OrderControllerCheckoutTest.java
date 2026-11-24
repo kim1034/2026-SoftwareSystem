@@ -47,7 +47,7 @@ class OrderControllerCheckoutTest {
         when(orderService.calculateTotal(LINES)).thenReturn(59000);
         when(gateway.approve(59000L, "카드")).thenReturn(new PaymentResult(true, "pay-1", "승인"));
         when(gateway.cancel("pay-1")).thenReturn(new PaymentResult(true, "pay-1", "취소"));
-        when(orderService.placeOrder(eq(1L), eq(LINES), anyString(), any(), eq("pay-1"))).thenReturn(order);
+        when(orderService.placeOrder(eq(1L), eq(LINES), anyString(), any(), eq("pay-1"), eq("카드"))).thenReturn(order);
     }
 
     private static CheckoutRequest request(GiftInfo gift, boolean fromCart) {
@@ -58,7 +58,7 @@ class OrderControllerCheckoutTest {
     void success_returnsOrder_andClearsCartWhenFromCart() {
         assertSame(order, controller.checkout(request(null, true)));
         verify(gateway).approve(59000L, "카드");
-        verify(orderService).placeOrder(1L, LINES, ADDRESS, null, "pay-1");
+        verify(orderService).placeOrder(1L, LINES, ADDRESS, null, "pay-1", "카드");
         verify(orderService).clearOrderedFromCart(1L, LINES);
     }
 
@@ -72,7 +72,7 @@ class OrderControllerCheckoutTest {
     void gift_shipsToRecipientAddress() {
         GiftInfo gift = new GiftInfo("김엄마", "010-1234-5678", "부산시 해운대구 2", "생신 축하해요");
         controller.checkout(request(gift, true));
-        verify(orderService).placeOrder(1L, LINES, "부산시 해운대구 2", gift, "pay-1");
+        verify(orderService).placeOrder(1L, LINES, "부산시 해운대구 2", gift, "pay-1", "카드");
     }
 
     @Test
@@ -117,7 +117,7 @@ class OrderControllerCheckoutTest {
         when(gateway.approve(59000L, "카드")).thenReturn(new PaymentResult(false, null, "한도 초과"));
         AppException e = assertThrows(AppException.class, () -> controller.checkout(request(null, true)));
         assertEquals("결제가 완료되지 않았습니다. 한도 초과", e.getMessage());
-        verify(orderService, never()).placeOrder(anyLong(), any(), anyString(), any(), anyString());
+        verify(orderService, never()).placeOrder(anyLong(), any(), anyString(), any(), anyString(), any());
     }
 
     @Test
@@ -125,12 +125,12 @@ class OrderControllerCheckoutTest {
         when(gateway.approve(59000L, "카드")).thenThrow(new RuntimeException("connection reset"));
         AppException e = assertThrows(AppException.class, () -> controller.checkout(request(null, true)));
         assertEquals("결제 시스템에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.", e.getMessage());
-        verify(orderService, never()).placeOrder(anyLong(), any(), anyString(), any(), anyString());
+        verify(orderService, never()).placeOrder(anyLong(), any(), anyString(), any(), anyString(), any());
     }
 
     @Test
     void soldOutDuringPayment_cancelsPayment() {
-        when(orderService.placeOrder(eq(1L), eq(LINES), anyString(), any(), eq("pay-1")))
+        when(orderService.placeOrder(eq(1L), eq(LINES), anyString(), any(), eq("pay-1"), eq("카드")))
                 .thenThrow(new AppException("주문하신 상품이 품절되었습니다."));
         AppException e = assertThrows(AppException.class, () -> controller.checkout(request(null, true)));
         assertEquals("주문하신 상품이 품절되었습니다. 결제는 취소되었습니다.", e.getMessage());
@@ -140,7 +140,7 @@ class OrderControllerCheckoutTest {
 
     @Test
     void placeOrderFailsWithAnyException_cancelsPayment() {
-        when(orderService.placeOrder(eq(1L), eq(LINES), anyString(), any(), eq("pay-1")))
+        when(orderService.placeOrder(eq(1L), eq(LINES), anyString(), any(), eq("pay-1"), eq("카드")))
                 .thenThrow(new IllegalStateException("db down"));
         AppException e = assertThrows(AppException.class, () -> controller.checkout(request(null, true)));
         assertEquals("주문을 저장하지 못해 결제를 취소했습니다.", e.getMessage());
@@ -149,7 +149,7 @@ class OrderControllerCheckoutTest {
 
     @Test
     void cancelAlsoFails_tellsUserToContactUs() {
-        when(orderService.placeOrder(eq(1L), eq(LINES), anyString(), any(), eq("pay-1")))
+        when(orderService.placeOrder(eq(1L), eq(LINES), anyString(), any(), eq("pay-1"), eq("카드")))
                 .thenThrow(new AppException("품절"));
         when(gateway.cancel("pay-1")).thenReturn(new PaymentResult(false, "pay-1", "취소 불가"));
         AppException e = assertThrows(AppException.class, () -> controller.checkout(request(null, true)));
@@ -158,7 +158,7 @@ class OrderControllerCheckoutTest {
 
     @Test
     void cancelThrows_tellsUserToContactUs() {
-        when(orderService.placeOrder(eq(1L), eq(LINES), anyString(), any(), eq("pay-1")))
+        when(orderService.placeOrder(eq(1L), eq(LINES), anyString(), any(), eq("pay-1"), eq("카드")))
                 .thenThrow(new AppException("품절"));
         when(gateway.cancel("pay-1")).thenThrow(new RuntimeException("timeout"));
         AppException e = assertThrows(AppException.class, () -> controller.checkout(request(null, true)));

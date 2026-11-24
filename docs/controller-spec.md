@@ -134,7 +134,7 @@ Controller·Model 은 실패를 아래 예외로 알립니다 (`com.sadamda.comm
 
 ### TryOnController — UC-09 (로그인 필요, 담당: 김대원)
 
-> 지금 화면(`TryOnPanel`)은 사진 합성 대신 `DressUpController`(옷 입혀보기, 아래)를 쓰고, `TryOnController`는 [보관함에 저장](`saveToLocker`)에만 씁니다. `generate`는 아직 `UnsupportedOperationException("TODO UC-09 (계획 4단계)")`이고, 구현 브랜치 `feat/tryon`(PR #4)은 합칠지 아직 정하지 않았습니다.
+> 지금 화면(`TryOnPanel`)은 사진 합성에 `DressUpController.dressUpPhoto`(아래, 실제 AI로 옷 여러 개 + 배경)를 쓰고, `TryOnController`는 [보관함에 저장](`saveToLocker`)에만 씁니다. `generate`는 아직 `UnsupportedOperationException("TODO UC-09 (계획 4단계)")`이고, 구현 브랜치 `feat/tryon`(PR #4)은 합칠지 아직 정하지 않았습니다.
 
 | 메서드 | 반환 | 실패 |
 |--------|------|------|
@@ -148,16 +148,19 @@ Controller·Model 은 실패를 아래 예외로 알립니다 (`com.sadamda.comm
   - 배경은 `backgroundTemplateId`와 `backgroundImage` 중 하나만 채웁니다.
 - 업로드 가능: JPG·PNG, 최대 10MB (`TryOnController.ALLOWED_EXTENSIONS`, `MAX_IMAGE_BYTES`)
 
-### DressUpController — UC-09 확장 옷 입혀보기 (담당: 정우진)
+### DressUpController — UC-09 옷 입혀보기·내 사진으로 입어보기 (담당: 정우진)
 
-캐릭터에 고른 상품을 AI로 입혀 보는 화면(`TryOnPanel`)이 씁니다. 자세한 내용은 [docs/product-recommend.md](product-recommend.md)를 보세요.
+캐릭터 또는 올린 사진에 고른 상품을 AI로 입혀 보는 화면(`TryOnPanel`)이 씁니다. 자세한 내용은 [docs/product-recommend.md](product-recommend.md)를 보세요.
 
 | 메서드 | 반환 | 실패 |
 |--------|------|------|
 | `initialSpec()` | 처음 캐릭터 신체 스펙 (로그인했으면 회원 체형 정보 반영) | |
 | `characterImage(CharacterStyle style, CharacterSpec spec)` | 옷 입히기 전 캐릭터 그림 | |
-| `productsFor(DressUpSlot slot)` | 그 칸(모자·상의·하의·주얼리·신발)에 입힐 수 있는 상품 | |
+| `productsFor(DressUpSlot slot)` | 그 칸(14칸: 상의·하의·원피스·아우터·모자·스카프·귀걸이·목걸이·팔찌·반지·브로치·양말·신발·가방)에 입힐 수 있는 판매 중 상품 | |
 | `dressUp(CharacterStyle style, CharacterSpec spec, Outfit outfit)` | 옷을 입힌 그림 (PNG 바이트). 오래 걸리므로 별도 스레드 | `DressUpException` (고른 옷 없음, AI 미연결, 시간 초과 등) |
+| `checkPhoto(String fileName, byte[] bytes, boolean photoUseAgreed)` | 확인한 `UserPhoto` (메모리에만 둠, NFR-08) | `AppException`: 동의 안 함(2a), 빈 사진, 형식·용량(3a, JPG·PNG 10MB), 열 수 없음, 너무 작음 |
+| `backgrounds()` | 배경 20장 `List<Background>` (계절 순) | |
+| `dressUpPhoto(UserPhoto photo, Background background, Outfit outfit)` | 내 사진에 옷을 입히고(있으면) 배경을 바꾼 그림. `background` 가 null 이면 원래 배경. 별도 스레드 | `DressUpException` (사진 없음, 옷·배경 둘 다 없음, 배경 사진을 못 받음, AI 미연결, 시간 초과 등) |
 | `dressUpConnected()`, `dressUpServiceName()`, `dressUpTimeoutSeconds()` | AI 연결 상태·이름·기다리는 시간 | |
 | `dressUpSettings()`, `dressUpKeyFromEnvironment()`, `configureDressUp(apiKey, baseUrl, model)` | [AI 연결 설정] 읽기·저장 | |
 | `isLoggedIn()` | 로그인 여부 (보관함·장바구니 버튼용) | |
@@ -200,6 +203,6 @@ Controller 가 부르는 Model 메서드의 시그니처를 각 Service 에 정�
 ## 4. 구현 현황
 
 - 구현됨: 위 표의 Controller 메서드 전부 — 회원, 상품, 추천, 장바구니·찜, 주문(결제·취소·교환·반품), 리뷰, 관리자(상품·룩북·주문 관리, 반품 환불), 옷 입혀보기(`DressUpController`), 보관함(`TryOnController.saveToLocker/locker/deleteFromLocker`)
-- 남은 것: `TryOnController.generate` (`TODO UC-09 (계획 4단계)`). `feat/tryon`(PR #4)에 구현이 있지만 아직 합치지 않았습니다.
+- 남은 것: `TryOnController.generate` (`TODO UC-09 (계획 4단계)`). 사진 합성 화면은 `DressUpController.dressUpPhoto`로 동작하므로, `feat/tryon`(PR #4)을 합칠지 닫을지 팀에서 정해야 합니다.
 - 외부 연동은 가짜를 씁니다: 결제 `MockPaymentGateway`(늘 승인), AI 사진 합성 `MockAiImageClient` (`AppContext`의 `TODO` 주석). 옷 입혀보기의 AI는 이용 열쇠를 넣으면 실제 서비스로 연결됩니다.
 - 테스트: `src/test/java`에 `OrderController`·`AdminController`·`Session` 테스트가 있습니다. Model Service 단위 테스트는 아직 없습니다.

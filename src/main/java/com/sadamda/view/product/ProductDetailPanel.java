@@ -530,7 +530,7 @@ public class ProductDetailPanel extends ScreenPanel {
         }
         TryOnPanel tryOnPanel = ShopUi.findScreen(frame, TryOnPanel.class);
         if (tryOnPanel == null || !tryOnPanel.wear(product.id())) {
-            actionError.setText("이 상품은 아직 입어 볼 수 없어요. 모자·상의·하의·주얼리·신발만 입어 볼 수 있어요.");
+            actionError.setText("이 상품은 옷 입혀보기에서 입어 볼 수 없어요.");
             return;
         }
         frame.navigate(TryOnPanel.NAME);

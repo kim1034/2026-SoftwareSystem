@@ -3,11 +3,17 @@ package com.sadamda.external;
 /**
  * 설정을 보고 옷 입혀보기 합성기를 고른다. 이용 열쇠는 코드나 저장소에 넣지 않는다.
  *
- * 설정을 찾는 순서: ① 환경 변수 또는 같은 이름의 -D 옵션 → ② 화면의 [AI 연결 설정]에서 저장한 값 (DressUpSettings)
+ * 설정을 찾는 순서: ① 화면의 [AI 연결 설정]에서 저장한 값 (DressUpSettings) → ② 환경 변수 또는 같은 이름의 -D 옵션
+ * 화면에서 열쇠를 저장했으면 그 열쇠·주소·모델을 쓴다. 다른 프로그램용으로 OPENAI_API_KEY 를 넣어 둔 PC 에서
+ * 화면에 넣은 열쇠가 무시되지 않게 하기 위해서다. 화면에 열쇠가 없을 때만 환경 변수를 쓴다.
+ *
+ * 기본은 OpenAI 공식 이미지 API(gpt-image-2): OpenAI 열쇠("sk-")만 넣고 서비스 주소는 비워 두면 된다.
  *
  * 서비스 고르기 (SADAMDA_AI_PROVIDER = openai | gemini, 없으면 자동)
  * - 자동: Google 키("AIza" 로 시작)는 gemini, 그 밖의 키는 OpenAI 형식(공식 또는 호환 중계 서비스)
  * - 키가 없으면 UnconnectedDressUpClient: 외부로 아무것도 보내지 않고 연결 설정을 안내한다
+ * - 타임리 AI 연동 키("tgpt_")는 TimelyDressUpClient: 타임리 SDK API 의 내장 도구 edit_image 로 그린다.
+ *   (2026-11-18 에 타임리 OpenAI 호환 주소가 닫혀서 chat 방식으로는 그릴 수 없다. 서비스 주소·모델 이름은 쓰지 않는다)
  *
  * OpenAI 형식 (공식 또는 호환 중계 서비스)
  * - OPENAI_API_KEY (또는 SADAMDA_AI_KEY, GEMINI_API_KEY) : 이용 열쇠
@@ -33,25 +39,32 @@ public final class DressUpClients {
     private DressUpClients() {
     }
 
-    /** 환경 변수 → 저장된 화면 설정 순으로 찾아 합성기를 만든다. */
+    /** 저장된 화면 설정 → 환경 변수 순으로 찾아 합성기를 만든다. */
     public static DressUpImageClient create() {
         return create(DressUpSettings.load());
     }
 
     public static DressUpImageClient create(DressUpSettings saved) {
-        String key = first(first(setting("SADAMDA_AI_KEY"), setting("OPENAI_API_KEY")), setting("GEMINI_API_KEY"));
-        boolean fromEnvironment = key != null;
-        if (key == null) {
+        String key;
+        String baseUrl;
+        String model;
+        String environmentUrl = DressUpSettings.normalizeBaseUrl(setting("OPENAI_BASE_URL"));
+        if (saved.apiKey() != null) {
+            // 화면에서 넣은 열쇠: 화면에서 넣은 주소 → 환경 변수 주소
             key = saved.apiKey();
+            baseUrl = first(saved.baseUrl(), environmentUrl);
+            model = first(saved.model(), setting("SADAMDA_AI_MODEL"));
+        } else {
+            key = environmentKey();
+            if (key == null) {
+                return new UnconnectedDressUpClient();
+            }
+            baseUrl = first(environmentUrl, saved.baseUrl());
+            model = first(setting("SADAMDA_AI_MODEL"), saved.model());
         }
-        if (key == null) {
-            return new UnconnectedDressUpClient();
+        if (DressUpSettings.isTimelyKey(key)) {
+            return new TimelyDressUpClient(key, timeout());
         }
-        // 화면에서 넣은 키를 쓸 때는 화면에서 넣은 주소·모델을 먼저 본다
-        String baseUrl = fromEnvironment ? first(setting("OPENAI_BASE_URL"), saved.baseUrl())
-                : first(saved.baseUrl(), setting("OPENAI_BASE_URL"));
-        String model = fromEnvironment ? first(setting("SADAMDA_AI_MODEL"), saved.model())
-                : first(saved.model(), setting("SADAMDA_AI_MODEL"));
 
         String provider = setting("SADAMDA_AI_PROVIDER");
         if (provider == null) {
@@ -65,9 +78,14 @@ public final class DressUpClients {
                 first(setting("SADAMDA_AI_QUALITY"), "medium"), timeout);
     }
 
-    /** 환경 변수(또는 -D 옵션)로 키가 주어졌는지. 그렇다면 화면 설정보다 우선한다. */
+    /** 환경 변수(또는 -D 옵션)에 열쇠가 있는지. 화면에 열쇠를 저장하지 않았을 때만 이 열쇠를 쓴다. */
     public static boolean keyFromEnvironment() {
-        return first(first(setting("SADAMDA_AI_KEY"), setting("OPENAI_API_KEY")), setting("GEMINI_API_KEY")) != null;
+        return environmentKey() != null;
+    }
+
+    private static String environmentKey() {
+        return DressUpSettings.normalizeKey(
+                first(first(setting("SADAMDA_AI_KEY"), setting("OPENAI_API_KEY")), setting("GEMINI_API_KEY")));
     }
 
     private static int timeout() {

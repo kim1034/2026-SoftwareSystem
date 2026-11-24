@@ -65,9 +65,9 @@ public class OpenAiDressUpClient implements DressUpImageClient {
      */
     public OpenAiDressUpClient(String apiKey, String baseUrl, String api, String model, String quality,
                                int timeoutSeconds) {
-        this.apiKey = apiKey;
-        String base = baseUrl == null || baseUrl.isBlank() ? DEFAULT_BASE_URL : baseUrl.trim();
-        this.baseUrl = base.endsWith("/") ? base.substring(0, base.length() - 1) : base;
+        this.apiKey = DressUpSettings.normalizeKey(apiKey);
+        String base = DressUpSettings.normalizeBaseUrl(baseUrl);
+        this.baseUrl = base == null ? DEFAULT_BASE_URL : base;
         if (api == null || api.isBlank()) {
             api = this.baseUrl.equals(DEFAULT_BASE_URL) ? API_IMAGES : API_CHAT;
         }
@@ -156,9 +156,15 @@ public class OpenAiDressUpClient implements DressUpImageClient {
             throw new DressUpException("서비스 주소가 올바르지 않습니다.");
         }
         if (response.statusCode() != 200) {
-            throw new DressUpException(GeminiDressUpClient.errorMessage(response.statusCode(), response.body()));
+            throw new DressUpException(GeminiDressUpClient.errorMessage(response.statusCode(), response.body())
+                    + keyHint(response.statusCode()));
         }
         return response.body();
+    }
+
+    /** 열쇠가 거절됐을 때 덧붙일 안내. (타임리 키는 TimelyDressUpClient 가 맡으므로 여기로 오지 않는다) */
+    String keyHint(int status) {
+        return status == 401 || status == 403 ? "\n[AI 연결 설정]에서 열쇠를 다시 복사해 넣어 주세요." : "";
     }
 
     /** b64_json 이 있으면 풀고, 없으면 url 의 그림을 내려받는다. */

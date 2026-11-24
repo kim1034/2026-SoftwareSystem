@@ -158,7 +158,8 @@ public class OrderController {
     /** 주문을 저장한다. 어떤 이유로든 실패하면 결제를 취소한다 (UC-11 7a). */
     private Order placeOrCancel(Long memberId, CheckoutRequest request, String shippingAddress, String paymentId) {
         try {
-            return orderService.placeOrder(memberId, request.lines(), shippingAddress, request.giftInfo(), paymentId);
+            return orderService.placeOrder(memberId, request.lines(), shippingAddress, request.giftInfo(), paymentId,
+                    request.paymentMethod());
         } catch (RuntimeException placeFailure) {
             if (!cancelPayment(paymentId)) {
                 LOG.log(System.Logger.Level.ERROR, "주문 저장 실패 후 결제 취소 실패: paymentId={0}, memberId={1}",

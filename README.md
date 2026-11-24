@@ -57,7 +57,7 @@ IDE에서는 `com.sadamda.App`의 `main`을 실행하면 됩니다.
 | UC-06 | 상품 상세 조회 | `ProductDetailPanel` | `ProductController` | `ProductService`, `ReviewService` | 완료 — 사이즈표는 모든 상품 공통 |
 | UC-07 | 룩북 코디 추천 보기 | `LookbookPanel` | `RecommendController` | `RecommendService` | 완료 |
 | UC-08 | 유행·맞춤 아이템 추천 보기 | `HomePanel` | `RecommendController` | `RecommendService` | 완료 |
-| UC-09 | AI 착용 이미지 생성 | `TryOnPanel` | `DressUpController`, `TryOnController` | `model/tryon`, `TryOnService` | 부분 — 화면은 `DressUpController`(정우진, 캐릭터 옷 입혀보기)를 씀. `TryOnController.generate`(김대원, 사진 합성)는 아직 TODO이고 PR #4(`feat/tryon`)는 결정 전 |
+| UC-09 | AI 착용 이미지 생성 | `TryOnPanel`, `PhotoUploadDialog`, `ItemPickerDialog` | `DressUpController`, `TryOnController` | `model/tryon`, `TryOnService` | 완료 — 캐릭터 4종 또는 **내 사진**에 옷 14칸을 입히고 배경 20장 중 하나로 바꿈 (`DressUpController`, 정우진). `TryOnController.generate`(김대원)는 TODO로 남아 있고 화면은 쓰지 않음, PR #4(`feat/tryon`)는 결정 전 |
 | UC-10 | 장바구니·찜 관리 | `CartPanel`, `ProductDetailPanel` | `CartController` | `CartService` | 완료 (찜 1a 포함) |
 | UC-11 | 주문 및 결제 | `OrderPanel` | `OrderController` | `OrderService`, `PaymentGateway` | 완료 — 결제는 `MockPaymentGateway` |
 | UC-12 | 선물하기 | `OrderPanel` | `OrderController` | `OrderService` (`GiftInfo`) | 완료 |
@@ -70,11 +70,11 @@ IDE에서는 `com.sadamda.App`의 `main`을 실행하면 됩니다.
 
 ### 아직 남은 것
 
-- `TryOnController.generate`가 `UnsupportedOperationException("TODO UC-09 (계획 4단계)")`를 던집니다. 이것이 코드에 남은 유일한 미구현 Controller 메서드입니다.
+- `TryOnController.generate`가 `UnsupportedOperationException("TODO UC-09 (계획 4단계)")`를 던집니다. 사진 합성 화면은 `DressUpController.dressUpPhoto`로 동작하므로 이 메서드를 지울지, `dressUpPhoto`를 부르게 할지 정해야 합니다.
 - FR-02 로그인 상태 유지 (`LoginPanel`의 TODO).
 - `Order`에 결제 방법 필드가 없어 주문 상세에 결제 방법이 나오지 않습니다.
 - 예전 목업에 있던 데모 리뷰는 없어졌습니다. 상품 상세에는 리뷰 쓰기로 쓴 리뷰만 보입니다.
-- 외부 연동은 가짜입니다: 결제 `MockPaymentGateway`, 사진 합성 AI `MockAiImageClient`.
+- 외부 연동: 결제는 가짜 `MockPaymentGateway`입니다. 옷 입혀보기·내 사진 합성은 이용 열쇠를 넣으면 실제 AI(타임리 등)로 동작하고, `TryOnController`용 `MockAiImageClient`는 가짜 그대로입니다.
 - Model Service 단위 테스트가 없습니다. 통합한 PC에는 Maven이 없어 JUnit 테스트를 돌려 보지 못했습니다.
 
 ## 패키지 구조
@@ -113,6 +113,7 @@ src/main/java/com/sadamda
 
 src/main/resources
 ├── data/products.tsv         데모 상품 370개
+├── data/backgrounds.tsv      내 사진으로 입어보기 배경 20장 (구글 시트 "background")
 └── characters/               옷 입혀보기 캐릭터 그림
 
 src/test/java/com/sadamda
