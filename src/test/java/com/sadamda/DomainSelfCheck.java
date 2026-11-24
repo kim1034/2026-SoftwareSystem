@@ -31,6 +31,18 @@ import com.sadamda.model.tryon.UserPhoto;
 import com.sadamda.controller.DressUpController;
 import com.sadamda.common.AppException;
 import com.sadamda.controller.AdminController;
+import com.sadamda.controller.AttendanceController;
+import com.sadamda.controller.CodiBookController;
+import com.sadamda.controller.OrderController;
+import com.sadamda.model.attendance.AttendanceService;
+import com.sadamda.model.attendance.AttendanceWeek;
+import com.sadamda.model.cart.CartService;
+import com.sadamda.model.member.MemberService;
+import com.sadamda.model.order.OrderService;
+import com.sadamda.model.recommend.OutfitHelper;
+import com.sadamda.model.recommend.OutfitSuggestion;
+import com.sadamda.model.tryon.CodiBookService;
+import com.sadamda.model.tryon.SavedCodi;
 import com.sadamda.controller.ProductController;
 import com.sadamda.controller.RecommendController;
 import com.sadamda.controller.Session;
@@ -60,6 +72,9 @@ public class DomainSelfCheck {
         recommend();
         controllers();
         locker();
+        codiBook();
+        outfitHelper();
+        attendance();
         dressUp();
         openAiRelay();
         character();
@@ -240,6 +255,219 @@ public class DomainSelfCheck {
         admin.deleteLookbook(posted.getId());
         check(recommend.lookbooks("출근", null).isEmpty(), "UC-17 코디 삭제");
         expectError(() -> admin.deleteLookbook(posted.getId()), "UC-17 없는 코디 삭제");
+    }
+
+    /** UC-19 내 코디북: 저장·목록·덮어쓰기·이름 바꾸기·지우기, 다시 켜도 유지, 판매 끝난 상품 빼고 되살리기. */
+    private static void codiBook() throws Exception {
+        Path dir = Files.createTempDirectory("sadamda-codibook");
+        CodiBookService service = new CodiBookService(dir);
+        String mom = CodiBookService.ownerKey("Demo@Sadamda.com ");
+        String other = CodiBookService.ownerKey("daughter@sadamda.com");
+        check(mom.equals(CodiBookService.ownerKey("demo@sadamda.com")) && mom.length() == 16
+                && !mom.contains("@"), "UC-19 회원 열쇠: 이메일 대소문자·공백 무시, 폴더 이름에 이메일을 드러내지 않음");
+
+        byte[] png = RemoteImages.toPng(new BufferedImage(8, 8, BufferedImage.TYPE_INT_RGB));
+        CharacterSpec spec = new CharacterSpec(158, 55, "통통한 체형", "50대");
+        Map<DressUpSlot, Long> outfit = new java.util.EnumMap<>(DressUpSlot.class);
+        outfit.put(DressUpSlot.TOP, 11L);
+        outfit.put(DressUpSlot.BOTTOM, 12L);
+
+        SavedCodi first = service.save(mom, "  딸 결혼식 룩 ", CharacterStyle.DISNEY, spec, outfit, png);
+        SavedCodi second = service.save(mom, "제주 여행", CharacterStyle.REAL, spec, Map.of(DressUpSlot.HAT, 1L), null);
+        check(first.title().equals("딸 결혼식 룩") && first.hasImage() && Files.exists(Path.of(first.imagePath())),
+                "UC-19 저장: 이름 앞뒤 공백 정리, 그림 파일 저장");
+        check(!second.hasImage(), "UC-19 입혀보기 전에도 옷만으로 저장");
+        check(service.findAll(mom).size() == 2 && service.findAll(other).isEmpty(), "UC-19 회원별 코디북");
+        check(service.findAll(mom).get(0).id() == second.id(), "UC-19 최근 저장한 코디가 먼저");
+        expectError(() -> service.save(mom, " ", CharacterStyle.REAL, spec, outfit, null), "UC-19 이름 없이 저장 불가");
+        expectError(() -> service.save(mom, "가".repeat(CodiBookService.MAX_TITLE + 1), CharacterStyle.REAL, spec, outfit, null),
+                "UC-19 이름 30자 초과 불가");
+        expectError(() -> service.save(mom, "빈 코디", CharacterStyle.REAL, spec, Map.of(), null), "UC-19 옷 없이 저장 불가");
+        expectError(() -> service.save(null, "비회원", CharacterStyle.REAL, spec, outfit, null), "UC-19 비회원 저장 불가");
+        expectError(() -> service.find(other, first.id()), "UC-19 남의 코디는 열 수 없음");
+
+        CodiBookService reopened = new CodiBookService(dir);
+        SavedCodi restored = reopened.find(mom, first.id());
+        check(restored.title().equals("딸 결혼식 룩") && restored.style() == CharacterStyle.DISNEY
+                        && restored.spec().equals(spec) && restored.productIds().equals(outfit) && restored.hasImage(),
+                "UC-19 프로그램을 다시 켜도 이름·그림체·스펙·옷·그림 유지");
+        check(java.util.Arrays.equals(reopened.readImage(restored), png), "UC-19 저장한 그림 그대로 읽기");
+
+        SavedCodi changed = reopened.overwrite(mom, first.id(), CharacterStyle.ANIME, spec,
+                Map.of(DressUpSlot.TOP, 13L), null);
+        check(changed.title().equals("딸 결혼식 룩") && changed.style() == CharacterStyle.ANIME
+                        && changed.productIds().equals(Map.of(DressUpSlot.TOP, 13L)) && !changed.hasImage()
+                        && !Files.exists(dir.resolve(mom).resolve(first.id() + ".png")),
+                "UC-19 4a 덮어쓰기: 이름 유지, 옷 바뀜, 그림 없이 덮으면 예전 그림 삭제");
+        check(reopened.rename(mom, second.id(), "제주 둘째 날").title().equals("제주 둘째 날")
+                && new CodiBookService(dir).find(mom, second.id()).title().equals("제주 둘째 날"), "UC-19 5a 이름 바꾸기 저장");
+        SavedCodi third = reopened.save(mom, "새 코디", CharacterStyle.REAL, spec, outfit, png);
+        check(third.id() == 3L, "UC-19 다시 켠 뒤에도 id 가 겹치지 않음");
+        reopened.delete(mom, third.id());
+        check(reopened.findAll(mom).size() == 2 && !Files.exists(Path.of(third.imagePath()))
+                && new CodiBookService(dir).findAll(mom).size() == 2, "UC-19 5b 지우기: 파일도 삭제");
+        Files.writeString(dir.resolve(mom).resolve("99.properties"), "망가진 파일");
+        check(new CodiBookService(dir).findAll(mom).size() == 2, "UC-19 읽을 수 없는 파일은 건너뜀");
+
+        // Controller: 로그인 확인, 판매 끝난 상품은 빼고 되살리기 (6a)
+        ProductService products = new ProductService();
+        Session session = new Session();
+        CodiBookController controller = new CodiBookController(session, new CodiBookService(dir), products);
+        expectError(controller::list, "UC-19 비회원은 코디북을 볼 수 없음 (LoginRequiredException)");
+        Member member = new Member();
+        member.setId(1L);
+        member.setEmail("demo@sadamda.com");
+        session.login(member);
+        check(controller.list().size() == 2, "UC-19 로그인한 회원의 코디북 (이메일로 찾음)");
+        Product top = products.findAllByCategory(Category.TOP).get(0);
+        Product bottom = products.findAllByCategory(Category.BOTTOM).get(0);
+        Outfit wearing = new Outfit();
+        wearing.put(DressUpSlot.TOP, top);
+        wearing.put(DressUpSlot.BOTTOM, bottom);
+        SavedCodi viaController = controller.save("모임 룩", CharacterStyle.REAL, spec, wearing, png);
+        CodiBookController.Opened whole = controller.open(viaController.id());
+        check(whole.missing() == 0 && whole.outfit().get(DressUpSlot.TOP) == top && whole.image() != null,
+                "UC-19 6단계 다시 입혀보기: 옷과 그림 되살림");
+        products.suspend(bottom.getId());
+        CodiBookController.Opened partial = controller.open(viaController.id());
+        check(partial.missing() == 1 && partial.outfit().get(DressUpSlot.BOTTOM) == null && partial.image() == null,
+                "UC-19 6a 판매 끝난 상품은 빼고, 지금 옷차림과 다른 예전 그림은 보여주지 않음");
+        check(controller.products(viaController).size() == 2, "UC-19 목록의 구성 상품");
+    }
+
+    /** UC-20 상황별 코디 도우미: 상황·계절·체형에 맞는 3벌, 같은 조건이면 같은 결과. */
+    private static void outfitHelper() {
+        ProductService products = new ProductService();
+        OutfitHelper helper = new OutfitHelper(products);
+        check(OutfitHelper.seasonOf(java.time.LocalDate.of(2026, 11, 20)).equals("가을")
+                && OutfitHelper.seasonOf(java.time.LocalDate.of(2026, 1, 5)).equals("겨울")
+                && OutfitHelper.seasonOf(java.time.LocalDate.of(2026, 7, 1)).equals("여름"), "UC-20 오늘 날짜로 계절 고르기");
+
+        for (String occasion : OutfitHelper.OCCASIONS) {
+            List<OutfitSuggestion> suggestions = helper.suggest(occasion, "가을", "보통 체형", "50대");
+            check(suggestions.size() == OutfitHelper.SUGGESTIONS, "UC-20 " + occasion + ": 코디 3벌");
+            check(suggestions.stream().allMatch(s -> s.products().stream().anyMatch(p -> p.getCategory() == Category.TOP)
+                            && s.products().stream().anyMatch(p -> p.getCategory() == Category.BOTTOM)
+                            && s.products().stream().anyMatch(p -> p.getCategory() == Category.SHOES)),
+                    "UC-20 " + occasion + ": 모든 코디에 상의·하의·신발");
+            java.util.Set<Long> tops = new java.util.HashSet<>();
+            suggestions.forEach(s -> s.products().stream().filter(p -> p.getCategory() == Category.TOP)
+                    .forEach(p -> tops.add(p.getId())));
+            check(tops.size() == 3, "UC-20 " + occasion + ": 세 코디의 상의가 서로 다름");
+        }
+        List<OutfitSuggestion> wedding = helper.suggest("결혼식·행사", "가을", null, null);
+        check(wedding.get(0).products().stream().anyMatch(p -> p.getCategory() == Category.JEWELRY)
+                        && wedding.get(0).products().stream().noneMatch(p -> p.getCategory() == Category.HAT),
+                "UC-20 결혼식·행사는 주얼리를 더하고 모자는 빼기");
+        List<OutfitSuggestion> trip = helper.suggest("여행·나들이", "봄", null, null);
+        check(trip.get(0).products().get(0).getCategory() == Category.HAT, "UC-20 여행은 모자를 더하고, 모자 → 신발 순으로 정렬");
+        check(helper.suggest("결혼식·행사", "가을", "보통 체형", "50대").equals(helper.suggest("결혼식·행사", "가을", "보통 체형", "50대")),
+                "UC-20 같은 조건이면 같은 결과");
+
+        List<OutfitSuggestion> pear = helper.suggest("일상·산책", "가을", "하체 발달형", "60대");
+        check(pear.stream().flatMap(s -> s.products().stream())
+                        .filter(p -> p.getCategory() == Category.TOP || p.getCategory() == Category.BOTTOM)
+                        .allMatch(p -> p.getBodyTypeTags().contains("하체 발달형")),
+                "UC-20 체형 태그가 맞는 상의·하의만");
+        check(pear.get(0).reason().contains("하체 발달형에 맞춤"), "UC-20 고른 이유에 체형 표시");
+
+        List<OutfitSuggestion> summer = helper.suggest("일상·산책", "여름", null, null);
+        check(summer.stream().flatMap(s -> s.products().stream())
+                        .noneMatch(p -> (p.getName() + " " + p.getMaterial()).contains("캐시미어")),
+                "UC-20 여름에는 캐시미어를 고르지 않음");
+        expectError(() -> helper.suggest("등산", "가을", null, null), "UC-20 목록에 없는 상황");
+        expectError(() -> helper.suggest("여행·나들이", "장마", null, null), "UC-20 목록에 없는 계절");
+
+        RecommendController controller = new RecommendController(new Session(), new RecommendService(products), helper);
+        check(controller.suggestOutfits("모임·식사", controller.currentSeason(), null, null).size() == 3
+                && controller.helperOccasions().size() == 4, "UC-20 비회원도 코디 도우미 사용 (Controller)");
+        products.findAllByCategory(Category.BOTTOM).forEach(p -> products.suspend(p.getId()));
+        check(helper.suggest("모임·식사", "가을", null, null).isEmpty(), "UC-20 4a 하의를 고를 수 없으면 빈 목록");
+    }
+
+    /** UC-21 옷장 출석: 하루 한 번, 주 단위 7칸, 5칸이면 무료배송 쿠폰, 그날의 코디, 결제 때 쿠폰 사용. */
+    private static void attendance() throws Exception {
+        Path dir = Files.createTempDirectory("sadamda-attendance");
+        AttendanceService service = new AttendanceService(dir);
+        String mom = com.sadamda.common.OwnerKeys.of("demo@sadamda.com");
+        java.time.LocalDate monday = java.time.LocalDate.of(2026, 11, 16);
+        check(AttendanceService.mondayOf(java.time.LocalDate.of(2026, 11, 22)).equals(monday)
+                && AttendanceService.mondayOf(monday).equals(monday), "UC-21 한 주는 월요일부터 일요일까지");
+
+        AttendanceWeek first = service.checkIn(mom, monday);
+        check(first.checkedToday() && first.stampedCount() == 1 && first.coupons() == 0, "UC-21 첫 출석 도장");
+        AttendanceWeek again = service.checkIn(mom, monday);
+        check(again.stampedCount() == 1 && !again.couponJustEarned(), "UC-21 2a 같은 날 두 번 출석해도 한 칸");
+        service.checkIn(mom, monday.plusDays(1));
+        service.checkIn(mom, monday.plusDays(3)); // 수요일은 쉼
+        service.checkIn(mom, monday.plusDays(4));
+        AttendanceWeek fifth = service.checkIn(mom, monday.plusDays(5));
+        check(fifth.stampedCount() == 5 && fifth.couponJustEarned() && fifth.coupons() == 1
+                        && !fifth.isStamped(monday.plusDays(2)),
+                "UC-21 4단계 하루 쉬어도 이어서, 한 주 5칸이면 무료배송 쿠폰 1장");
+        AttendanceWeek sixth = service.checkIn(mom, monday.plusDays(6));
+        check(!sixth.couponJustEarned() && sixth.coupons() == 1 && sixth.stampedCount() == 6,
+                "UC-21 쿠폰은 한 주에 한 번만");
+        AttendanceWeek nextWeek = service.checkIn(mom, monday.plusDays(7));
+        check(nextWeek.stampedCount() == 1 && nextWeek.monday().equals(monday.plusDays(7))
+                && nextWeek.totalDays() == 7, "UC-21 다음 주는 새 7칸, 지금까지 출석 수는 이어짐");
+        check(new AttendanceService(dir).week(mom, monday.plusDays(6)).stampedCount() == 6
+                && new AttendanceService(dir).coupons(mom) == 1, "UC-21 프로그램을 다시 켜도 출석·쿠폰 유지");
+        check(service.week(com.sadamda.common.OwnerKeys.of("other@sadamda.com"), monday).stampedCount() == 0,
+                "UC-21 회원별 출석");
+        expectError(() -> service.checkIn(null, monday), "UC-21 비회원은 출석 불가");
+
+        // 그날의 코디: 날마다 다르고, 같은 날이면 같다
+        ProductService products = new ProductService();
+        OutfitHelper helper = new OutfitHelper(products);
+        OutfitSuggestion day1 = helper.dailyOutfit(monday, "보통 체형", "50대");
+        java.util.Set<String> occasions = new java.util.HashSet<>();
+        java.util.Set<java.util.List<Long>> outfits = new java.util.HashSet<>();
+        java.util.Set<Long> weekTops = new java.util.HashSet<>();
+        for (int i = 0; i < 7; i++) {
+            OutfitSuggestion daily = helper.dailyOutfit(monday.plusDays(i), "보통 체형", "50대");
+            occasions.add(daily.title().substring(daily.title().indexOf("·") + 2));
+            outfits.add(daily.products().stream().map(Product::getId).toList());
+            daily.products().stream().filter(p -> p.getCategory() == Category.TOP).forEach(p -> weekTops.add(p.getId()));
+        }
+        check(weekTops.size() == 7, "UC-21 일주일 동안 날마다 다른 상의");
+        check(day1.title().startsWith("11월 16일 오늘의 코디")
+                        && helper.dailyOutfit(monday, "보통 체형", "50대").equals(day1),
+                "UC-21 3단계 그날의 코디: 날짜가 제목, 같은 날이면 같은 코디");
+        check(occasions.size() == 4 && outfits.size() == 7, "UC-21 일주일 동안 상황 4가지를 돌며 코디 7벌이 모두 다름");
+
+        // Controller: 출석한 날만 코디, 결제 때 쿠폰 쓰기
+        Session session = new Session();
+        AttendanceController controller = new AttendanceController(session, new AttendanceService(dir), helper,
+                () -> monday.plusDays(6));
+        expectError(controller::week, "UC-21 비회원은 출석 칸을 볼 수 없음 (LoginRequiredException)");
+        Member member = new Member();
+        member.setId(1L);
+        member.setEmail("demo@sadamda.com");
+        member.setBodyProfile(new BodyProfile("50대", 160, "M (66)", "보통 체형"));
+        session.login(member);
+        check(controller.week().stampedCount() == 6 && controller.outfitOf(monday).equals(day1),
+                "UC-21 5단계 출석한 날 칸을 누르면 그날 코디 (회원 체형 기준)");
+        expectError(() -> controller.outfitOf(monday.plusDays(2)), "UC-21 5a 쉰 날의 코디는 볼 수 없음");
+
+        CartService cart = new CartService(products);
+        OrderService orders = new OrderService(products, cart);
+        AttendanceService wallet = new AttendanceService(dir);
+        OrderController order = new OrderController(session, orders, cart, new MemberService(),
+                new com.sadamda.external.MockPaymentGateway(), wallet);
+        Product top = products.findAllByCategory(Category.TOP).get(0);
+        List<com.sadamda.model.order.OrderLine> lines =
+                List.of(new com.sadamda.model.order.OrderLine(top.getId(), top.getOptions().get(0).id(), 1));
+        check(order.freeShippingCoupons() == 1, "UC-21 주문서에 가진 쿠폰 수");
+        com.sadamda.model.order.Order free = order.checkout(new com.sadamda.controller.CheckoutRequest(
+                lines, "서울시 종로구 1", "카드 결제", null, false, true));
+        check(free.getShippingFee() == 0 && free.getTotalPrice() == top.getPrice() && order.freeShippingCoupons() == 0,
+                "UC-21 무료배송 쿠폰으로 결제: 배송비 0원, 쿠폰 1장 사용");
+        expectError(() -> order.checkout(new com.sadamda.controller.CheckoutRequest(
+                lines, "서울시 종로구 1", "카드 결제", null, false, true)), "UC-21 쿠폰이 없으면 쿠폰 결제 불가");
+        com.sadamda.model.order.Order paid = order.checkout(new com.sadamda.controller.CheckoutRequest(
+                lines, "서울시 종로구 1", "카드 결제", null, false));
+        check(paid.getShippingFee() == OrderService.SHIPPING_FEE, "UC-21 쿠폰을 안 쓰면 예전처럼 배송비 3,000원");
     }
 
     private static void locker() throws Exception {

@@ -74,6 +74,7 @@ public class HomePanel extends ScreenPanel {
     /** 화면을 내렸을 때 맨 위에 고정해 보여주는 같은 탭 줄. */
     private final CategoryBar pinnedBar;
     private final JPanel forMe = new JPanel(new BorderLayout(0, 12));
+    private final AttendanceRow attendanceRow;
     private final ProductGrid trendingGrid;
     private final JButton trendingMore = textLink("유행 아이템 모두 보기");
     private final JPanel lookbookRow = new JPanel(new GridLayout(1, LOOKBOOK_PREVIEW, 16, 0));
@@ -86,6 +87,7 @@ public class HomePanel extends ScreenPanel {
         hideTitle();
         setBackground(ShopUi.CARD);
         setBorder(BorderFactory.createEmptyBorder()); // 맨 위 띠를 창 끝까지 붙인다
+        attendanceRow = new AttendanceRow(context, frame);
         trendingGrid = new ProductGrid(this::openProduct, context, frame);
         newestGrid = new ProductGrid(this::openProduct, context, frame);
         categoryBar = new CategoryBar(context, true, this::openCategory);
@@ -105,8 +107,13 @@ public class HomePanel extends ScreenPanel {
         body.add(band(), BorderLayout.NORTH);
         body.add(sections, BorderLayout.CENTER);
 
+        // UC-21: 매일 들어올 이유. 검색 띠 바로 아래 첫 구역에 두어 켜자마자 보이게 한다
+        block(ShopUi.sectionHeader("옷장 출석", "하루 한 번 출석하면 오늘의 코디를 드려요. 칸을 눌러 그날 코디를 다시 볼 수 있어요.",
+                null), 24);
+        block(attendanceRow, 12);
+
         forMe.setOpaque(false);
-        block(forMe, 24);
+        block(forMe, 40);
 
         trendingMore.addActionListener(e -> {
             trendingExpanded = !trendingExpanded; // [모두 보기] ↔ [줄여 보기]
@@ -125,11 +132,35 @@ public class HomePanel extends ScreenPanel {
         JButton tryOn = textLink("옷 입혀보기"); // 안내 문구 바로 아래 밑줄 글자 링크
         tryOn.addActionListener(e -> frame.navigate(TryOnPanel.NAME));
         block(textLinkRow(tryOn), 0);
+        block(occasionRow(), 12);
 
         block(ShopUi.sectionHeader("새로 들어온 상품", "최근에 등록된 상품이에요.", null), 40);
         block(newestGrid, 12);
         scroll = ShopUi.verticalScroll(body, ShopUi.CARD);
         return withPinnedCategories(scroll);
+    }
+
+    /**
+     * UC-20 1단계: "어디 가세요?" 상황 버튼. 누르면 옷 입혀보기로 가서 그 상황의 코디 추천 창을 연다.
+     * 메뉴를 늘리지 않고 홈에서 한 번에 들어가게 했다 (NFR-03 메뉴 깊이 2단계).
+     */
+    private JComponent occasionRow() {
+        JPanel row = new JPanel(new com.sadamda.view.WrapLayout(java.awt.FlowLayout.LEFT, 10, 8));
+        row.setOpaque(false);
+        row.add(ShopUi.label("어디 가세요?", 1.1f, java.awt.Font.BOLD, ShopUi.TEXT));
+        for (String occasion : context.recommend.helperOccasions()) {
+            JButton button = ShopUi.secondaryButton(occasion);
+            button.addActionListener(e -> {
+                frame.navigate(TryOnPanel.NAME);
+                TryOnPanel tryOn = ShopUi.findScreen(frame, TryOnPanel.class);
+                if (tryOn != null) {
+                    // 화면이 바뀐 뒤에 창을 띄워야 뒤에 옷 입혀보기 화면이 보인다
+                    javax.swing.SwingUtilities.invokeLater(() -> tryOn.openHelper(occasion));
+                }
+            });
+            row.add(button);
+        }
+        return row;
     }
 
     /** 맨 위(검색창)로 올린다. 홈에서 상단의 [사담다] 로고를 다시 누를 때 쓴다. */
@@ -322,6 +353,7 @@ public class HomePanel extends ScreenPanel {
 
     /** 화면이 보일 때마다 로그인 상태·관리자 변경을 반영해 다시 그린다. */
     private void refresh() {
+        attendanceRow.refresh();
         categoryBar.refreshCounts();
         pinnedBar.refreshCounts();
         renderForMe();
