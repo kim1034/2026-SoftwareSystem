@@ -95,13 +95,8 @@ public class OutfitHelper {
             throw new AppException("계절을 골라 주세요.");
         }
         String body = ProductTags.bodyType(bodyType);
-        String age = ProductTags.ageGroup(ageGroup);
         List<Category> parts = PARTS.get(occasion);
-
-        Map<Category, List<Product>> ranked = new LinkedHashMap<>();
-        for (Category part : parts) {
-            ranked.put(part, rank(part, occasion, season, body, age));
-        }
+        Map<Category, List<Product>> ranked = rankParts(occasion, season, bodyType, ageGroup);
         if (ranked.get(Category.TOP).isEmpty() || ranked.get(Category.BOTTOM).isEmpty()) {
             return List.of();
         }
@@ -125,6 +120,43 @@ public class OutfitHelper {
                     reason(products, occasion, season, body), sortBySlot(products)));
         }
         return result;
+    }
+
+    /**
+     * UC-21 그날의 코디: 날짜마다 상황을 돌아가며 바꾸고(결혼식 → 모임 → 여행 → 일상), 같은 상황이 다시 오면
+     * 다른 순번의 코디를 고른다. 계절은 그 날짜의 계절. 같은 날짜·체형이면 늘 같은 코디라 따로 저장하지 않는다.
+     * 고를 상품이 없으면 null.
+     */
+    public OutfitSuggestion dailyOutfit(LocalDate date, String bodyType, String ageGroup) {
+        long day = date.toEpochDay();
+        String occasion = OCCASIONS.get((int) Math.floorMod(day, OCCASIONS.size()));
+        String season = seasonOf(date);
+        // 요일마다 순위의 다른 자리(1~7등)를 골라, 여러 상황에서 점수가 높은 옷이 며칠 연달아 나오지 않게 한다
+        int position = (int) Math.floorMod(day, 7);
+        Map<Category, List<Product>> ranked = rankParts(occasion, season, bodyType, ageGroup);
+        List<Product> products = new ArrayList<>();
+        for (Map.Entry<Category, List<Product>> entry : ranked.entrySet()) {
+            List<Product> candidates = entry.getValue();
+            if (!candidates.isEmpty()) {
+                products.add(candidates.get(Math.min(position, candidates.size() - 1)));
+            } else if (entry.getKey() == Category.TOP || entry.getKey() == Category.BOTTOM) {
+                return null;
+            }
+        }
+        String title = date.getMonthValue() + "월 " + date.getDayOfMonth() + "일 오늘의 코디 · " + occasion;
+        return new OutfitSuggestion(title, reason(products, occasion, season, ProductTags.bodyType(bodyType)),
+                sortBySlot(products));
+    }
+
+    /** 상황의 자리마다 점수순으로 줄 세운 상품. */
+    private Map<Category, List<Product>> rankParts(String occasion, String season, String bodyType, String ageGroup) {
+        String body = ProductTags.bodyType(bodyType);
+        String age = ProductTags.ageGroup(ageGroup);
+        Map<Category, List<Product>> ranked = new LinkedHashMap<>();
+        for (Category part : PARTS.get(occasion)) {
+            ranked.put(part, rank(part, occasion, season, body, age));
+        }
+        return ranked;
     }
 
     private List<Product> rank(Category part, String occasion, String season, String body, String age) {
