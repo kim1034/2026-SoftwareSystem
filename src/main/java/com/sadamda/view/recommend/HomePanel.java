@@ -125,11 +125,35 @@ public class HomePanel extends ScreenPanel {
         JButton tryOn = textLink("옷 입혀보기"); // 안내 문구 바로 아래 밑줄 글자 링크
         tryOn.addActionListener(e -> frame.navigate(TryOnPanel.NAME));
         block(textLinkRow(tryOn), 0);
+        block(occasionRow(), 12);
 
         block(ShopUi.sectionHeader("새로 들어온 상품", "최근에 등록된 상품이에요.", null), 40);
         block(newestGrid, 12);
         scroll = ShopUi.verticalScroll(body, ShopUi.CARD);
         return withPinnedCategories(scroll);
+    }
+
+    /**
+     * UC-20 1단계: "어디 가세요?" 상황 버튼. 누르면 옷 입혀보기로 가서 그 상황의 코디 추천 창을 연다.
+     * 메뉴를 늘리지 않고 홈에서 한 번에 들어가게 했다 (NFR-03 메뉴 깊이 2단계).
+     */
+    private JComponent occasionRow() {
+        JPanel row = new JPanel(new com.sadamda.view.WrapLayout(java.awt.FlowLayout.LEFT, 10, 8));
+        row.setOpaque(false);
+        row.add(ShopUi.label("어디 가세요?", 1.1f, java.awt.Font.BOLD, ShopUi.TEXT));
+        for (String occasion : context.recommend.helperOccasions()) {
+            JButton button = ShopUi.secondaryButton(occasion);
+            button.addActionListener(e -> {
+                frame.navigate(TryOnPanel.NAME);
+                TryOnPanel tryOn = ShopUi.findScreen(frame, TryOnPanel.class);
+                if (tryOn != null) {
+                    // 화면이 바뀐 뒤에 창을 띄워야 뒤에 옷 입혀보기 화면이 보인다
+                    javax.swing.SwingUtilities.invokeLater(() -> tryOn.openHelper(occasion));
+                }
+            });
+            row.add(button);
+        }
+        return row;
     }
 
     /** 맨 위(검색창)로 올린다. 홈에서 상단의 [사담다] 로고를 다시 누를 때 쓴다. */

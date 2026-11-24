@@ -56,6 +56,8 @@ IDE에서는 `com.sadamda.App`의 `main`을 실행하면 됩니다.
 | UC-16 | 상품 관리 | `AdminPanel` (`ProductAdminTab`) | `AdminController` | `ProductService` | 완료 |
 | UC-17 | 룩북·유행 아이템 관리 | `AdminPanel` (`LookbookAdminTab`), `LookbookPanel` | `AdminController` | `RecommendService` | 완료 |
 | UC-18 | 주문 관리 | `AdminPanel` (`OrderAdminTab`) | `AdminController` | `OrderService`, `PaymentGateway` | 완료 |
+| UC-19 | 내 코디북 (추가 기능) | `TryOnPanel`, `CodiBookDialog` | `CodiBookController` | `CodiBookService`, `SavedCodi` | 완료 — 이 PC 에 저장되어 다시 켜도 남음 |
+| UC-20 | 상황별 코디 도우미 (추가 기능) | `HomePanel`, `TryOnPanel`, `CodiHelperDialog` | `RecommendController` | `OutfitHelper`, `OutfitSuggestion` | 완료 — 상황·계절은 상품 문구 낱말로 추정 (임시 규칙) |
 
 ### 아직 남은 것
 
@@ -85,6 +87,7 @@ src/main/java/com/sadamda
 │   ├── AppContext.java       객체 생성·연결
 │   ├── Session.java          로그인 상태
 │   ├── DressUpController.java 옷 입혀보기 (정우진)
+│   ├── CodiBookController.java 내 코디북 UC-19 (정우진)
 │   └── DemoData.java         시연용 회원·주문
 └── view/                     View: Swing 화면 (강준서, 홈·룩북·옷 입혀보기는 정우진, 관리자 화면은 김대원)
     ├── MainFrame.java        메인 창, 상단 메뉴, 화면 전환
@@ -94,7 +97,7 @@ src/main/java/com/sadamda
     ├── member/               회원가입·로그인·내 정보
     ├── product/              상품 목록·검색·상세
     ├── recommend/            홈·룩북
-    ├── tryon/                옷 입혀보기·보관함
+    ├── tryon/                옷 입혀보기·보관함·내 코디북·코디 추천받기
     ├── cart/                 장바구니·찜
     ├── order/                주문서·주문 완료·주문 내역
     ├── review/               리뷰 쓰기
@@ -107,7 +110,7 @@ src/main/resources
 
 src/test/java/com/sadamda
 ├── controller/               OrderController·AdminController·Session JUnit 테스트
-└── DomainSelfCheck.java      상품·추천·보관함·옷 입혀보기 실행형 점검
+└── DomainSelfCheck.java      상품·추천·보관함·코디북·코디 도우미·옷 입혀보기 실행형 점검
 ```
 
 ## 문서
@@ -123,3 +126,4 @@ src/test/java/com/sadamda
 | [docs/order-view.md](docs/order-view.md) | 장바구니·찜·주문서·주문 내역 화면 (UC-10~13) |
 | [docs/review.md](docs/review.md) | 리뷰 쓰기 화면 (UC-14) |
 | [docs/product-recommend.md](docs/product-recommend.md) | 상품·추천 도메인, 홈·룩북, 옷 입혀보기와 AI 키 설정 |
+| [docs/codibook-helper.md](docs/codibook-helper.md) | 체류시간 기능: 내 코디북 (UC-19), 상황별 코디 도우미 (UC-20) |
