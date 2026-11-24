@@ -1,13 +1,16 @@
 package com.sadamda.model.review;
 
 import com.sadamda.common.AppException;
+import com.sadamda.model.member.BodyProfile;
 import com.sadamda.model.member.MemberService;
 import com.sadamda.model.order.Order;
 import com.sadamda.model.order.OrderService;
 import com.sadamda.model.order.OrderStatus;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /** 리뷰 로직. 담당: 백예원 */
 public class ReviewService {
@@ -53,16 +56,48 @@ public class ReviewService {
 
     /** UC-06 상품 상세의 리뷰 목록 (FR-23). */
     public synchronized List<Review> findByProduct(Long productId) {
+        return findByProduct(productId, null);
+    }
+
+    /** FR-23 체형별 리뷰. bodyType 이 null 이거나 비어 있으면 전체, 새로 쓴 리뷰가 먼저. */
+    public synchronized List<Review> findByProduct(Long productId, String bodyType) {
+        boolean all = bodyType == null || bodyType.isBlank();
         List<Review> result = new ArrayList<>();
         for (int i = reviews.size() - 1; i >= 0; i--) {
-            if (reviews.get(i).productId().equals(productId)) {
-                result.add(reviews.get(i));
+            Review review = reviews.get(i);
+            if (review.productId().equals(productId) && (all || sameBodyType(review, bodyType))) {
+                result.add(review);
             }
         }
         return result;
     }
 
+    /** FR-23 이 상품 리뷰에 나오는 체형 종류. 체형별 보기 버튼을 만들 때 쓴다. */
+    public synchronized List<String> bodyTypes(Long productId) {
+        Set<String> types = new LinkedHashSet<>();
+        for (Review review : reviews) {
+            if (review.productId().equals(productId) && review.bodyProfile() != null
+                    && review.bodyProfile().bodyType() != null && !review.bodyProfile().bodyType().isBlank()) {
+                types.add(review.bodyProfile().bodyType());
+            }
+        }
+        return List.copyOf(types);
+    }
+
     public synchronized boolean hasWritten(Long orderId, Long productId) {
-        return reviews.stream().anyMatch(r -> r.orderId().equals(orderId) && r.productId().equals(productId));
+        return reviews.stream().anyMatch(r -> orderId != null && orderId.equals(r.orderId())
+                && r.productId().equals(productId));
+    }
+
+    public synchronized Review addDemoReview(Long productId, int rating, String content, List<String> photoUrls,
+                                             BodyProfile bodyProfile) {
+        Review review = new Review(nextId++, null, productId, null, rating, content,
+                photoUrls == null ? List.of() : List.copyOf(photoUrls), bodyProfile);
+        reviews.add(review);
+        return review;
+    }
+
+    private boolean sameBodyType(Review review, String bodyType) {
+        return review.bodyProfile() != null && bodyType.equals(review.bodyProfile().bodyType());
     }
 }

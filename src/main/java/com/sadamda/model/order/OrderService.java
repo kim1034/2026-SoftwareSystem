@@ -46,7 +46,7 @@ public class OrderService {
      * giftInfo 가 null 이 아니면 선물 주문 (UC-12, FR-20).
      */
     public synchronized Order placeOrder(Long memberId, List<OrderLine> lines, String shippingAddress,
-                                         GiftInfo giftInfo, String paymentId) {
+                                         GiftInfo giftInfo, String paymentId, String paymentMethod) {
         int productTotal = productTotal(lines);
         List<OrderItem> items = new ArrayList<>();
         for (OrderLine line : lines) {
@@ -57,7 +57,7 @@ public class OrderService {
             items.add(new OrderItem(line.productId(), line.optionId(), line.quantity(), product.getPrice()));
         }
         Order order = new Order(nextId++, memberId, items, shippingAddress, productTotal, SHIPPING_FEE,
-                paymentId, giftInfo, LocalDateTime.now());
+                paymentId, paymentMethod, giftInfo, LocalDateTime.now());
         orders.put(order.getId(), order);
         return order;
     }

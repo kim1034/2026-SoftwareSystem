@@ -55,4 +55,14 @@ public class ProductController {
     public List<Review> reviews(Long productId) {
         return reviewService.findByProduct(productId);
     }
+
+    /** FR-23 체형별 리뷰. bodyType 이 null 이면 전체. */
+    public List<Review> reviews(Long productId, String bodyType) {
+        return reviewService.findByProduct(productId, bodyType);
+    }
+
+    /** FR-23 체형별 보기 버튼에 쓸 체형 목록 */
+    public List<String> reviewBodyTypes(Long productId) {
+        return reviewService.bodyTypes(productId);
+    }
 }
