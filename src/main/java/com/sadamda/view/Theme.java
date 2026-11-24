@@ -246,17 +246,28 @@ public final class Theme {
 
     /** 보조 버튼: 연한 회색 바탕에 진한 글씨. */
     public static JButton secondaryButton(String text) {
-        return button(text, SECONDARY, TEXT);
+        return button(text, SECONDARY, TEXT, null);
+    }
+
+    /** 보조 버튼과 같고, [글씨 크기]와 상관없이 본문 글씨를 baseSize(px)로 보고 그린다 (상단 메뉴의 [글씨 크기] 등). */
+    public static JButton secondaryButton(String text, float baseSize) {
+        return button(text, SECONDARY, TEXT, baseSize);
     }
 
     private static JButton button(String text, Color background, Color foreground) {
+        return button(text, background, foreground, null);
+    }
+
+    /** fixedBaseSize 가 null 이면 [글씨 크기]를 따른다. */
+    private static JButton button(String text, Color background, Color foreground, Float fixedBaseSize) {
         JButton button = new JButton(text) {
             @Override
             public void updateUI() {
                 setUI(new BasicButtonUI());
                 // 버튼 글씨는 본문보다 2px 크게: 보통 18px → 20px (NFR-01)
                 Font base = UIManager.getFont("Button.font");
-                setFont(base.deriveFont(Font.BOLD, base.getSize2D() + 2));
+                float size = fixedBaseSize == null ? base.getSize2D() : fixedBaseSize;
+                setFont(base.deriveFont(Font.BOLD, size + 2));
             }
 
             @Override
