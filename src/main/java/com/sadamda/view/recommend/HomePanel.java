@@ -72,6 +72,8 @@ public class HomePanel extends ScreenPanel {
     private final JButton bestMore = textLink("베스트 더 보기");
     private final JPanel forMe = new JPanel(new BorderLayout(0, 12));
     private final JPanel lookbookBanner = new JPanel(new BorderLayout());
+    /** UC-21 옷장 출석: 하루 한 번 출석하고 오늘의 코디를 받는 한 주 칸. */
+    private final AttendanceRow attendanceRow;
     private final JPanel lookbookRow = new JPanel(new GridLayout(1, LOOKBOOK_PREVIEW, 16, 0));
     private final JPanel newestGrid = cardGrid();
     private final WishActions wish;
@@ -86,6 +88,7 @@ public class HomePanel extends ScreenPanel {
         setBackground(ShopUi.CARD);
         setBorder(BorderFactory.createEmptyBorder()); // 배너를 창 끝까지 붙인다
         wish = new WishActions(context, frame, this);
+        attendanceRow = new AttendanceRow(context, frame);
         setContent(build());
         ShopUi.whenShown(this, this::refresh);
         refresh();
@@ -102,6 +105,11 @@ public class HomePanel extends ScreenPanel {
         categoryRow.getAccessibleContext().setAccessibleName("카테고리로 찾기");
         inner(categoryRow, 28);
         inner(promoRow(), 32);
+        inner(occasionRow(), 12);
+
+        // UC-21: 매일 들어올 이유. 바로가기 카드 바로 아래에 두어 켜자마자 보이게 한다
+        inner(Theme.label("옷장 출석", 1.45f, Font.BOLD, Theme.TEXT), 48);
+        inner(attendanceRow, 16);
 
         JLabel bestTitle = Theme.label("지금 뜨는 베스트", 1.45f, Font.BOLD, Theme.TEXT);
         bestTitle.setHorizontalAlignment(SwingConstants.CENTER);
@@ -131,6 +139,30 @@ public class HomePanel extends ScreenPanel {
         inner(newestGrid, 16);
         scroll = ShopUi.verticalScroll(sections, ShopUi.CARD);
         return scroll;
+    }
+
+    /**
+     * UC-20 1단계: "어디 가세요?" 상황 버튼. 누르면 옷 입혀보기로 가서 그 상황의 코디 추천 창을 연다.
+     * 메뉴를 늘리지 않고 홈에서 한 번에 들어가게 했다 (NFR-03 메뉴 깊이 2단계).
+     */
+    private JComponent occasionRow() {
+        JPanel row = new JPanel(new com.sadamda.view.WrapLayout(FlowLayout.LEFT, 10, 8));
+        row.setOpaque(false);
+        row.add(Theme.label("어디 가세요?", 1.1f, Font.BOLD, Theme.TEXT));
+        for (String occasion : context.recommend.helperOccasions()) {
+            JButton button = Theme.secondaryButton(occasion);
+            button.setBorder(BorderFactory.createEmptyBorder(12, 24, 12, 24));
+            button.addActionListener(e -> {
+                frame.navigate(TryOnPanel.NAME);
+                TryOnPanel tryOn = ShopUi.findScreen(frame, TryOnPanel.class);
+                if (tryOn != null) {
+                    // 화면이 바뀐 뒤에 창을 띄워야 뒤에 옷 입혀보기 화면이 보인다
+                    javax.swing.SwingUtilities.invokeLater(() -> tryOn.openHelper(occasion));
+                }
+            });
+            row.add(button);
+        }
+        return row;
     }
 
     /** 맨 위로 올린다. 홈에서 상단의 [사담다] 로고를 다시 누를 때 쓴다. */
@@ -220,6 +252,7 @@ public class HomePanel extends ScreenPanel {
 
     /** 화면이 보일 때마다 로그인 상태·관리자 변경을 반영해 다시 그린다. */
     private void refresh() {
+        attendanceRow.refresh();
         renderCategories();
         renderBestFilters();
         renderBest();

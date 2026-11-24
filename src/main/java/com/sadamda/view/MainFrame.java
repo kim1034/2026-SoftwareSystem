@@ -4,6 +4,7 @@ import com.sadamda.controller.AppContext;
 import com.sadamda.model.member.Member;
 import com.sadamda.controller.OrderSheet;
 import com.sadamda.view.admin.AdminPanel;
+import com.sadamda.view.family.FamilyPanel;
 import com.sadamda.view.cart.CartPanel;
 import com.sadamda.view.member.KeepLogin;
 import com.sadamda.view.member.LoginPanel;
@@ -67,6 +68,10 @@ public class MainFrame extends JFrame {
     private final IconMenu signUpMenu = new IconMenu("회원가입", SignUpPanel.NAME, MenuIcon.Shape.PERSON_PLUS);
     private final IconMenu logoutMenu = new IconMenu("로그아웃", null, MenuIcon.Shape.LOGOUT);
     private final IconMenu cartMenu = new IconMenu("장바구니", CartPanel.NAME, MenuIcon.Shape.CART);
+    /** 가족 쇼핑. 새 소식 수(가족이 물어본 옷 + 새로 온 답)를 골드 동그라미로 보여 준다. */
+    private final IconMenu familyMenu = new IconMenu("가족 쇼핑", FamilyPanel.NAME, MenuIcon.Shape.FAMILY);
+    /** 새 소식 알림을 이미 띄운 회원 (로그인할 때 한 번만). */
+    private Long familyToastShownFor;
     private final IconMenu adminMenu = new IconMenu("관리자", AdminPanel.NAME, MenuIcon.Shape.GEAR);
     private final JTextField searchField = new JTextField(16) {
         @Override
@@ -126,6 +131,7 @@ public class MainFrame extends JFrame {
         addScreen(MyInfoPanel.NAME, new MyInfoPanel(context, this));
         addScreen(ReviewWritePanel.NAME, reviewWrite);
         addScreen(AdminPanel.NAME, new AdminPanel(context, this));
+        addScreen(FamilyPanel.NAME, new FamilyPanel(context, this));
 
         createMenuBar();
         add(menuBar, BorderLayout.NORTH);
@@ -259,6 +265,7 @@ public class MainFrame extends JFrame {
 
         JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 2, 0));
         right.setOpaque(false);
+        right.add(screenMenu(familyMenu));
         right.add(screenMenu(cartMenu));
         right.add(screenMenu(new IconMenu("주문내역", OrderHistoryPanel.NAME, MenuIcon.Shape.RECEIPT)));
         right.add(screenMenu(myInfoMenu));
@@ -424,6 +431,8 @@ public class MainFrame extends JFrame {
         logoutMenu.setVisible(loggedIn);
         logoutMenu.setCurrent(false); // 다른 메뉴와 같은 글씨 크기로 (화면이 없는 메뉴라 따로 맞춘다)
         refreshCartBadge();
+        familyMenu.setVisible(loggedIn && !context.session.isAdmin());
+        refreshFamilyBadge();
         loginMenu.setVisible(!loggedIn);
         signUpMenu.setVisible(!loggedIn);
         adminMenu.setVisible(context.session.isAdmin());
@@ -454,6 +463,24 @@ public class MainFrame extends JFrame {
         int count = context.session.isLoggedIn() ? context.cart.cart().size() : 0;
         cartMenu.setBadge(count);
         cartMenu.getAccessibleContext().setAccessibleName(count == 0 ? "장바구니" : "장바구니, 상품 " + count + "개");
+    }
+
+    /**
+     * 상단 [가족 쇼핑] 아이콘에 새 소식 수(가족이 물어본 옷 + 새로 온 답)를 보여 준다.
+     * 로그인했을 때 새 소식이 있으면 한 번 알림을 띄운다.
+     */
+    public void refreshFamilyBadge() {
+        int news = context.family.newsCount();
+        familyMenu.setBadge(news);
+        familyMenu.getAccessibleContext().setAccessibleName(news == 0 ? "가족 쇼핑" : "가족 쇼핑, 새 소식 " + news + "개");
+        Long memberId = context.session.isLoggedIn() ? context.session.currentMember().getId() : null;
+        if (memberId == null) {
+            familyToastShownFor = null;
+        } else if (news > 0 && !memberId.equals(familyToastShownFor)) {
+            familyToastShownFor = memberId;
+            javax.swing.SwingUtilities.invokeLater(() -> Toast.show(menuBar, "가족 쇼핑에 새 소식이 " + news + "개 있어요",
+                    "확인하기", () -> navigate(FamilyPanel.NAME)));
+        }
     }
 
     private void logout() {

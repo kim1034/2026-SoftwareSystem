@@ -112,6 +112,11 @@ public class MemberService {
         return member;
     }
 
+    /** 이메일로 회원을 찾는다 (대소문자·앞뒤 공백 무시). 없으면 null. 가족에게 물어보기에서 받는 사람을 찾을 때 쓴다. */
+    public synchronized Member findByEmailOrNull(String email) {
+        return findByEmail(normalizeEmail(email));
+    }
+
     /**
      * FR-02 로그인 상태 유지: 이 PC 에 저장해 둔 회원으로 다시 로그인할 회원을 돌려준다.
      * 같은 이메일의 회원이 있으면 그 회원을, 없으면(앱을 다시 켜서 사라진 회원) 저장값으로 다시 만들어 돌려준다.

@@ -30,9 +30,20 @@ IDE에서는 `com.sadamda.App`의 `main`을 실행하면 됩니다.
 | 계정 | 이메일 | 비밀번호 | 비고 |
 |------|--------|----------|------|
 | 일반 회원 | `demo@sadamda.com` | `demo1234` | 김사담, 50대·160cm·M (66)·보통 체형, 기본 배송지 있음 (`controller/DemoData`) |
+| 가족(딸) | `daughter@sadamda.com` | `demo1234` | 김지은. 엄마(demo)가 [가족에게 물어보기]로 보낸 옷에 답하거나 대신 결제 (`controller/DemoData`) |
 | 관리자 | `admin@sadamda.com` | `admin1234` | 로그인하면 관리자 화면으로 이동, 상단에 [관리자] 메뉴 (`MemberService`) |
 
 일반 회원이 처음 로그인하면 주문 내역에 시연용 예전 주문 2건(배송중 1건, 배송완료 1건)이 들어갑니다. 배송완료 주문으로 리뷰 쓰기와 교환·반품을 바로 해 볼 수 있습니다.
+
+## 사담다만의 기능: 가족에게 물어보기
+
+중장년 회원은 옷을 고른 뒤 딸·아들에게 "이거 어때?" 하고 물어보고, 결제도 가족이 대신 해 주는 경우가 많습니다. 사담다는 이 과정을 서비스 안으로 가져왔습니다.
+
+1. **엄마**: 상품 상세(사이즈·색상 선택 후)나 장바구니에서 **[가족에게 물어보기]** → 가족 이메일과 하고 싶은 말
+2. **딸**: 로그인하면 "가족 쇼핑에 새 소식" 알림 → **[가족 쇼핑]**에서 상품을 보고 **[좋아요]·[다른 걸 추천해요]** + 한마디, 또는 **[대신 결제해 드리기]** (엄마의 기본 배송지로 선물 주문, UC-12 재사용)
+3. **엄마**: 상단 "가족 쇼핑 n" → 딸의 답 확인, 좋다고 한 옷은 **[장바구니에 담기]**, 대신 결제했으면 "김지은님이 대신 결제해 줬어요!"
+
+시연: `demo@sadamda.com`으로 물어보기 → 로그아웃 → `daughter@sadamda.com`으로 답·결제 → 다시 `demo`로 확인. 자세한 내용은 [docs/family.md](docs/family.md).
 
 ## Use Case 구현 현황
 
@@ -56,6 +67,9 @@ IDE에서는 `com.sadamda.App`의 `main`을 실행하면 됩니다.
 | UC-16 | 상품 관리 | `AdminPanel` (`ProductAdminTab`) | `AdminController` | `ProductService` | 완료 |
 | UC-17 | 룩북·유행 아이템 관리 | `AdminPanel` (`LookbookAdminTab`), `LookbookPanel` | `AdminController` | `RecommendService` | 완료 |
 | UC-18 | 주문 관리 | `AdminPanel` (`OrderAdminTab`) | `AdminController` | `OrderService`, `PaymentGateway` | 완료 |
+| UC-19 | 내 코디북 (추가 기능) | `TryOnPanel`, `CodiBookDialog` | `CodiBookController` | `CodiBookService`, `SavedCodi` | 완료 — 이 PC 에 저장되어 다시 켜도 남음 |
+| UC-20 | 상황별 코디 도우미 (추가 기능) | `HomePanel`, `TryOnPanel`, `CodiHelperDialog` | `RecommendController` | `OutfitHelper`, `OutfitSuggestion` | 완료 — 상황·계절은 상품 문구 낱말로 추정 (임시 규칙) |
+| UC-21 | 옷장 출석 (추가 기능) | `HomePanel` (`AttendanceRow`, `AttendanceDialog`), `OrderPanel` 쿠폰 칸 | `AttendanceController`, `OrderController` | `AttendanceService`, `OutfitHelper.dailyOutfit` | 완료 — 주 5칸이면 무료배송 쿠폰, 이 PC 에 저장 |
 
 ### 아직 남은 것
 
@@ -85,6 +99,7 @@ src/main/java/com/sadamda
 │   ├── AppContext.java       객체 생성·연결
 │   ├── Session.java          로그인 상태
 │   ├── DressUpController.java 옷 입혀보기 (정우진)
+│   ├── CodiBookController.java 내 코디북 UC-19 (정우진)
 │   └── DemoData.java         시연용 회원·주문
 └── view/                     View: Swing 화면 (강준서, 홈·룩북·옷 입혀보기는 정우진, 관리자 화면은 김대원)
     ├── MainFrame.java        메인 창, 상단 메뉴, 화면 전환
@@ -94,7 +109,7 @@ src/main/java/com/sadamda
     ├── member/               회원가입·로그인·내 정보
     ├── product/              상품 목록·검색·상세
     ├── recommend/            홈·룩북
-    ├── tryon/                옷 입혀보기·보관함
+    ├── tryon/                옷 입혀보기·보관함·내 코디북·코디 추천받기
     ├── cart/                 장바구니·찜
     ├── order/                주문서·주문 완료·주문 내역
     ├── review/               리뷰 쓰기
@@ -107,13 +122,14 @@ src/main/resources
 
 src/test/java/com/sadamda
 ├── controller/               OrderController·AdminController·Session JUnit 테스트
-└── DomainSelfCheck.java      상품·추천·보관함·옷 입혀보기 실행형 점검
+└── DomainSelfCheck.java      상품·추천·보관함·코디북·코디 도우미·옷 입혀보기 실행형 점검
 ```
 
 ## 문서
 
 | 문서 | 내용 |
 |------|------|
+| [docs/family.md](docs/family.md) | 사담다 차별 기능: 가족에게 물어보기 (화면 흐름, Controller·Model, 시연 순서) |
 | [docs/controller-spec.md](docs/controller-spec.md) | Controller 메서드, 오류 처리 규칙, 구현 현황 |
 | [docs/integration.md](docs/integration.md) | 화면을 실제 Model로 연결한 통합, 관리자 화면(UC-16~18)·찜·글씨 크기 저장·시연용 계정 |
 | [docs/auth-view.md](docs/auth-view.md) | 회원가입·로그인 화면, 상단 메뉴, 공통 디자인 `Theme`, 화면 이동 규칙 |
@@ -123,3 +139,5 @@ src/test/java/com/sadamda
 | [docs/order-view.md](docs/order-view.md) | 장바구니·찜·주문서·주문 내역 화면 (UC-10~13) |
 | [docs/review.md](docs/review.md) | 리뷰 쓰기 화면 (UC-14) |
 | [docs/product-recommend.md](docs/product-recommend.md) | 상품·추천 도메인, 홈·룩북, 옷 입혀보기와 AI 키 설정 |
+| [docs/codibook-helper.md](docs/codibook-helper.md) | 체류시간 기능: 내 코디북 (UC-19), 상황별 코디 도우미 (UC-20) |
+| [docs/closet-attendance.md](docs/closet-attendance.md) | 체류시간 기능: 옷장 출석 (UC-21), 무료배송 쿠폰 |

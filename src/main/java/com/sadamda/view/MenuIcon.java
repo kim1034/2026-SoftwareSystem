@@ -17,7 +17,7 @@ import java.awt.geom.RoundRectangle2D;
  * 그림 글자(이모지)는 PC 글꼴에 따라 네모로 나올 수 있어서 직접 그린다.
  */
 public final class MenuIcon implements Icon {
-    public enum Shape { CART, RECEIPT, PERSON, PERSON_PLUS, LOGOUT, GEAR, SEARCH }
+    public enum Shape { CART, RECEIPT, PERSON, PERSON_PLUS, FAMILY, LOGOUT, GEAR, SEARCH }
 
     private final Shape shape;
     private final int size;
@@ -73,6 +73,12 @@ public final class MenuIcon implements Icon {
                     g.draw(new Line2D.Float(s * 0.86f, s * 0.30f, s * 0.86f, s * 0.58f));
                     g.draw(new Line2D.Float(s * 0.72f, s * 0.44f, s * 1.00f, s * 0.44f));
                 }
+            }
+            case FAMILY -> { // 어른 둘이 나란히
+                g.draw(new Ellipse2D.Float(s * 0.14f, s * 0.12f, s * 0.26f, s * 0.26f));
+                g.draw(new Arc2D.Float(s * 0.02f, s * 0.48f, s * 0.50f, s * 0.70f, 0, 180, Arc2D.OPEN));
+                g.draw(new Ellipse2D.Float(s * 0.60f, s * 0.22f, s * 0.22f, s * 0.22f));
+                g.draw(new Arc2D.Float(s * 0.52f, s * 0.56f, s * 0.42f, s * 0.58f, 0, 180, Arc2D.OPEN));
             }
             case LOGOUT -> {
                 Path2D door = new Path2D.Float();

@@ -2,12 +2,15 @@ package com.sadamda.view.tryon;
 
 import com.sadamda.common.LoginRequiredException;
 import com.sadamda.controller.AppContext;
+import com.sadamda.controller.CodiBookController;
 import com.sadamda.external.DressUpException;
 import com.sadamda.external.DressUpSettings;
 import com.sadamda.external.RemoteImages;
 import com.sadamda.model.order.OrderLine;
 import com.sadamda.model.product.Product;
 import com.sadamda.model.product.ProductOption;
+import com.sadamda.model.recommend.OutfitSuggestion;
+import com.sadamda.model.tryon.SavedCodi;
 import com.sadamda.model.tryon.Background;
 import com.sadamda.model.tryon.BackgroundCatalog;
 import com.sadamda.model.tryon.CharacterSpec;
@@ -126,6 +129,20 @@ public class TryOnPanel extends ScreenPanel {
     private final JButton downloadButton = TryOnUi.secondary("내 컴퓨터에 저장");
     private final JButton cartButton = TryOnUi.secondary("장바구니 담기");
     private final JButton settingsButton = TryOnUi.secondary("AI 연결 설정");
+    private final JButton helperButton = TryOnUi.compact(Theme.filledButton("어디 가세요? 코디 추천받기", Theme.BEIGE, Theme.TEXT));
+    private final JButton codiSaveButton = TryOnUi.secondary("코디북에 저장");
+    private final JButton codiBookButton = TryOnUi.secondary("내 코디북");
+
+    /** 고른 옷이 바뀔 때마다 1씩 는다. 그림이 지금 옷차림으로 그린 것인지 확인할 때 쓴다 (UC-19). */
+    private int outfitVersion;
+    /** resultImage 를 그릴 때의 outfitVersion. */
+    private int resultVersion = -1;
+    /** resultImage 가 올린 사진으로 만든 그림인지. 사진 그림은 코디북에 남기지 않는다 (NFR-08). */
+    private boolean resultFromPhoto;
+    /** 코디북에서 다시 연 코디 (UC-19). [코디북에 저장]이 덮어쓸지 묻는다. 없으면 null. */
+    private SavedCodi openedCodi;
+    /** 코디 도우미(UC-20)에서 고른 코디 이름. 코디북에 저장할 때 이름 칸에 먼저 넣어 둔다. */
+    private String suggestedTitle;
 
     private CharacterStyle style = CharacterStyle.REAL;
     private CharacterSpec spec;
@@ -322,9 +339,16 @@ public class TryOnPanel extends ScreenPanel {
         head.add(pickAllButton, BorderLayout.EAST);
 
         generateButton.addActionListener(e -> generate());
+        // UC-20: 무엇을 입힐지 막막할 때 상황만 고르면 한 벌을 채워 준다
+        helperButton.addActionListener(e -> openHelper(null));
+        JPanel top = new JPanel(new BorderLayout(0, 8));
+        top.setOpaque(false);
+        top.add(helperButton, BorderLayout.NORTH);
+        top.add(head, BorderLayout.CENTER);
+
         JPanel column = new JPanel(new BorderLayout(0, 12));
         column.setOpaque(false);
-        column.add(head, BorderLayout.NORTH);
+        column.add(top, BorderLayout.NORTH);
         column.add(scroll, BorderLayout.CENTER);
         column.add(generateButton, BorderLayout.SOUTH); // 가장 많이 누르는 버튼이라 아이템 바로 아래에 크게
         return column;
@@ -339,10 +363,15 @@ public class TryOnPanel extends ScreenPanel {
         retryButton.addActionListener(e -> generate());
         undressButton.addActionListener(e -> {
             outfit.clear();
+            outfitChanged();
+            openedCodi = null;
+            suggestedTitle = null;
             refreshSlots();
             showBase();
             setStatus("옷을 모두 벗겼습니다.");
         });
+        codiSaveButton.addActionListener(e -> saveToCodiBook());
+        codiBookButton.addActionListener(e -> openCodiBook());
         lockerButton.addActionListener(e -> saveToLocker());
         openLockerButton.addActionListener(e -> openLocker());
         downloadButton.addActionListener(e -> download());
@@ -360,6 +389,8 @@ public class TryOnPanel extends ScreenPanel {
         buttons.setOpaque(false);
         buttons.add(retryButton);
         buttons.add(undressButton);
+        buttons.add(codiSaveButton);
+        buttons.add(codiBookButton);
         buttons.add(lockerButton);
         buttons.add(openLockerButton);
         buttons.add(downloadButton);
@@ -585,6 +616,7 @@ public class TryOnPanel extends ScreenPanel {
         outfit.replaceWith(dialog.result());
         refreshSlots();
         if (!before.equals(outfit.products())) {
+            outfitChanged();
             setStatus(outfit.isEmpty() ? "입힐 옷을 골라 주세요." : "고른 아이템을 반영했습니다.");
         }
     }
@@ -603,6 +635,7 @@ public class TryOnPanel extends ScreenPanel {
             return true; // 그리는 중에는 고른 옷을 바꾸지 않는다
         }
         List<DressUpSlot> removed = outfit.put(slot, product);
+        outfitChanged();
         refreshSlots();
         setStatus(slot.label() + " 칸에 넣었습니다." + takenOff(slot, removed));
         return true;
@@ -723,6 +756,7 @@ public class TryOnPanel extends ScreenPanel {
         CharacterStyle requestedStyle = style;
         CharacterSpec requestedSpec = spec;
         Outfit requestedOutfit = outfit.copy();
+        int requestedVersion = outfitVersion;
 
         working = true;
         retryButton.setVisible(false);
@@ -753,6 +787,8 @@ public class TryOnPanel extends ScreenPanel {
                         throw new DressUpException("받은 그림을 열 수 없습니다. 다시 시도해 주세요.");
                     }
                     resultImage = image;
+                    resultVersion = requestedVersion;
+                    resultFromPhoto = requestedPhotoMode;
                     characterView.setImage(decoded);
                     updateScene();
                     SwingUtilities.invokeLater(() -> openViewer()); // 결과는 바로 크게 보여준다
@@ -775,6 +811,150 @@ public class TryOnPanel extends ScreenPanel {
     private void fail(String reason) {
         setStatus("입혀보기에 실패했습니다. " + reason);
         retryButton.setVisible(true);
+    }
+
+    // ── 내 코디북 (UC-19) · 코디 도우미 (UC-20) ──
+
+    private void outfitChanged() {
+        outfitVersion++;
+    }
+
+    /**
+     * UC-20 상황별 코디 도우미를 연다. occasion 을 주면 그 상황을 골라 둔 채로 연다 (홈 화면의 상황 버튼).
+     * [이 코디 입혀보기]를 고르면 칸을 그 코디로 바꾸고, AI 가 연결되어 있으면 바로 입혀 본다.
+     */
+    public void openHelper(String occasion) {
+        if (working) {
+            return;
+        }
+        CodiHelperDialog dialog = new CodiHelperDialog(SwingUtilities.getWindowAncestor(this),
+                context.recommend, spec, occasion);
+        dialog.setVisible(true);
+        if (dialog.chosen() != null) {
+            wearOutfit(dialog.chosen());
+        }
+    }
+
+    /**
+     * 추천 코디 한 벌을 칸에 넣고, AI 가 연결되어 있으면 바로 입혀 본다.
+     * 코디 도우미(UC-20)와 옷장 출석의 오늘의 코디(UC-21)에서 부른다.
+     */
+    public void wearOutfit(OutfitSuggestion chosen) {
+        if (working || chosen == null) {
+            return;
+        }
+        outfit.clear();
+        for (Product product : chosen.products()) {
+            DressUpSlot slot = DressUpSlot.slotFor(product);
+            if (slot != null) {
+                outfit.put(slot, product);
+            }
+        }
+        outfitChanged();
+        openedCodi = null;
+        suggestedTitle = chosen.title();
+        refreshSlots();
+        showBase();
+        if (context.dressUp.dressUpConnected()) {
+            generate();
+        } else {
+            setStatus("'" + chosen.title() + "'를 칸에 넣었습니다. 마음에 들면 [코디북에 저장]으로 모아 두세요.");
+        }
+    }
+
+    /** UC-19 [코디북에 저장]: 고른 옷과 (입혀 봤으면) 그림을 이름을 붙여 저장한다. 다시 연 코디면 덮어쓸지 묻는다. */
+    private void saveToCodiBook() {
+        if (!context.codiBook.isLoggedIn()) {
+            JOptionPane.showMessageDialog(this, "코디북은 로그인한 뒤에 쓸 수 있습니다.");
+            return;
+        }
+        // 지금 옷차림으로 그린 캐릭터 그림만 함께 남긴다. 올린 사진으로 만든 그림은 남기지 않는다 (NFR-08).
+        byte[] image = resultImage != null && resultVersion == outfitVersion && !resultFromPhoto ? resultImage : null;
+        try {
+            if (openedCodi != null) {
+                Object[] choices = {"'" + openedCodi.title() + "'에 덮어쓰기", "새 코디로 저장", "취소"};
+                int answer = JOptionPane.showOptionDialog(this,
+                        "코디북에서 연 코디입니다. 고친 내용을 어떻게 저장할까요?", "코디북에 저장",
+                        JOptionPane.DEFAULT_OPTION, JOptionPane.QUESTION_MESSAGE, null, choices, choices[0]);
+                if (answer == 0) {
+                    openedCodi = context.codiBook.overwrite(openedCodi.id(), style, spec, outfit, image);
+                    setStatus("'" + openedCodi.title() + "' 코디를 고친 내용으로 저장했습니다.");
+                    return;
+                }
+                if (answer != 1) {
+                    return;
+                }
+            }
+            String defaultTitle = suggestedTitle != null ? suggestedTitle
+                    : "내 코디 " + java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("M월 d일"));
+            Object title = JOptionPane.showInputDialog(this,
+                    "코디 이름을 넣어 주세요. 예: 딸 결혼식 룩, 제주 여행 첫날", "코디북에 저장",
+                    JOptionPane.PLAIN_MESSAGE, null, null, defaultTitle);
+            if (title == null) {
+                return;
+            }
+            openedCodi = context.codiBook.save(title.toString(), style, spec, outfit, image);
+            suggestedTitle = null;
+            setStatus("'" + openedCodi.title() + "'를 코디북에 저장했습니다."
+                    + (image == null ? " 그림은 캐릭터로 [입혀보기]를 한 뒤 다시 저장하면 함께 남습니다." : ""));
+        } catch (LoginRequiredException e) {
+            JOptionPane.showMessageDialog(this, "코디북은 로그인한 뒤에 쓸 수 있습니다.");
+        } catch (RuntimeException e) {
+            JOptionPane.showMessageDialog(this, "코디북에 저장하지 못했습니다.\n" + e.getMessage());
+        }
+    }
+
+    /** UC-19 [내 코디북]: 저장한 코디를 고르면 그림체·신체 스펙·옷·그림을 그대로 되살린다 (캐릭터로 돌아간다). */
+    private void openCodiBook() {
+        if (!context.codiBook.isLoggedIn()) {
+            JOptionPane.showMessageDialog(this, "코디북은 로그인한 뒤에 쓸 수 있습니다.");
+            return;
+        }
+        SavedCodi chosen;
+        try {
+            CodiBookDialog dialog = new CodiBookDialog(SwingUtilities.getWindowAncestor(this), context.codiBook);
+            dialog.setVisible(true);
+            chosen = dialog.chosen();
+        } catch (RuntimeException e) {
+            JOptionPane.showMessageDialog(this, "코디북을 열지 못했습니다.\n" + e.getMessage());
+            return;
+        }
+        if (chosen == null) {
+            return;
+        }
+        CodiBookController.Opened opened;
+        try {
+            opened = context.codiBook.open(chosen.id());
+        } catch (RuntimeException e) {
+            JOptionPane.showMessageDialog(this, "코디를 열지 못했습니다.\n" + e.getMessage());
+            return;
+        }
+        style = opened.codi().style();
+        photoMode = false;
+        JToggleButton styleChip = styleChips.get(style);
+        if (styleChip != null) {
+            styleChip.setSelected(true);
+        }
+        spec = opened.codi().spec();
+        showSpec();
+        outfit.replaceWith(opened.outfit());
+        outfitChanged();
+        openedCodi = opened.codi();
+        suggestedTitle = null;
+        refreshSlots();
+        showBase();
+        BufferedImage decoded = opened.image() == null ? null : RemoteImages.decode(opened.image());
+        if (decoded != null) {
+            resultImage = opened.image();
+            resultVersion = outfitVersion;
+            resultFromPhoto = false;
+            characterView.setImage(decoded);
+            updateScene();
+            updateButtons();
+        }
+        setStatus(opened.missing() > 0
+                ? "'" + opened.codi().title() + "' 코디를 열었습니다. 판매가 끝난 상품 " + opened.missing() + "개는 빼고 넣었습니다."
+                : "'" + opened.codi().title() + "' 코디를 열었습니다. 칸을 바꿔 새 코디를 만들어 보세요.");
     }
 
     /** UC-09 9단계 [보관함에 저장] */
@@ -865,6 +1045,9 @@ public class TryOnPanel extends ScreenPanel {
         downloadButton.setEnabled(!working && hasResult);
         openLockerButton.setEnabled(!working);
         cartButton.setEnabled(!working && hasOutfit);
+        helperButton.setEnabled(!working);
+        codiSaveButton.setEnabled(!working && hasOutfit);
+        codiBookButton.setEnabled(!working);
         pickAllButton.setEnabled(!working);
         changePhotoButton.setEnabled(!working);
         zoomButton.setEnabled(!working);

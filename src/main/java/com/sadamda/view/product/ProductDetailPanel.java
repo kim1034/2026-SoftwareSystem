@@ -13,6 +13,7 @@ import com.sadamda.view.Theme;
 import com.sadamda.view.Toast;
 import com.sadamda.view.WrapLayout;
 import com.sadamda.view.cart.CartPanel;
+import com.sadamda.view.family.AskFamilyDialog;
 import com.sadamda.view.member.LoginPanel;
 import com.sadamda.view.tryon.TryOnPanel;
 
@@ -286,6 +287,10 @@ public class ProductDetailPanel extends ScreenPanel {
         JButton tryOn = Theme.filledButton("AI로 입어보기", Theme.OLIVE, Color.WHITE);
         tryOn.addActionListener(e -> tryOn());
         Theme.addToCard(panel, tryOn, 32);
+        // 사담다 차별 기능: 고른 옷을 가족에게 "어때?" 물어보고, 가족이 대신 결제해 줄 수도 있다.
+        JButton askFamily = Theme.secondaryButton("가족에게 물어보기");
+        askFamily.addActionListener(e -> askFamily());
+        Theme.addToCard(panel, askFamily, 12);
         updateWishButton();
         return panel;
     }
@@ -543,6 +548,18 @@ public class ProductDetailPanel extends ScreenPanel {
             return;
         }
         frame.navigate(TryOnPanel.NAME);
+    }
+
+    /** [가족에게 물어보기]: 고른 사이즈·색상·수량으로 가족에게 묻는다. 비회원이면 로그인 화면으로. */
+    private void askFamily() {
+        actionError.setText("");
+        ProductOption option = chosenOption();
+        if (option == null || !loggedIn()) {
+            return;
+        }
+        OrderLine line = new OrderLine(product.id(), option.id(), quantity);
+        AskFamilyDialog.open(this, context, frame, "이 상품(" + option.size() + " / " + option.color() + ")",
+                (email, message) -> context.family.ask(email, List.of(line), message));
     }
 
     /** UC-10 1a 찜 버튼: 찜했으면 ♥ (채운 하트), 아니면 ♡. */
