@@ -73,6 +73,17 @@ public class OrderPanel extends ScreenPanel {
     private final JButton payButton = Theme.primaryButton("결제하기");
     private final JPanel payBar = new JPanel(new GridBagLayout());
 
+    /** UC-21 무료배송 쿠폰 쓰기. 고르면 최종 주문정보의 배송비가 바로 0원이 된다. */
+    private final javax.swing.JCheckBox couponBox = Theme.checkBox("무료배송 쿠폰 쓰기");
+    private JPanel summaryCard;
+    private int summaryProductTotal;
+    /** 이 주문서에 쿠폰 칸을 보여줬는지 (가진 쿠폰이 있을 때만). */
+    private boolean couponOffered;
+
+    {
+        couponBox.addActionListener(e -> fillSummary());
+    }
+
     /** 지금 작성 중인 주문서. 결제가 끝나면 null (같은 주문을 두 번 결제하지 않게). */
     private OrderSheet sheet;
     private Order completed;
@@ -247,16 +258,53 @@ public class OrderPanel extends ScreenPanel {
         Theme.addToCard(paymentCard, paymentRow, 0);
         Theme.addToCard(column, paymentCard, 12);
 
-        Theme.addToCard(column, sectionHeader("최종 주문정보"), 40);
-        JPanel summary = whiteCard();
-        Theme.addToCard(summary, amountRow("상품 금액", price(productTotal), false), 0);
-        Theme.addToCard(summary, amountRow("배송비", price(SHIPPING_FEE), false), 12);
-        Theme.addToCard(summary, line(), 16);
-        Theme.addToCard(summary, amountRow("총 결제금액", price(productTotal + SHIPPING_FEE), true), 16);
-        Theme.addToCard(column, summary, 12);
+        // UC-21 옷장 출석으로 받은 무료배송 쿠폰. 가진 쿠폰이 있을 때만 보여준다
+        int coupons = freeShippingCoupons();
+        SwingUtilities.updateComponentTreeUI(couponBox);
+        couponBox.setSelected(false);
+        couponBox.setText("무료배송 쿠폰 쓰기 (가진 쿠폰 " + coupons + "장 · 옷장 출석으로 받음)");
+        couponOffered = coupons > 0;
+        if (couponOffered) {
+            Theme.addToCard(column, sectionHeader("쿠폰"), 40);
+            JPanel couponCard = whiteCard();
+            Theme.addToCard(couponCard, couponBox, 0);
+            Theme.addToCard(column, couponCard, 12);
+        }
 
-        payButton.setText(price(productTotal + SHIPPING_FEE) + " · 결제하기");
+        Theme.addToCard(column, sectionHeader("최종 주문정보"), 40);
+        summaryCard = whiteCard();
+        summaryProductTotal = productTotal;
+        fillSummary();
+        Theme.addToCard(column, summaryCard, 12);
         payBar.setVisible(true);
+    }
+
+    /** 최종 주문정보와 [결제하기] 금액. 쿠폰을 쓰면 배송비가 0원이 된다. */
+    private void fillSummary() {
+        if (summaryCard == null) {
+            return;
+        }
+        int shipping = useCoupon() ? 0 : SHIPPING_FEE;
+        summaryCard.removeAll();
+        Theme.addToCard(summaryCard, amountRow("상품 금액", price(summaryProductTotal), false), 0);
+        Theme.addToCard(summaryCard, amountRow("배송비", shipping == 0 ? "0원 (무료배송 쿠폰)" : price(shipping), false), 12);
+        Theme.addToCard(summaryCard, line(), 16);
+        Theme.addToCard(summaryCard, amountRow("총 결제금액", price(summaryProductTotal + shipping), true), 16);
+        summaryCard.revalidate();
+        summaryCard.repaint();
+        payButton.setText(price(summaryProductTotal + shipping) + " · 결제하기");
+    }
+
+    private boolean useCoupon() {
+        return couponOffered && couponBox.isSelected();
+    }
+
+    private int freeShippingCoupons() {
+        try {
+            return context.order.freeShippingCoupons();
+        } catch (RuntimeException e) {
+            return 0; // 쿠폰을 못 읽어도 주문은 할 수 있어야 한다
+        }
     }
 
     /** 내가 받기: 받는 분·연락처는 회원 정보, 주소는 기본 배송지를 채워 두고 바로 고칠 수 있게 한다 (3단계). */
@@ -338,7 +386,8 @@ public class OrderPanel extends ScreenPanel {
         String address = gift == null ? addressField.getText().trim() : gift.recipientAddress();
         String method = paymentChips.stream().filter(JToggleButton::isSelected)
                 .map(JToggleButton::getText).findFirst().orElse(PAYMENT_METHODS[0]);
-        CheckoutRequest request = new CheckoutRequest(sheet.lines(), address, method, gift, sheet.fromCart());
+        CheckoutRequest request = new CheckoutRequest(sheet.lines(), address, method, gift, sheet.fromCart(),
+                useCoupon());
 
         // 결제 시스템 응답을 기다리므로 화면 스레드가 아닌 곳에서 부른다 (docs/controller-spec.md).
         // 기다리는 동안 버튼을 막아 두 번 결제하지 않게 하고, 무엇을 하는지 알려 준다.

@@ -25,6 +25,8 @@ public class DemoData {
     /** 시연용 일반 회원. 관리자 계정은 MemberService.ADMIN_EMAIL / ADMIN_PASSWORD. */
     public static final String DEMO_EMAIL = "demo@sadamda.com";
     public static final String DEMO_PASSWORD = "demo1234";
+    /** 시연용 가족(딸) 회원. 엄마(demo)가 "가족에게 물어보기"로 보낸 옷을 받아 답하거나 대신 결제한다. */
+    public static final String FAMILY_EMAIL = "daughter@sadamda.com";
     private static final String ADDRESS = "서울시 종로구 세종대로 1, 101동 101호";
 
     private final OrderService orderService;
@@ -36,11 +38,16 @@ public class DemoData {
         this.productService = productService;
     }
 
-    /** 시연용 일반 회원을 만든다 (이메일 demo@sadamda.com, 비밀번호 demo1234). 체형 정보·기본 배송지 포함. */
+    /**
+     * 시연용 회원을 만든다: 엄마 demo@sadamda.com / demo1234 (체형 정보·기본 배송지 포함)와
+     * 딸 daughter@sadamda.com / demo1234 (가족에게 물어보기 시연용).
+     */
     static void createDemoMember(MemberService memberService) {
         Member demo = memberService.signUp(DEMO_EMAIL, DEMO_PASSWORD, "김사담", "010-1234-5678",
                 new BodyProfile("50대", 160, "M (66)", "보통 체형"));
         demo.setDefaultAddress(ADDRESS);
+        Member daughter = memberService.signUp(FAMILY_EMAIL, DEMO_PASSWORD, "김지은", "010-2345-6789", null);
+        daughter.setDefaultAddress("서울시 마포구 월드컵로 10, 202호");
     }
 
     /** 이 회원에게 아직 넣지 않았으면 예전 주문 2건을 넣는다. 데모 상품을 못 찾으면 조용히 건너뛴다. */

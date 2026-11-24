@@ -37,7 +37,17 @@ public class OrderService {
 
     /** UC-11 2단계 결제 금액 계산. 품절·판매 중지 상품이 있으면 AppException. */
     public synchronized int calculateTotal(List<OrderLine> lines) {
-        return productTotal(lines) + SHIPPING_FEE;
+        return calculateTotal(lines, false);
+    }
+
+    /** UC-11 2단계 결제 금액. freeShipping 이면 무료배송 쿠폰(UC-21)으로 배송비를 뺀다. */
+    public synchronized int calculateTotal(List<OrderLine> lines, boolean freeShipping) {
+        return productTotal(lines) + shippingFee(freeShipping);
+    }
+
+    /** 배송비: 무료배송 쿠폰을 쓰면 0원, 아니면 SHIPPING_FEE. */
+    public static int shippingFee(boolean freeShipping) {
+        return freeShipping ? 0 : SHIPPING_FEE;
     }
 
     /**
@@ -47,6 +57,13 @@ public class OrderService {
      */
     public synchronized Order placeOrder(Long memberId, List<OrderLine> lines, String shippingAddress,
                                          GiftInfo giftInfo, String paymentId, String paymentMethod) {
+        return placeOrder(memberId, lines, shippingAddress, giftInfo, paymentId, paymentMethod, false);
+    }
+
+    /** placeOrder 와 같고, freeShipping 이면 배송비 0원으로 저장한다 (UC-21 무료배송 쿠폰). */
+    public synchronized Order placeOrder(Long memberId, List<OrderLine> lines, String shippingAddress,
+                                         GiftInfo giftInfo, String paymentId, String paymentMethod,
+                                         boolean freeShipping) {
         int productTotal = productTotal(lines);
         List<OrderItem> items = new ArrayList<>();
         for (OrderLine line : lines) {
@@ -56,7 +73,7 @@ public class OrderService {
             }
             items.add(new OrderItem(line.productId(), line.optionId(), line.quantity(), product.getPrice()));
         }
-        Order order = new Order(nextId++, memberId, items, shippingAddress, productTotal, SHIPPING_FEE,
+        Order order = new Order(nextId++, memberId, items, shippingAddress, productTotal, shippingFee(freeShipping),
                 paymentId, paymentMethod, giftInfo, LocalDateTime.now());
         orders.put(order.getId(), order);
         return order;

@@ -1,6 +1,7 @@
 package com.sadamda.model.tryon;
 
 import com.sadamda.common.AppException;
+import com.sadamda.common.OwnerKeys;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -9,16 +10,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
-import java.util.HexFormat;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 import java.util.stream.Collectors;
@@ -131,16 +128,7 @@ public class CodiBookService {
 
     /** 회원 이메일 → 폴더 이름. 대소문자·앞뒤 공백이 달라도 같은 회원으로 본다. */
     public static String ownerKey(String email) {
-        if (email == null || email.isBlank()) {
-            return null;
-        }
-        try {
-            byte[] hash = MessageDigest.getInstance("SHA-256")
-                    .digest(email.trim().toLowerCase(Locale.ROOT).getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(hash).substring(0, 16);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException(e);
-        }
+        return OwnerKeys.of(email);
     }
 
     private String validate(String owner, String title, Map<DressUpSlot, Long> productIds) {

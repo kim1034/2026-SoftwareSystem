@@ -31,7 +31,14 @@ import com.sadamda.model.tryon.UserPhoto;
 import com.sadamda.controller.DressUpController;
 import com.sadamda.common.AppException;
 import com.sadamda.controller.AdminController;
+import com.sadamda.controller.AttendanceController;
 import com.sadamda.controller.CodiBookController;
+import com.sadamda.controller.OrderController;
+import com.sadamda.model.attendance.AttendanceService;
+import com.sadamda.model.attendance.AttendanceWeek;
+import com.sadamda.model.cart.CartService;
+import com.sadamda.model.member.MemberService;
+import com.sadamda.model.order.OrderService;
 import com.sadamda.model.recommend.OutfitHelper;
 import com.sadamda.model.recommend.OutfitSuggestion;
 import com.sadamda.model.tryon.CodiBookService;
@@ -67,6 +74,7 @@ public class DomainSelfCheck {
         locker();
         codiBook();
         outfitHelper();
+        attendance();
         dressUp();
         openAiRelay();
         character();
@@ -375,6 +383,91 @@ public class DomainSelfCheck {
                 && controller.helperOccasions().size() == 4, "UC-20 비회원도 코디 도우미 사용 (Controller)");
         products.findAllByCategory(Category.BOTTOM).forEach(p -> products.suspend(p.getId()));
         check(helper.suggest("모임·식사", "가을", null, null).isEmpty(), "UC-20 4a 하의를 고를 수 없으면 빈 목록");
+    }
+
+    /** UC-21 옷장 출석: 하루 한 번, 주 단위 7칸, 5칸이면 무료배송 쿠폰, 그날의 코디, 결제 때 쿠폰 사용. */
+    private static void attendance() throws Exception {
+        Path dir = Files.createTempDirectory("sadamda-attendance");
+        AttendanceService service = new AttendanceService(dir);
+        String mom = com.sadamda.common.OwnerKeys.of("demo@sadamda.com");
+        java.time.LocalDate monday = java.time.LocalDate.of(2026, 11, 16);
+        check(AttendanceService.mondayOf(java.time.LocalDate.of(2026, 11, 22)).equals(monday)
+                && AttendanceService.mondayOf(monday).equals(monday), "UC-21 한 주는 월요일부터 일요일까지");
+
+        AttendanceWeek first = service.checkIn(mom, monday);
+        check(first.checkedToday() && first.stampedCount() == 1 && first.coupons() == 0, "UC-21 첫 출석 도장");
+        AttendanceWeek again = service.checkIn(mom, monday);
+        check(again.stampedCount() == 1 && !again.couponJustEarned(), "UC-21 2a 같은 날 두 번 출석해도 한 칸");
+        service.checkIn(mom, monday.plusDays(1));
+        service.checkIn(mom, monday.plusDays(3)); // 수요일은 쉼
+        service.checkIn(mom, monday.plusDays(4));
+        AttendanceWeek fifth = service.checkIn(mom, monday.plusDays(5));
+        check(fifth.stampedCount() == 5 && fifth.couponJustEarned() && fifth.coupons() == 1
+                        && !fifth.isStamped(monday.plusDays(2)),
+                "UC-21 4단계 하루 쉬어도 이어서, 한 주 5칸이면 무료배송 쿠폰 1장");
+        AttendanceWeek sixth = service.checkIn(mom, monday.plusDays(6));
+        check(!sixth.couponJustEarned() && sixth.coupons() == 1 && sixth.stampedCount() == 6,
+                "UC-21 쿠폰은 한 주에 한 번만");
+        AttendanceWeek nextWeek = service.checkIn(mom, monday.plusDays(7));
+        check(nextWeek.stampedCount() == 1 && nextWeek.monday().equals(monday.plusDays(7))
+                && nextWeek.totalDays() == 7, "UC-21 다음 주는 새 7칸, 지금까지 출석 수는 이어짐");
+        check(new AttendanceService(dir).week(mom, monday.plusDays(6)).stampedCount() == 6
+                && new AttendanceService(dir).coupons(mom) == 1, "UC-21 프로그램을 다시 켜도 출석·쿠폰 유지");
+        check(service.week(com.sadamda.common.OwnerKeys.of("other@sadamda.com"), monday).stampedCount() == 0,
+                "UC-21 회원별 출석");
+        expectError(() -> service.checkIn(null, monday), "UC-21 비회원은 출석 불가");
+
+        // 그날의 코디: 날마다 다르고, 같은 날이면 같다
+        ProductService products = new ProductService();
+        OutfitHelper helper = new OutfitHelper(products);
+        OutfitSuggestion day1 = helper.dailyOutfit(monday, "보통 체형", "50대");
+        java.util.Set<String> occasions = new java.util.HashSet<>();
+        java.util.Set<java.util.List<Long>> outfits = new java.util.HashSet<>();
+        java.util.Set<Long> weekTops = new java.util.HashSet<>();
+        for (int i = 0; i < 7; i++) {
+            OutfitSuggestion daily = helper.dailyOutfit(monday.plusDays(i), "보통 체형", "50대");
+            occasions.add(daily.title().substring(daily.title().indexOf("·") + 2));
+            outfits.add(daily.products().stream().map(Product::getId).toList());
+            daily.products().stream().filter(p -> p.getCategory() == Category.TOP).forEach(p -> weekTops.add(p.getId()));
+        }
+        check(weekTops.size() == 7, "UC-21 일주일 동안 날마다 다른 상의");
+        check(day1.title().startsWith("11월 16일 오늘의 코디")
+                        && helper.dailyOutfit(monday, "보통 체형", "50대").equals(day1),
+                "UC-21 3단계 그날의 코디: 날짜가 제목, 같은 날이면 같은 코디");
+        check(occasions.size() == 4 && outfits.size() == 7, "UC-21 일주일 동안 상황 4가지를 돌며 코디 7벌이 모두 다름");
+
+        // Controller: 출석한 날만 코디, 결제 때 쿠폰 쓰기
+        Session session = new Session();
+        AttendanceController controller = new AttendanceController(session, new AttendanceService(dir), helper,
+                () -> monday.plusDays(6));
+        expectError(controller::week, "UC-21 비회원은 출석 칸을 볼 수 없음 (LoginRequiredException)");
+        Member member = new Member();
+        member.setId(1L);
+        member.setEmail("demo@sadamda.com");
+        member.setBodyProfile(new BodyProfile("50대", 160, "M (66)", "보통 체형"));
+        session.login(member);
+        check(controller.week().stampedCount() == 6 && controller.outfitOf(monday).equals(day1),
+                "UC-21 5단계 출석한 날 칸을 누르면 그날 코디 (회원 체형 기준)");
+        expectError(() -> controller.outfitOf(monday.plusDays(2)), "UC-21 5a 쉰 날의 코디는 볼 수 없음");
+
+        CartService cart = new CartService(products);
+        OrderService orders = new OrderService(products, cart);
+        AttendanceService wallet = new AttendanceService(dir);
+        OrderController order = new OrderController(session, orders, cart, new MemberService(),
+                new com.sadamda.external.MockPaymentGateway(), wallet);
+        Product top = products.findAllByCategory(Category.TOP).get(0);
+        List<com.sadamda.model.order.OrderLine> lines =
+                List.of(new com.sadamda.model.order.OrderLine(top.getId(), top.getOptions().get(0).id(), 1));
+        check(order.freeShippingCoupons() == 1, "UC-21 주문서에 가진 쿠폰 수");
+        com.sadamda.model.order.Order free = order.checkout(new com.sadamda.controller.CheckoutRequest(
+                lines, "서울시 종로구 1", "카드 결제", null, false, true));
+        check(free.getShippingFee() == 0 && free.getTotalPrice() == top.getPrice() && order.freeShippingCoupons() == 0,
+                "UC-21 무료배송 쿠폰으로 결제: 배송비 0원, 쿠폰 1장 사용");
+        expectError(() -> order.checkout(new com.sadamda.controller.CheckoutRequest(
+                lines, "서울시 종로구 1", "카드 결제", null, false, true)), "UC-21 쿠폰이 없으면 쿠폰 결제 불가");
+        com.sadamda.model.order.Order paid = order.checkout(new com.sadamda.controller.CheckoutRequest(
+                lines, "서울시 종로구 1", "카드 결제", null, false));
+        check(paid.getShippingFee() == OrderService.SHIPPING_FEE, "UC-21 쿠폰을 안 쓰면 예전처럼 배송비 3,000원");
     }
 
     private static void locker() throws Exception {

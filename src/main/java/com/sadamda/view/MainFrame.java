@@ -4,6 +4,7 @@ import com.sadamda.controller.AppContext;
 import com.sadamda.model.member.Member;
 import com.sadamda.controller.OrderSheet;
 import com.sadamda.view.admin.AdminPanel;
+import com.sadamda.view.family.FamilyPanel;
 import com.sadamda.view.cart.CartPanel;
 import com.sadamda.view.member.KeepLogin;
 import com.sadamda.view.member.LoginPanel;
@@ -62,6 +63,9 @@ public class MainFrame extends JFrame {
     private final MenuItem signUpMenu = new MenuItem("회원가입", SignUpPanel.NAME);
     private final MenuItem logoutMenu = new MenuItem("로그아웃", null);
     private final MenuItem cartMenu = new MenuItem("장바구니", CartPanel.NAME);
+    private final MenuItem familyMenu = new MenuItem("가족 쇼핑", FamilyPanel.NAME);
+    /** 새 소식 알림을 이미 띄운 회원 (로그인할 때 한 번만). */
+    private Long familyToastShownFor;
     private final MenuItem adminMenu = new MenuItem("관리자", AdminPanel.NAME);
 
     private String currentScreen;
@@ -97,6 +101,7 @@ public class MainFrame extends JFrame {
         addScreen(MyInfoPanel.NAME, new MyInfoPanel(context, this));
         addScreen(ReviewWritePanel.NAME, reviewWrite);
         addScreen(AdminPanel.NAME, new AdminPanel(context, this));
+        addScreen(FamilyPanel.NAME, new FamilyPanel(context, this));
 
         createMenuBar();
         add(menuBar, BorderLayout.NORTH);
@@ -231,16 +236,22 @@ public class MainFrame extends JFrame {
         left.add(screenMenu("룩북", LookbookPanel.NAME));
         left.add(screenMenu("옷 입혀보기", TryOnPanel.NAME));
 
+        // 쇼핑몰처럼 위 작은 줄에는 계정 메뉴, 아래 큰 줄에는 둘러보기와 자주 쓰는 [가족 쇼핑] [장바구니] [글씨 크기].
+        // 한 줄에 모두 두면 [글씨 크기]를 키웠을 때 메뉴가 서로 겹친다.
+        JPanel account = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        account.setOpaque(false);
+        account.add(screenMenu("주문 내역", OrderHistoryPanel.NAME));
+        account.add(screenMenu(myInfoMenu));
+        account.add(screenMenu(loginMenu));
+        account.add(screenMenu(signUpMenu));
+        logoutMenu.addActionListener(e -> logout());
+        account.add(logoutMenu);
+        account.add(screenMenu(adminMenu));
+
         JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
         right.setOpaque(false);
+        right.add(screenMenu(familyMenu));
         right.add(screenMenu(cartMenu));
-        right.add(screenMenu("주문 내역", OrderHistoryPanel.NAME));
-        right.add(screenMenu(myInfoMenu));
-        right.add(screenMenu(loginMenu));
-        right.add(screenMenu(signUpMenu));
-        logoutMenu.addActionListener(e -> logout());
-        right.add(logoutMenu);
-        right.add(screenMenu(adminMenu));
         right.add(Box.createHorizontalStrut(12));
 
         JButton fontButton = Theme.secondaryButton("글씨 크기", MENU_FONT_SIZE); // UC-15: 화면 상단 고정
@@ -249,8 +260,12 @@ public class MainFrame extends JFrame {
         fontButton.addActionListener(e -> chooseFontSize());
         right.add(fontButton);
 
-        menuBar.add(left, BorderLayout.WEST);
-        menuBar.add(right, BorderLayout.EAST);
+        JPanel main = new JPanel(new BorderLayout());
+        main.setOpaque(false);
+        main.add(left, BorderLayout.WEST);
+        main.add(right, BorderLayout.EAST);
+        menuBar.add(account, BorderLayout.NORTH);
+        menuBar.add(main, BorderLayout.CENTER);
     }
 
     /** 왼쪽 끝 로고. 누르면 홈으로 간다. 글씨 크기와 상관없이 고정된 크기로 그린다. */
@@ -289,6 +304,8 @@ public class MainFrame extends JFrame {
         logoutMenu.setVisible(loggedIn);
         logoutMenu.setCurrent(false); // 다른 메뉴와 같은 글씨 크기로 (화면이 없는 메뉴라 따로 맞춘다)
         refreshCartBadge();
+        familyMenu.setVisible(loggedIn && !context.session.isAdmin());
+        refreshFamilyBadge();
         loginMenu.setVisible(!loggedIn);
         signUpMenu.setVisible(!loggedIn);
         adminMenu.setVisible(context.session.isAdmin());
@@ -318,6 +335,24 @@ public class MainFrame extends JFrame {
         int count = context.session.isLoggedIn() ? context.cart.cart().size() : 0;
         cartMenu.setText(count == 0 ? "장바구니" : "장바구니 " + count);
         cartMenu.getAccessibleContext().setAccessibleName(count == 0 ? "장바구니" : "장바구니, 상품 " + count + "개");
+    }
+
+    /**
+     * 상단 [가족 쇼핑] 옆에 새 소식 수(가족이 물어본 옷 + 새로 온 답)를 보여 준다.
+     * 로그인했을 때 새 소식이 있으면 한 번 알림을 띄운다.
+     */
+    public void refreshFamilyBadge() {
+        int news = context.family.newsCount();
+        familyMenu.setText(news == 0 ? "가족 쇼핑" : "가족 쇼핑 " + news);
+        familyMenu.getAccessibleContext().setAccessibleName(news == 0 ? "가족 쇼핑" : "가족 쇼핑, 새 소식 " + news + "개");
+        Long memberId = context.session.isLoggedIn() ? context.session.currentMember().getId() : null;
+        if (memberId == null) {
+            familyToastShownFor = null;
+        } else if (news > 0 && !memberId.equals(familyToastShownFor)) {
+            familyToastShownFor = memberId;
+            javax.swing.SwingUtilities.invokeLater(() -> Toast.show(menuBar, "가족 쇼핑에 새 소식이 " + news + "개 있어요",
+                    "확인하기", () -> navigate(FamilyPanel.NAME)));
+        }
     }
 
     private void logout() {

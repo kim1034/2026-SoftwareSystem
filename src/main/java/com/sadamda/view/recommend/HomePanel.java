@@ -74,6 +74,7 @@ public class HomePanel extends ScreenPanel {
     /** 화면을 내렸을 때 맨 위에 고정해 보여주는 같은 탭 줄. */
     private final CategoryBar pinnedBar;
     private final JPanel forMe = new JPanel(new BorderLayout(0, 12));
+    private final AttendanceRow attendanceRow;
     private final ProductGrid trendingGrid;
     private final JButton trendingMore = textLink("유행 아이템 모두 보기");
     private final JPanel lookbookRow = new JPanel(new GridLayout(1, LOOKBOOK_PREVIEW, 16, 0));
@@ -86,6 +87,7 @@ public class HomePanel extends ScreenPanel {
         hideTitle();
         setBackground(ShopUi.CARD);
         setBorder(BorderFactory.createEmptyBorder()); // 맨 위 띠를 창 끝까지 붙인다
+        attendanceRow = new AttendanceRow(context, frame);
         trendingGrid = new ProductGrid(this::openProduct, context, frame);
         newestGrid = new ProductGrid(this::openProduct, context, frame);
         categoryBar = new CategoryBar(context, true, this::openCategory);
@@ -105,8 +107,13 @@ public class HomePanel extends ScreenPanel {
         body.add(band(), BorderLayout.NORTH);
         body.add(sections, BorderLayout.CENTER);
 
+        // UC-21: 매일 들어올 이유. 검색 띠 바로 아래 첫 구역에 두어 켜자마자 보이게 한다
+        block(ShopUi.sectionHeader("옷장 출석", "하루 한 번 출석하면 오늘의 코디를 드려요. 칸을 눌러 그날 코디를 다시 볼 수 있어요.",
+                null), 24);
+        block(attendanceRow, 12);
+
         forMe.setOpaque(false);
-        block(forMe, 24);
+        block(forMe, 40);
 
         trendingMore.addActionListener(e -> {
             trendingExpanded = !trendingExpanded; // [모두 보기] ↔ [줄여 보기]
@@ -346,6 +353,7 @@ public class HomePanel extends ScreenPanel {
 
     /** 화면이 보일 때마다 로그인 상태·관리자 변경을 반영해 다시 그린다. */
     private void refresh() {
+        attendanceRow.refresh();
         categoryBar.refreshCounts();
         pinnedBar.refreshCounts();
         renderForMe();
