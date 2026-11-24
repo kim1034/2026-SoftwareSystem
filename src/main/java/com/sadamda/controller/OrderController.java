@@ -183,9 +183,11 @@ public class OrderController {
         try {
             if (request.freeShippingCoupon()) {
                 return orderService.placeOrder(memberId, request.lines(), shippingAddress, request.giftInfo(),
-                        paymentId, true);
+                        paymentId, request.paymentMethod(), true);
             }
-            return orderService.placeOrder(memberId, request.lines(), shippingAddress, request.giftInfo(), paymentId);
+            // 쿠폰을 안 쓰면 예전과 같은 메서드를 불러, 기존 JUnit(Mockito) 테스트의 호출 검증이 그대로 맞게 한다
+            return orderService.placeOrder(memberId, request.lines(), shippingAddress, request.giftInfo(), paymentId,
+                    request.paymentMethod());
         } catch (RuntimeException placeFailure) {
             if (!cancelPayment(paymentId)) {
                 LOG.log(System.Logger.Level.ERROR, "주문 저장 실패 후 결제 취소 실패: paymentId={0}, memberId={1}",

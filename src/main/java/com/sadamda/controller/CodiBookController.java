@@ -76,7 +76,7 @@ public class CodiBookController {
         int missing = 0;
         for (Map.Entry<DressUpSlot, Long> entry : codi.productIds().entrySet()) {
             Product product = productService.findByIdOrNull(entry.getValue());
-            if (product == null || !product.isOnSale() || product.getCategory() != entry.getKey().category()) {
+            if (product == null || !product.isOnSale() || !entry.getKey().accepts(product)) {
                 missing++;
             } else {
                 outfit.put(entry.getKey(), product);

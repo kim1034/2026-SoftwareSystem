@@ -241,7 +241,14 @@ public class CartPanel extends ScreenPanel {
         changeOption.setBorder(BorderFactory.createEmptyBorder(14, 24, 14, 24));
         changeOption.addActionListener(e -> openOptionDialog(item, product));
 
-        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        // 상품명이 길면 카드 안 칸들이 최소 크기로 줄어드는데, 이 줄이 좁아지면 [옵션 변경]이 다음 줄로 넘어가 잘린다.
+        // 그래서 이 줄은 원래 폭보다 줄지 않게 하고, 대신 상품명이 "…"로 줄어들게 한다.
+        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0)) {
+            @Override
+            public Dimension getMinimumSize() {
+                return getPreferredSize();
+            }
+        };
         row.setOpaque(false);
         row.add(minus);
         row.add(count);

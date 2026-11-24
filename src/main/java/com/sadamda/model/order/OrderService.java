@@ -56,13 +56,14 @@ public class OrderService {
      * giftInfo 가 null 이 아니면 선물 주문 (UC-12, FR-20).
      */
     public synchronized Order placeOrder(Long memberId, List<OrderLine> lines, String shippingAddress,
-                                         GiftInfo giftInfo, String paymentId) {
-        return placeOrder(memberId, lines, shippingAddress, giftInfo, paymentId, false);
+                                         GiftInfo giftInfo, String paymentId, String paymentMethod) {
+        return placeOrder(memberId, lines, shippingAddress, giftInfo, paymentId, paymentMethod, false);
     }
 
     /** placeOrder 와 같고, freeShipping 이면 배송비 0원으로 저장한다 (UC-21 무료배송 쿠폰). */
     public synchronized Order placeOrder(Long memberId, List<OrderLine> lines, String shippingAddress,
-                                         GiftInfo giftInfo, String paymentId, boolean freeShipping) {
+                                         GiftInfo giftInfo, String paymentId, String paymentMethod,
+                                         boolean freeShipping) {
         int productTotal = productTotal(lines);
         List<OrderItem> items = new ArrayList<>();
         for (OrderLine line : lines) {
@@ -73,7 +74,7 @@ public class OrderService {
             items.add(new OrderItem(line.productId(), line.optionId(), line.quantity(), product.getPrice()));
         }
         Order order = new Order(nextId++, memberId, items, shippingAddress, productTotal, shippingFee(freeShipping),
-                paymentId, giftInfo, LocalDateTime.now());
+                paymentId, paymentMethod, giftInfo, LocalDateTime.now());
         orders.put(order.getId(), order);
         return order;
     }

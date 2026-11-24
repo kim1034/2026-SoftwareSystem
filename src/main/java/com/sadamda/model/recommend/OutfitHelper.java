@@ -5,6 +5,7 @@ import com.sadamda.model.product.Category;
 import com.sadamda.model.product.Product;
 import com.sadamda.model.product.ProductService;
 import com.sadamda.model.product.ProductTags;
+import com.sadamda.model.tryon.DressUpSlot;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -163,6 +164,8 @@ public class OutfitHelper {
                 .filter(Product::isOnSale)
                 .filter(product -> !product.isSoldOut())
                 .filter(product -> body == null || !coversBody(part) || product.getBodyTypeTags().contains(body))
+                // 옷 입혀보기 칸에 들어갈 수 있는 것만 (종류를 알 수 없는 주얼리는 입힐 칸이 없다)
+                .filter(product -> DressUpSlot.slotFor(product) != null)
                 .collect(Collectors.toList());
         Map<Product, Integer> scores = new LinkedHashMap<>();
         for (Product product : candidates) {
