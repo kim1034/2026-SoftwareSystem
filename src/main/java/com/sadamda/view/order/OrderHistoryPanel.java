@@ -206,6 +206,9 @@ public class OrderHistoryPanel extends ScreenPanel {
         JPanel info = OrderPanel.whiteCard();
         Theme.addToCard(info, OrderPanel.amountRow("주문번호", order.getOrderNumber(), false), 0);
         Theme.addToCard(info, OrderPanel.amountRow("주문 일시", order.getOrderedAt().format(TIME), false), 12);
+        if (order.getPaymentMethod() != null) {
+            Theme.addToCard(info, OrderPanel.amountRow("결제 방법", order.getPaymentMethod(), false), 12);
+        }
         if (order.getTrackingNumber() != null) {
             Theme.addToCard(info, OrderPanel.amountRow("송장번호", order.getTrackingNumber(), false), 12);
         }

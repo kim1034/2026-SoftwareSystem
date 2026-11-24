@@ -33,6 +33,18 @@ public class MemberController {
         return member;
     }
 
+    /**
+     * FR-02 로그인 상태 유지: 앱을 켤 때, 지난번에 [로그인 상태 유지]로 이 PC 에 저장해 둔 회원으로 로그인한다.
+     * 앱을 다시 켜서 사라진 회원이면 저장값으로 다시 만든다. 쓸 수 없는 저장값이면 로그인하지 않고 null.
+     */
+    public Member restoreLogin(Member saved) {
+        Member member = memberService.restore(saved);
+        if (member != null) {
+            session.login(member);
+        }
+        return member;
+    }
+
     public void logout() {
         session.logout();
     }

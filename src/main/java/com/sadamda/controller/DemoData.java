@@ -64,7 +64,7 @@ public class DemoData {
     }
 
     private Order place(Long memberId, List<OrderLine> lines, String paymentId) {
-        return orderService.placeOrder(memberId, lines, ADDRESS, null, paymentId);
+        return orderService.placeOrder(memberId, lines, ADDRESS, null, paymentId, "카드 결제");
     }
 
     /** 데모 데이터 상품(코드로 찾음)의 재고 있는 첫 옵션 1개. */

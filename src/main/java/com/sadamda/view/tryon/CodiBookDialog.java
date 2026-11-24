@@ -220,7 +220,7 @@ class CodiBookDialog extends JDialog {
             List<Product> products = codiBook.products(codi);
             int total = products.stream().mapToInt(Product::getPrice).sum();
             label.setIcon(iconFor(codi, products));
-            label.setText("<html><b>" + ProductPickerDialog.escape(codi.title()) + "</b><br>"
+            label.setText("<html><b>" + com.sadamda.view.product.ShopUi.escape(codi.title()) + "</b><br>"
                     + "옷 " + products.size() + "벌 · 합계 " + String.format("%,d원", total) + "<br>"
                     + codi.savedAt().format(WHEN) + " 저장"
                     + (codi.hasImage() ? "" : " · 아직 입혀보지 않음") + "</html>");
