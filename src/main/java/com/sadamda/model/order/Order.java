@@ -18,9 +18,11 @@ public class Order {
     private int productTotal;
     private int shippingFee;
     private String reason;
+    private String paymentMethod;
 
     public Order(Long id, Long memberId, List<OrderItem> items, String shippingAddress, int productTotal,
-                 int shippingFee, String paymentId, GiftInfo giftInfo, LocalDateTime orderedAt) {
+                 int shippingFee, String paymentId, String paymentMethod, GiftInfo giftInfo,
+                 LocalDateTime orderedAt) {
         this.id = id;
         this.memberId = memberId;
         this.items = List.copyOf(items);
@@ -29,6 +31,7 @@ public class Order {
         this.shippingFee = shippingFee;
         this.totalPrice = productTotal + shippingFee;
         this.paymentId = paymentId;
+        this.paymentMethod = paymentMethod;
         this.giftInfo = giftInfo;
         this.orderedAt = orderedAt;
         this.status = OrderStatus.PAID;
@@ -44,6 +47,10 @@ public class Order {
 
     public String getPaymentId() {
         return paymentId;
+    }
+
+    public String getPaymentMethod() {
+        return paymentMethod;
     }
 
     public OrderStatus getStatus() {

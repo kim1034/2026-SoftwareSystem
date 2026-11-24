@@ -54,7 +54,8 @@ UC7~9 브랜치(`feat/product-recommend-model-compat`)를 합친 뒤, 화면 모
 |---|---|
 | 홈 | `HomePanel` |
 | 룩북 (목록·코디 보기) | `LookbookPanel` |
-| 옷 입혀보기 | `TryOnPanel` |
+
+옷 입혀보기(`TryOnPanel`)는 main에서 흰 카드를 회색 바탕 위에 놓는 새 화면(배경·내 사진·14칸)으로 바뀌어, 바탕을 회색(`PAGE`) 그대로 둡니다.
 
 룩북 화면에서는 [새 코디 올리기] 버튼도 없앴습니다. 새 코디는 **관리자 화면 → 룩북 탭의 [새 코디 등록]** 에서 올립니다. 코디 보기의 관리자용 [수정]·[삭제]는 그대로입니다.
 
@@ -161,7 +162,7 @@ UC7~9 브랜치(`feat/product-recommend-model-compat`)를 합친 뒤, 화면 모
 | 사이즈·색상 칩 | 고르지 않은 칩은 흰 바탕에 테두리, 고른 칩은 검정 |
 | 색상 칩 색 | 고르면 그 색으로 채움. 이름에서 가장 앞의 색 낱말로 색을 정함("차콜 블랙" → 차콜). 모르는 이름("기본", "레오파드")은 검정. 화이트처럼 밝은 색은 진한 테두리로 고른 것을 표시 |
 | 구매 수량 | 색상 아래 `[−] N개 [+]   합계 ○○원`. 1개 미만으로 줄지 않고, 고른 옵션의 재고까지만 늘어남. [바로 구매]·[장바구니 담기]가 이 수량을 씀 |
-| [AI로 입어보기] | 옷 입혀보기 화면의 맞는 칸(모자·상의·하의·주얼리·신발)에 담아 두기만 함(입혀 보는 것은 거기서 [입혀보기]를 눌렀을 때). 원피스·아우터·양말·가방·스카프는 "아직 입어 볼 수 없어요" 안내 |
+| [AI로 입어보기] | 옷 입혀보기 화면의 맞는 칸(14칸 중 하나)에 담아 두기만 함(입혀 보는 것은 거기서 [입혀보기]를 눌렀을 때). 종류를 알 수 없는 주얼리만 "옷 입혀보기에서 입어 볼 수 없어요" 안내 |
 
 - 새 파일 `view/product/OptionColors.java`: 색 이름을 실제 색으로 바꿉니다(색 낱말 약 40개).
 - `Theme.outlineChip(text)`, `Theme.outlineChip(text, 채울 색)`을 추가했습니다. 기존 `Theme.chip`은 바뀌지 않았습니다.
@@ -228,8 +229,8 @@ UC7~9 브랜치(`feat/product-recommend-model-compat`)를 합친 뒤, 화면 모
 | `view/product/CategoryBar.java` | 정우진 | 글자 탭으로 변경, [전체] 탭, `setColors`·`clearSelection` (3.2) |
 | `view/recommend/HomePanel.java` | 정우진 | `Theme` 입력칸 → 진보라 띠·섹션 링크·고정 탭 줄(3장), `scrollToTop()`, 흰 바탕, 상품 판(`ProductGrid`)이 찜 하트를 쓰도록 `context`·`frame` 전달 |
 | `view/recommend/LookbookPanel.java` | 정우진 | `Theme` 선택 상자·제목·링크, 흰 바탕, [새 코디 올리기] 삭제 (2장) |
-| `view/tryon/TryOnPanel.java` | 정우진 | `Theme` 디자인, 흰 바탕, `wear(productId)` 추가 (상품을 칸에 담아 두기만 함) |
-| `view/tryon/ProductPickerDialog.java`, `LockerDialog.java`, `CharacterView.java` | 정우진 | `Theme` 디자인 |
+| `view/tryon/TryOnPanel.java` | 정우진 | `Theme` 디자인, `wear(productId)` 추가 (상품을 칸에 담아 두기만 함) |
+| `view/tryon/LockerDialog.java`, `CharacterView.java` | 정우진 | `Theme` 디자인 |
 | `view/product/ShopProductCard.java`, `ProductGrid.java` | 정우진 | 홈 카드의 글씨 모양·맨 아래 칩·찜 하트 (5장) |
 | `model/cart/CartService.java` | 백예원 | 상품별 찜 수를 세는 `countWishes` 추가. 기존 메서드는 바꾸지 않음 |
 | `controller/CartController.java` | 김대원 | `wishCount(productId)` 추가. 기존 메서드는 바꾸지 않음 |

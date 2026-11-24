@@ -11,6 +11,7 @@ import com.sadamda.model.member.MemberService;
 import com.sadamda.model.order.OrderService;
 import com.sadamda.model.product.ProductService;
 import com.sadamda.model.recommend.RecommendService;
+import com.sadamda.model.review.DemoReviews;
 import com.sadamda.model.review.ReviewService;
 import com.sadamda.model.tryon.TryOnService;
 
@@ -43,6 +44,7 @@ public class AppContext {
         CartService cartService = new CartService(productService);
         OrderService orderService = new OrderService(productService, cartService);
         ReviewService reviewService = new ReviewService(orderService, memberService);
+        DemoReviews.seed(reviewService, productService); // 시연용 리뷰. 실제 서비스로 낼 때는 지운다.
         TryOnService tryOnService = new TryOnService();
 
         member = new MemberController(session, memberService);
