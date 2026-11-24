@@ -88,7 +88,7 @@ import java.util.concurrent.ExecutionException;
  */
 public class TryOnPanel extends ScreenPanel {
     public static final String NAME = "tryOn";
-    private static final int SLOT_THUMBNAIL = 48;
+    private static final int SLOT_THUMBNAIL = 76;
     private static final String ALL_SEASONS = "전체";
 
     private final Outfit outfit = new Outfit();
@@ -105,7 +105,7 @@ public class TryOnPanel extends ScreenPanel {
     private final Stage stage = new Stage(characterView, stageTag, photoButtons, zoomButton);
     private final JButton changePhotoButton = TryOnUi.secondary("사진 바꾸기");
     private final JButton clearPhotoButton = TryOnUi.secondary("사진 지우기");
-    private final JToggleButton photoChip = Theme.chip("내 사진으로 입어보기");
+    private final JToggleButton photoChip = TryOnUi.segment("내 사진으로 입어보기");
     private final JPanel below = new JPanel(new BorderLayout());
     private final JPanel backgroundCard;
     private final BackgroundSlider slider = new BackgroundSlider();
@@ -113,12 +113,12 @@ public class TryOnPanel extends ScreenPanel {
     private BackgroundTile keepTile;
     private final JButton allBackgroundsButton;
     private final JButton pickAllButton = TryOnUi.secondary("한꺼번에 고르기");
-    private final JLabel serviceLabel = Theme.label(" ", 1f, Font.PLAIN, Theme.HINT);
     private final JButton specButton = TryOnUi.secondary("");
     private final JLabel status = Theme.label(" ", 1f, Font.PLAIN, Theme.TEXT);
     private final JLabel total = Theme.label(" ", 1.1f, Font.BOLD, Theme.TEXT);
     private final JProgressBar progress = new JProgressBar();
-    private final JButton generateButton = TryOnUi.primary("입혀보기");
+    private final JPanel statusRow = new JPanel();
+    private final JButton generateButton = Theme.primaryButton("입혀보기");
     private final JButton retryButton = TryOnUi.secondary("다시 시도");
     private final JButton undressButton = TryOnUi.secondary("모두 벗기");
     private final JButton lockerButton = TryOnUi.secondary("보관함에 저장");
@@ -157,7 +157,7 @@ public class TryOnPanel extends ScreenPanel {
 
         Page page = new Page(stage);
         page.setBorder(BorderFactory.createEmptyBorder(20, 48, 12, 48));
-        page.add(header(), BorderLayout.NORTH);
+        page.add(styleBar(), BorderLayout.NORTH);
         page.add(middle, BorderLayout.CENTER);
 
         JScrollPane scroll = ModernScrollBar.apply(new JScrollPane(page));
@@ -184,50 +184,40 @@ public class TryOnPanel extends ScreenPanel {
             }
         });
 
-        showService();
         showSpec();
         refreshStrip();
         showBase();
         refreshSlots();
-        setStatus(context.dressUp.dressUpConnected()
-                ? "옷을 고르고 [입혀보기]를 눌러 주세요. [내 사진으로 입어보기]로 내 사진에도 입혀 볼 수 있어요."
-                : "그림 만드는 곳(AI)에 연결되지 않았습니다. [AI 연결 설정]에서 이용 열쇠를 넣어 주세요.");
+        setStatus(context.dressUp.dressUpConnected() ? " " : "AI 연결이 필요해요. [AI 연결 설정]을 눌러 주세요.");
     }
 
-    private JPanel header() {
-        // 상품 화면 머리말과 같은 모양: 큰 제목 + 아래 구분선
-        JPanel header = new JPanel(new BorderLayout());
-        header.setOpaque(false);
-        header.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.LINE),
-                BorderFactory.createEmptyBorder(0, 0, 12, 0)));
-        header.add(Theme.label("옷 입혀보기", 1.6f, Font.BOLD, Theme.TEXT), BorderLayout.WEST);
-        header.add(serviceLabel, BorderLayout.EAST);
-        return header;
-    }
-
-    /** 왼쪽: 그림체·내 사진 고르기 + 큰 그림 칸 + (신체 스펙 또는 배경 고르기). */
-    private JPanel characterColumn() {
-        // 그림체 4개 + [내 사진으로 입어보기]를 왼쪽부터 늘어놓고, 폭이 모자라면 다음 줄로 넘긴다.
-        // 넓은 창(최대화)에서는 한 줄이라 화면 높이를 아끼고, 좁거나 글씨가 크면 두세 줄이 되어 이름이 잘리지 않는다.
-        JPanel choose = new JPanel(new TryOnUi.Rows(8));
-        choose.setOpaque(false);
+    /** 맨 위 가운데: 그림체 4가지와 [내 사진으로 입어보기]를 한 틀에 묶은 세그먼트 버튼. */
+    private JPanel styleBar() {
+        JPanel choose = TryOnUi.segmentGroup();
         ButtonGroup group = new ButtonGroup();
         for (CharacterStyle option : CharacterStyle.values()) {
-            JToggleButton button = Theme.chip(option.label());
-            button.setBorder(BorderFactory.createEmptyBorder(14, 16, 14, 16));
+            JToggleButton button = TryOnUi.segment(option.label());
             button.setSelected(option == style);
             button.addActionListener(e -> selectStyle(option));
             group.add(button);
             choose.add(button);
             styleChips.put(option, button);
         }
-        photoChip.setIcon(TryOnUi.cameraIcon(22));
-        photoChip.setIconTextGap(10);
-        photoChip.setBorder(BorderFactory.createEmptyBorder(14, 16, 14, 16));
+        photoChip.setIcon(TryOnUi.cameraIcon(20));
+        photoChip.setIconTextGap(8);
         photoChip.addActionListener(e -> selectPhotoMode());
         group.add(photoChip);
         choose.add(photoChip);
+
+        JPanel bar = new JPanel(new BorderLayout());
+        bar.setOpaque(false);
+        bar.setBorder(BorderFactory.createEmptyBorder(0, 0, 8, 0));
+        bar.add(choose, BorderLayout.CENTER);
+        return bar;
+    }
+
+    /** 왼쪽 흰 카드: 큰 그림 칸 + (신체 스펙 또는 배경 고르기). */
+    private JPanel characterColumn() {
 
         specButton.addActionListener(e -> editSpec());
         zoomButton.addActionListener(e -> openViewer());
@@ -248,9 +238,7 @@ public class TryOnPanel extends ScreenPanel {
         }
         below.setOpaque(false);
 
-        JPanel column = new JPanel(new BorderLayout(0, 12));
-        column.setOpaque(false);
-        column.add(choose, BorderLayout.NORTH);
+        JPanel column = TryOnUi.card(new BorderLayout(0, 12), 12);
         column.add(stage, BorderLayout.CENTER);
         column.add(below, BorderLayout.SOUTH);
         return column;
@@ -289,7 +277,8 @@ public class TryOnPanel extends ScreenPanel {
         top.add(chips, BorderLayout.CENTER);
         top.add(allBackgroundsButton, BorderLayout.EAST);
 
-        JPanel card = TryOnUi.card(new BorderLayout(0, 6), 12);
+        JPanel card = new JPanel(new BorderLayout(0, 6));
+        card.setOpaque(false);
         card.add(top, BorderLayout.NORTH);
         card.add(slider, BorderLayout.CENTER);
         return card;
@@ -309,7 +298,7 @@ public class TryOnPanel extends ScreenPanel {
                 heading.setBorder(BorderFactory.createEmptyBorder(list.getComponentCount() == 0 ? 0 : 12, 4, 6, 0));
                 heading.setAlignmentX(Component.LEFT_ALIGNMENT);
                 list.add(heading);
-                grid = new JPanel(new GridLayout(0, 2, 8, 8));
+                grid = new JPanel(new GridLayout(0, 2, 12, 12));
                 grid.setOpaque(false);
                 grid.setAlignmentX(Component.LEFT_ALIGNMENT);
                 list.add(grid);
@@ -332,10 +321,12 @@ public class TryOnPanel extends ScreenPanel {
         head.add(Theme.label("입힐 아이템", 1.15f, Font.BOLD, Theme.TEXT), BorderLayout.WEST);
         head.add(pickAllButton, BorderLayout.EAST);
 
-        JPanel column = new JPanel(new BorderLayout(0, 8));
+        generateButton.addActionListener(e -> generate());
+        JPanel column = new JPanel(new BorderLayout(0, 12));
         column.setOpaque(false);
         column.add(head, BorderLayout.NORTH);
         column.add(scroll, BorderLayout.CENTER);
+        column.add(generateButton, BorderLayout.SOUTH); // 가장 많이 누르는 버튼이라 아이템 바로 아래에 크게
         return column;
     }
 
@@ -345,7 +336,6 @@ public class TryOnPanel extends ScreenPanel {
         progress.setPreferredSize(new Dimension(160, 24));
         retryButton.setVisible(false);
 
-        generateButton.addActionListener(e -> generate());
         retryButton.addActionListener(e -> generate());
         undressButton.addActionListener(e -> {
             outfit.clear();
@@ -359,7 +349,7 @@ public class TryOnPanel extends ScreenPanel {
         cartButton.addActionListener(e -> addToCart());
         settingsButton.addActionListener(e -> editSettings());
 
-        JPanel statusRow = new JPanel(new BorderLayout(12, 0));
+        statusRow.setLayout(new BorderLayout(12, 0));
         statusRow.setOpaque(false);
         statusRow.add(status, BorderLayout.CENTER);
         statusRow.add(progress, BorderLayout.WEST);
@@ -368,7 +358,6 @@ public class TryOnPanel extends ScreenPanel {
         // 버튼이 많아 창이 좁거나 글씨가 크면 다음 줄로 넘긴다
         JPanel buttons = new JPanel(new WrapLayout(FlowLayout.LEFT, 12, 12));
         buttons.setOpaque(false);
-        buttons.add(generateButton);
         buttons.add(retryButton);
         buttons.add(undressButton);
         buttons.add(lockerButton);
@@ -380,7 +369,7 @@ public class TryOnPanel extends ScreenPanel {
         JPanel actions = new JPanel(new BorderLayout(0, 8));
         actions.setOpaque(false);
         actions.setOpaque(true);
-        actions.setBackground(Theme.PAGE);
+        actions.setBackground(Theme.CARD);
         actions.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(1, 0, 0, 0, Theme.LINE),
                 BorderFactory.createEmptyBorder(10, 48, 12, 48)));
@@ -400,7 +389,7 @@ public class TryOnPanel extends ScreenPanel {
         photoMode = false;
         if (changed) {
             showBase();
-            setStatus("그림체를 바꿨습니다. [입혀보기]를 누르면 이 캐릭터가 옷을 입습니다.");
+            setStatus("그림체를 바꿨습니다.");
         }
     }
 
@@ -417,7 +406,7 @@ public class TryOnPanel extends ScreenPanel {
             photoMode = true;
             showBase();
         }
-        setStatus("사진에 입힐 옷과 배경을 고르고 [입혀보기]를 눌러 주세요.");
+        setStatus("입힐 옷과 배경을 골라 주세요.");
     }
 
     /** 사진 올리기 창. 사진을 고르고 [이 사진으로 입어보기]를 누르면 true. */
@@ -436,7 +425,7 @@ public class TryOnPanel extends ScreenPanel {
     private void changePhoto() {
         if (!working && uploadPhoto()) {
             showBase();
-            setStatus("사진을 바꿨습니다. [입혀보기]를 누르면 이 사진에 입힙니다.");
+            setStatus("사진을 바꿨습니다.");
         }
     }
 
@@ -562,8 +551,7 @@ public class TryOnPanel extends ScreenPanel {
         updateChosen();
         updateScene();
         updateButtons();
-        setStatus(chosen == null ? "사진의 원래 배경을 그대로 둡니다."
-                : "배경: " + chosen.name() + ". [입혀보기]를 누르면 이 장소에서 찍은 사진처럼 바꿉니다.");
+        setStatus(chosen == null ? "원래 배경을 씁니다." : "배경: " + chosen.name());
     }
 
     private void openAllBackgrounds() {
@@ -597,8 +585,7 @@ public class TryOnPanel extends ScreenPanel {
         outfit.replaceWith(dialog.result());
         refreshSlots();
         if (!before.equals(outfit.products())) {
-            setStatus(outfit.isEmpty() ? "입힐 옷을 골라 주세요."
-                    : "고른 아이템을 반영했습니다. [입혀보기]를 누르면 " + (photoMode ? "내 사진에" : "캐릭터에") + " 입힙니다.");
+            setStatus(outfit.isEmpty() ? "입힐 옷을 골라 주세요." : "고른 아이템을 반영했습니다.");
         }
     }
 
@@ -617,7 +604,7 @@ public class TryOnPanel extends ScreenPanel {
         }
         List<DressUpSlot> removed = outfit.put(slot, product);
         refreshSlots();
-        setStatus(slot.label() + " 칸에 넣었습니다." + takenOff(slot, removed) + " [입혀보기]를 누르면 입혀 봅니다.");
+        setStatus(slot.label() + " 칸에 넣었습니다." + takenOff(slot, removed));
         return true;
     }
 
@@ -634,6 +621,7 @@ public class TryOnPanel extends ScreenPanel {
     private void refreshSlots() {
         slotCards.values().forEach(SlotCard::refreshText);
         total.setText(outfit.isEmpty() ? " " : "고른 옷 합계 " + String.format("%,d원", outfit.totalPrice()));
+        updateStatusRow();
         updateButtons();
     }
 
@@ -670,17 +658,13 @@ public class TryOnPanel extends ScreenPanel {
                 spec = changed;
                 showSpec();
                 showBase();
-                setStatus("신체 스펙을 캐릭터에 반영했습니다. [입혀보기]를 누르면 이 몸에 맞게 옷을 입힙니다.");
+                setStatus("신체 스펙을 반영했습니다.");
             }
         }
     }
 
     private void showSpec() {
-        specButton.setText("캐릭터 신체 스펙 정함: " + spec.summary());
-    }
-
-    private void showService() {
-        serviceLabel.setText("그림 만드는 곳: " + context.dressUp.dressUpServiceName());
+        specButton.setText("신체 스펙: " + spec.summary());
     }
 
     /** [AI 연결 설정]: 이용 열쇠·서비스 주소·모델을 이 PC 에만 저장한다. */
@@ -712,9 +696,8 @@ public class TryOnPanel extends ScreenPanel {
                 JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null, choices, choices[0]);
         if (answer == 0) {
             context.dressUp.configureDressUp(new String(key.getPassword()), baseUrl.getText(), model.getText());
-            showService();
             setStatus(context.dressUp.dressUpConnected()
-                    ? "AI 연결 설정을 저장했습니다. [입혀보기]를 눌러 확인해 주세요."
+                    ? "AI 연결 설정을 저장했습니다."
                     : "이용 열쇠가 비어 있어 아직 연결되지 않았습니다.");
             updateButtons();
         }
@@ -774,7 +757,7 @@ public class TryOnPanel extends ScreenPanel {
                     updateScene();
                     SwingUtilities.invokeLater(() -> openViewer()); // 결과는 바로 크게 보여준다
                     stageTag.setText(requestedPhotoMode ? "입혀 본 결과" : null);
-                    setStatus("다 입혔습니다. 옷" + (requestedPhotoMode ? "과 배경" : "") + "을 바꿔 가며 계속 입혀 보세요.");
+                    setStatus("다 입혔습니다.");
                 } catch (ExecutionException e) {
                     fail(e.getCause() instanceof DressUpException
                             ? e.getCause().getMessage() : "그림을 만드는 중에 문제가 생겼습니다.");
@@ -907,8 +890,14 @@ public class TryOnPanel extends ScreenPanel {
         }
     }
 
+    /** 알릴 말·합계·진행 막대가 모두 없으면 그 줄을 숨겨 버튼 줄 위에 빈칸이 남지 않게 한다. */
+    private void updateStatusRow() {
+        statusRow.setVisible(!status.getText().isBlank() || !total.getText().isBlank() || progress.isVisible());
+    }
+
     private void setStatus(String text) {
         status.setText(text);
+        updateStatusRow();
     }
 
     /** 큰 그림 칸 위에 이름표(왼쪽 위)와 사진 버튼(오른쪽 아래)을 겹쳐 둔다. */
@@ -987,8 +976,8 @@ public class TryOnPanel extends ScreenPanel {
     }
 
     /**
-     * 입힐 아이템 한 칸: 작은 사진, 자리 이름(굵게), 상품명, 가격. 비어 있으면 "+" 와 "눌러서 고르기".
-     * 입힌 칸은 굵은 검정 테두리. 누르면 그 자리로 아이템 고르기 창이 열린다.
+     * 입힐 아이템 한 칸: 왼쪽 위에 자리 이름(굵게), 가운데 큰 상품 사진, 아래 상품명.
+     * 비어 있으면 가운데 "+" 동그라미. 입힌 칸은 골드 테두리. 누르면 그 자리로 아이템 고르기 창이 열린다.
      */
     private class SlotCard extends JButton {
         private final DressUpSlot slot;
@@ -998,6 +987,7 @@ public class TryOnPanel extends ScreenPanel {
             setContentAreaFilled(false);
             setFocusPainted(false);
             setBorderPainted(false);
+            setRolloverEnabled(true);
             setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         }
 
@@ -1012,7 +1002,7 @@ public class TryOnPanel extends ScreenPanel {
             Font font = getFont();
             FontMetrics bold = getFontMetrics(font.deriveFont(Font.BOLD));
             FontMetrics small = getFontMetrics(font.deriveFont(font.getSize2D() * 0.8f));
-            return new Dimension(200, Math.max(68, bold.getHeight() + small.getHeight() * 2 + 12));
+            return new Dimension(180, 12 + bold.getHeight() + 6 + SLOT_THUMBNAIL + 6 + small.getHeight() + 10);
         }
 
         @Override
@@ -1025,50 +1015,45 @@ public class TryOnPanel extends ScreenPanel {
             RoundRectangle2D shape = new RoundRectangle2D.Float(1, 1, w - 2, h - 2, 18, 18);
             g.setColor(getModel().isPressed() ? Theme.SECONDARY : Theme.CARD);
             g.fill(shape);
-            g.setColor(worn || isFocusOwner() ? Theme.PRIMARY : Theme.LINE);
-            g.setStroke(new BasicStroke(worn ? 2.4f : isFocusOwner() ? 2f : 1f));
+            boolean hover = getModel().isRollover() && isEnabled();
+            g.setColor(worn ? Theme.GOLD_BORDER : isFocusOwner() ? Theme.PRIMARY : hover ? Theme.HINT : Theme.LINE);
+            g.setStroke(new BasicStroke(worn ? 2.4f : isFocusOwner() ? 2f : 1.2f));
             g.draw(shape);
-
-            int thumbX = 10;
-            int thumbY = (h - SLOT_THUMBNAIL) / 2;
-            if (worn) {
-                ImageIcon icon = Thumbnails.get(product.mainImageUrl(), SLOT_THUMBNAIL, this::repaint);
-                Graphics2D clipped = (Graphics2D) g.create();
-                clipped.clip(new RoundRectangle2D.Float(thumbX, thumbY, SLOT_THUMBNAIL, SLOT_THUMBNAIL, 10, 10));
-                icon.paintIcon(this, clipped, thumbX, thumbY);
-                clipped.dispose();
-            } else {
-                g.setColor(new Color(0xEBEBEB));
-                g.fill(new RoundRectangle2D.Float(thumbX, thumbY, SLOT_THUMBNAIL, SLOT_THUMBNAIL, 10, 10));
-                g.setColor(Theme.HINT);
-                g.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                float c = SLOT_THUMBNAIL / 2f;
-                g.draw(new Line2D.Float(thumbX + c - 7, thumbY + c, thumbX + c + 7, thumbY + c));
-                g.draw(new Line2D.Float(thumbX + c, thumbY + c - 7, thumbX + c, thumbY + c + 7));
-            }
 
             Font base = getFont();
             Font bold = base.deriveFont(Font.BOLD);
             Font small = base.deriveFont(Font.PLAIN, base.getSize2D() * 0.8f);
             FontMetrics bm = g.getFontMetrics(bold);
             FontMetrics sm = g.getFontMetrics(small);
-            int textX = thumbX + SLOT_THUMBNAIL + 10;
-            int textWidth = w - textX - 10;
-            int lines = worn ? 3 : 2;
-            int blockHeight = bm.getHeight() + sm.getHeight() * (lines - 1);
-            int y = (h - blockHeight) / 2 + bm.getAscent();
+            int pad = 14;
             g.setColor(isEnabled() ? Theme.TEXT : Theme.HINT);
             g.setFont(bold);
-            g.drawString(TryOnUi.ellipsize(slot.label(), bm, textWidth), textX, y);
-            g.setFont(small);
-            y += bm.getDescent() + sm.getAscent();
+            int y = 12 + bm.getAscent();
+            g.drawString(TryOnUi.ellipsize(slot.label(), bm, w - pad * 2), pad, y);
+
+            int thumbY = 12 + bm.getHeight() + 6;
+            int thumbX = (w - SLOT_THUMBNAIL) / 2;
             if (worn) {
-                g.drawString(TryOnUi.ellipsize(product.getName(), sm, textWidth), textX, y);
-                y += sm.getHeight();
-                g.drawString(String.format("%,d원", product.getPrice()), textX, y);
-            } else {
+                ImageIcon icon = Thumbnails.get(product.mainImageUrl(), SLOT_THUMBNAIL, this::repaint);
+                Graphics2D clipped = (Graphics2D) g.create();
+                clipped.clip(new RoundRectangle2D.Float(thumbX, thumbY, SLOT_THUMBNAIL, SLOT_THUMBNAIL, 12, 12));
+                icon.paintIcon(this, clipped, thumbX, thumbY);
+                clipped.dispose();
+                g.setFont(small);
                 g.setColor(Theme.HINT);
-                g.drawString("눌러서 고르기", textX, y);
+                String name = com.sadamda.view.product.ShopUi.displayName(product.getName());
+                String line = TryOnUi.ellipsize(name, sm, w - pad * 2);
+                g.drawString(line, (w - sm.stringWidth(line)) / 2, thumbY + SLOT_THUMBNAIL + 6 + sm.getAscent());
+            } else {
+                int d = 44;
+                float cx = w / 2f;
+                float cy = thumbY + SLOT_THUMBNAIL / 2f;
+                g.setColor(Theme.SOFT);
+                g.fill(new java.awt.geom.Ellipse2D.Float(cx - d / 2f, cy - d / 2f, d, d));
+                g.setColor(Theme.HINT);
+                g.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g.draw(new Line2D.Float(cx - 8, cy, cx + 8, cy));
+                g.draw(new Line2D.Float(cx, cy - 8, cx, cy + 8));
             }
             g.dispose();
         }

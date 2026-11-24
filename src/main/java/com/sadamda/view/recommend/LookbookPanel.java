@@ -97,7 +97,7 @@ public class LookbookPanel extends ScreenPanel {
         body.setBackground(ShopUi.CARD);
         body.setBorder(BorderFactory.createEmptyBorder(8, 8, 24, 8));
 
-        addBlock(body, ShopUi.pageHeader("룩북 코디", "상황과 계절에 맞춘 코디를 골라 보세요. 코디를 누르면 구성 상품을 볼 수 있어요.",
+        addBlock(body, ShopUi.pageHeader("룩북 코디", null,
                 null), 0);
 
         occasionBox.getAccessibleContext().setAccessibleName("상황");

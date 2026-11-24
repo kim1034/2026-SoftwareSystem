@@ -1,5 +1,6 @@
 package com.sadamda.view.product;
 
+import com.sadamda.view.Theme;
 import com.sadamda.model.product.Product;
 
 import javax.swing.BorderFactory;
@@ -166,7 +167,7 @@ public class ShopProductCard extends JPanel {
             chips.add(badge("품절", ShopUi.HINT));
         }
         if (product.getCategory() != null) {
-            chips.add(chip(product.getCategory().label(), new Color(0xF1F1F1), new Color(0x444444), Font.PLAIN));
+            chips.add(chip(product.getCategory().label(), Theme.SECONDARY, Theme.HINT, Font.PLAIN));
         }
         for (int i = 0; i < chips.size(); i++) {
             if (i > 0) {

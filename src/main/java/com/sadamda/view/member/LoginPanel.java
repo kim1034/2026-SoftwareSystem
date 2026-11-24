@@ -40,7 +40,6 @@ public class LoginPanel extends ScreenPanel {
 
         JPanel card = Theme.card();
         Theme.addToCard(card, Theme.label("로그인", 1.6f, Font.BOLD, Theme.TEXT), 0);
-        Theme.addToCard(card, Theme.label("사담다에 오신 것을 환영합니다", 1f, Font.PLAIN, Theme.HINT), 8);
 
         Theme.addToCard(card, Theme.field("이메일", emailError, emailField), 32);
         Theme.addToCard(card, Theme.field("비밀번호", passwordError, Theme.passwordWithToggle(passwordField)), 20);
