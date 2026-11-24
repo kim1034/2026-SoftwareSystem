@@ -522,7 +522,7 @@ public class ProductDetailPanel extends ScreenPanel {
         frame.openOrder(sheet);
     }
 
-    /** [AI로 입어보기]: 사이즈·색상과 상관없이 이 상품을 옷 입혀보기 화면의 캐릭터에 바로 입혀 본다 (UC-09). */
+    /** [AI로 입어보기]: 사이즈·색상과 상관없이 이 상품을 옷 입혀보기 화면의 맞는 칸에 담아 두고 그 화면으로 간다 (UC-09). 입혀 보는 것은 거기서 [입혀보기]를 누를 때 한다. */
     private void tryOn() {
         actionError.setText("");
         if (!loggedIn()) {

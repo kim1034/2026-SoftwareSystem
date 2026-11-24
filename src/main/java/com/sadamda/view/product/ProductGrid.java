@@ -1,6 +1,8 @@
 package com.sadamda.view.product;
 
+import com.sadamda.controller.AppContext;
 import com.sadamda.model.product.Product;
+import com.sadamda.view.MainFrame;
 
 import javax.swing.JPanel;
 import javax.swing.JViewport;
@@ -19,10 +21,21 @@ import java.util.function.Consumer;
  */
 public class ProductGrid extends JPanel {
     private final Consumer<Product> onOpen;
+    /** 카드의 찜 하트. null 이면 하트를 두지 않는다. */
+    private final ProductCard.Actions wish;
 
     public ProductGrid(Consumer<Product> onOpen) {
         super(new ResponsiveGridLayout(ShopProductCard.IMAGE_WIDTH + 24, 16, 4));
         this.onOpen = onOpen;
+        this.wish = null;
+        setOpaque(false);
+    }
+
+    /** 카드 사진에 찜 하트를 둔다 (홈 화면 등). 비회원이 누르면 로그인 화면으로 간다. */
+    public ProductGrid(Consumer<Product> onOpen, AppContext context, MainFrame frame) {
+        super(new ResponsiveGridLayout(ShopProductCard.IMAGE_WIDTH + 24, 16, 4));
+        this.onOpen = onOpen;
+        this.wish = new WishActions(context, frame, this);
         setOpaque(false);
     }
 
@@ -35,7 +48,7 @@ public class ProductGrid extends JPanel {
     /** [더 보기]: 지금 카드 뒤에 이어 붙인다. */
     public void addProducts(List<Product> products) {
         for (Product product : products) {
-            add(new ShopProductCard(product, onOpen));
+            add(new ShopProductCard(product, onOpen, wish));
         }
         revalidate();
         repaint();

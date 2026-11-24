@@ -53,6 +53,11 @@ public class CartController {
     }
 
     /** UC-10 1a 이 상품을 찜했는지. 비회원이면 false. */
+    /** 이 상품을 찜한 회원 수 (상품 목록 카드). 비회원도 볼 수 있다. */
+    public int wishCount(Long productId) {
+        return cartService.countWishes(productId);
+    }
+
     public boolean isWished(Long productId) {
         return session.isLoggedIn() && cartService.isWished(memberId(), productId);
     }

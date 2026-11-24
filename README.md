@@ -131,7 +131,7 @@ src/test/java/com/sadamda
 | [docs/auth-view.md](docs/auth-view.md) | 회원가입·로그인 화면, 상단 메뉴, 공통 디자인 `Theme`, 화면 이동 규칙 |
 | [docs/myinfo-view.md](docs/myinfo-view.md) | 내 정보 화면 (UC-03) |
 | [docs/product-view.md](docs/product-view.md) | 상품 목록·검색·상세 화면 (UC-04~06) |
-| [docs/ui-data-update.md](docs/ui-data-update.md) | 화면 디자인 통일, 상품 370개 데이터 적용 (11-17 기록) |
+| [docs/ui-data-update.md](docs/ui-data-update.md) | 화면 디자인 통일, 상품 370개 데이터 적용, 홈 새 디자인, 상품 화면·카드, 로고 (11-17~11-22 기록) |
 | [docs/order-view.md](docs/order-view.md) | 장바구니·찜·주문서·주문 내역 화면 (UC-10~13) |
 | [docs/review.md](docs/review.md) | 리뷰 쓰기 화면 (UC-14) |
 | [docs/product-recommend.md](docs/product-recommend.md) | 상품·추천 도메인, 홈·룩북, 옷 입혀보기와 AI 키 설정 |
