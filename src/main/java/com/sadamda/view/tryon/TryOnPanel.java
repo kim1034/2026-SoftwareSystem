@@ -635,8 +635,8 @@ public class TryOnPanel extends ScreenPanel {
     }
 
     /**
-     * 상품 상세의 [AI로 입어보기]에서 부른다. 이 상품을 맞는 칸에 넣고, AI 가 연결되어 있으면 바로 입혀 본다.
-     * 맞는 칸이 없는 상품(종류를 알 수 없는 주얼리)이면 아무것도 하지 않고 false.
+     * 상품 상세의 [AI로 입어보기]에서 부른다. 이 상품을 맞는 칸에 넣어 두기만 하고, 입혀 보는 것은
+     * 사용자가 [입혀보기]를 눌렀을 때 한다. 맞는 칸이 없는 상품(종류를 알 수 없는 주얼리)이면 아무것도 하지 않고 false.
      */
     public boolean wear(Long productId) {
         Product product = context.product.detail(productId);
@@ -650,12 +650,7 @@ public class TryOnPanel extends ScreenPanel {
         List<DressUpSlot> removed = outfit.put(slot, product);
         outfitChanged();
         refreshSlots();
-        if (context.dressUp.dressUpConnected()) {
-            generate();
-        } else {
-            setStatus(slot.label() + " 칸에 넣었습니다." + takenOff(slot, removed)
-                    + " 그림 만드는 곳(AI)에 연결되지 않아 입혀 볼 수 없습니다. [AI 연결 설정]에서 이용 열쇠를 넣어 주세요.");
-        }
+        setStatus(slot.label() + " 칸에 넣었습니다." + takenOff(slot, removed) + " [입혀보기]를 누르면 입혀 봅니다.");
         return true;
     }
 

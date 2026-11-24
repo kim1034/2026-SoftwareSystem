@@ -10,15 +10,19 @@ import com.sadamda.model.product.SearchFilter;
 import com.sadamda.view.MainFrame;
 import com.sadamda.view.ScreenPanel;
 import com.sadamda.view.Theme;
+import com.sadamda.view.WrapLayout;
 import com.sadamda.view.member.SignUpPanel;
 
 import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
 import javax.swing.JButton;
-import javax.swing.JComboBox;
+import javax.swing.JCheckBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
+import javax.swing.JMenuItem;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
+import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.JToggleButton;
@@ -26,11 +30,17 @@ import javax.swing.JViewport;
 import javax.swing.Scrollable;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
+import javax.swing.plaf.basic.BasicButtonUI;
+import javax.swing.plaf.basic.BasicToggleButtonUI;
+import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Component;
+import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.Point;
@@ -44,8 +54,9 @@ import java.util.Map;
 
 /**
  * UC-04 카테고리별 상품 조회 + UC-05 상품 검색 및 필터:
- * 큰 카테고리 버튼, 검색창, 검색 결과의 필터·정렬, 큰 이미지 카드 목록, [더 보기].
- * 필터·정렬은 검색 결과에서만 보인다 (SearchFilter 에 카테고리 조건이 없어서).
+ * 카테고리 탭, 검색창, 필터·정렬, 큰 이미지 카드 목록, [더 보기].
+ * 필터·정렬은 카테고리 목록과 검색 결과 모두에 보인다. SearchFilter 에 카테고리 조건이 없어서,
+ * 카테고리 목록은 조건으로 검색한 결과 중 그 카테고리 상품만 화면에서 골라 보여준다.
  */
 public class ProductListPanel extends ScreenPanel {
     public static final String NAME = "productList";
@@ -55,17 +66,19 @@ public class ProductListPanel extends ScreenPanel {
     static final String SORT_NEWEST = "NEWEST";
     static final String SORT_PRICE_LOW = "PRICE_LOW";
     static final String SORT_PRICE_HIGH = "PRICE_HIGH";
+    private static final String[][] SORTS = {{"인기순", SORT_POPULAR}, {"신상품순", SORT_NEWEST},
+            {"낮은 가격순", SORT_PRICE_LOW}, {"높은 가격순", SORT_PRICE_HIGH}};
 
-    // 필터 선택지. 첫 항목("… 전체")은 조건 없음. 연령대·체형·사이즈는 회원가입과 같은 값이라 회원 체형 정보와 바로 맞는다.
-    private static final String[] PRICES = {"가격대 전체", "10만원 이하", "10~30만원", "30~50만원", "50만원 이상"};
+    // 필터 선택지. 첫 항목은 "전체"(조건 없음). 연령대·체형·사이즈는 회원가입과 같은 값이라 회원 체형 정보와 바로 맞는다.
+    private static final String[] PRICES = {"전체", "10만원 이하", "10~30만원", "30~50만원", "50만원 이상"};
     private static final Integer[][] PRICE_RANGES = {{null, null}, {null, 100000}, {100001, 300000}, {300001, 500000}, {500001, null}};
-    private static final String[] COLORS = {"색상 전체", "블랙", "화이트·아이보리", "네이비", "그레이", "베이지·브라운"};
+    private static final String[] COLORS = {"전체", "블랙", "화이트·아이보리", "네이비", "그레이", "베이지·브라운"};
 
     /** UC-05 2a: 검색 결과가 없을 때 제안하는 자주 찾는 검색어. */
     private static final List<String> SUGGESTED_KEYWORDS = List.of("가디건", "니트", "블라우스", "슬랙스", "스커트");
 
-    private final Map<Category, JToggleButton> chips = new EnumMap<>(Category.class);
-    private final ButtonGroup chipGroup = new ButtonGroup();
+    private final Map<Category, JToggleButton> tabs = new EnumMap<>(Category.class);
+    private final ButtonGroup tabGroup = new ButtonGroup();
     private final JTextField searchField = Theme.textField("상품명이나 종류로 검색 (예: 가디건)");
     private final JLabel searchError = Theme.errorLabel();
 
@@ -78,16 +91,17 @@ public class ProductListPanel extends ScreenPanel {
     private final JPanel suggestions = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
     private final JLabel popularTitle = Theme.label("지금 인기 있는 상품", 1.1f, Font.BOLD, Theme.TEXT);
 
-    // UC-05 3~4단계: 검색 결과의 필터·정렬. 바꾸면 바로 목록이 바뀐다.
-    private final JPanel filterArea = new JPanel(new GridBagLayout());
-    private final JComboBox<String> ageFilter = Theme.comboBox(withAll("연령대 전체", SignUpPanel.AGE_GROUPS));
-    private final JComboBox<String> bodyTypeFilter = Theme.comboBox(withAll("체형 전체", SignUpPanel.BODY_TYPES));
-    private final JComboBox<String> sizeFilter = Theme.comboBox(withAll("사이즈 전체", SignUpPanel.SIZES));
-    private final JComboBox<String> priceFilter = Theme.comboBox(PRICES);
-    private final JComboBox<String> colorFilter = Theme.comboBox(COLORS);
-    private final JButton myBodyButton = Theme.secondaryButton("내 체형에 맞는 상품");
-    private final ButtonGroup sortGroup = new ButtonGroup();
-    private final JToggleButton popularSort = Theme.chip("인기순");
+    // UC-05 3~4단계: 필터·정렬. 바꾸면 바로 목록이 바뀐다.
+    private final FilterPill ageFilter = new FilterPill("연령대", withAll(SignUpPanel.AGE_GROUPS));
+    private final FilterPill bodyTypeFilter = new FilterPill("체형", withAll(SignUpPanel.BODY_TYPES));
+    private final FilterPill sizeFilter = new FilterPill("사이즈", withAll(SignUpPanel.SIZES));
+    private final FilterPill priceFilter = new FilterPill("가격대", PRICES);
+    private final FilterPill colorFilter = new FilterPill("색상", COLORS);
+    private final List<FilterPill> pills = List.of(ageFilter, bodyTypeFilter, sizeFilter, priceFilter, colorFilter);
+    private final JCheckBox myBodyBox = Theme.checkBox("내 체형에 맞는 상품");
+    private final Component myBodyGap = javax.swing.Box.createHorizontalStrut(16);
+    private final JButton sortButton = sortButton();
+    private String sort = SORT_POPULAR;
     /** 코드에서 필터 값을 바꾸는 동안에는 목록을 다시 불러오지 않는다. */
     private boolean settingFilters;
     /** 지금 보고 있는 검색어. 검색 중이 아니면 null. */
@@ -100,11 +114,12 @@ public class ProductListPanel extends ScreenPanel {
 
     /** 마지막으로 본 카테고리. 검색 중에도 기억해 두었다가 [검색 지우기]로 돌아간다. */
     private Category category;
-    private int page;
+    /** 카테고리 목록의 전체 결과. [더 보기]마다 PAGE_SIZE 개씩 더 보여준다. */
+    private List<ProductItem> results = List.of();
 
     public ProductListPanel(AppContext context, MainFrame frame) {
         super(context, frame, "상품", "UC-04 카테고리별 상품 조회, UC-05 상품 검색 및 필터");
-        hideTitle(); // 제목은 위쪽 머리말에 직접 그린다.
+        hideTitle(); // 카테고리 탭이 제목 역할을 한다.
         setBackground(Theme.CARD);
         setBorder(BorderFactory.createEmptyBorder()); // 머리말 줄이 화면 끝까지 닿게
 
@@ -121,18 +136,22 @@ public class ProductListPanel extends ScreenPanel {
         });
     }
 
-    /** 위쪽 머리말: [제목 ... 검색창 검색] / 큰 카테고리 버튼. 목록을 내려도 그대로 보인다. */
+    /** 위쪽 머리말: [검색창 검색] / 카테고리 탭. 목록을 내리면 검색창은 올라가 사라지고 탭은 맨 위에 붙어 따라온다 (withStickyTabs). */
     private JPanel createHeader() {
-        JPanel chipRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
-        chipRow.setOpaque(false);
+        // 간격을 탭 사이에만 둔다 (FlowLayout 의 간격은 왼쪽 끝에도 생겨서 제목과 줄이 어긋난다).
+        JPanel tabRow = new JPanel(new WrapLayout(FlowLayout.LEFT, 0, 0));
+        tabRow.setOpaque(false);
         for (Category each : Category.values()) {
-            JToggleButton chip = Theme.chip(each.label());
-            chip.addActionListener(e -> showCategory(each));
-            chipGroup.add(chip);
-            chipRow.add(chip);
-            chips.put(each, chip);
+            JToggleButton tab = new CategoryTab(each.label());
+            tab.addActionListener(e -> showCategory(each));
+            tabGroup.add(tab);
+            if (tabRow.getComponentCount() > 0) {
+                tabRow.add(javax.swing.Box.createHorizontalStrut(28));
+            }
+            tabRow.add(tab);
+            tabs.put(each, tab);
         }
-        chips.get(Category.TOP).setSelected(true); // 처음에는 상의
+        tabs.get(Category.TOP).setSelected(true); // 처음에는 상의
 
         // UC-05 1단계: 검색어 입력 후 [검색] 또는 Enter
         searchField.setColumns(18);
@@ -148,20 +167,20 @@ public class ProductListPanel extends ScreenPanel {
 
         JPanel titleRow = new JPanel(new BorderLayout(24, 0));
         titleRow.setOpaque(false);
-        titleRow.add(Theme.label("상품", 1.6f, Font.BOLD, Theme.TEXT), BorderLayout.WEST);
         titleRow.add(searchBox, BorderLayout.EAST);
 
+        // 탭의 밑줄이 머리말 아래 구분선에 닿도록 아래 여백은 두지 않는다.
         JPanel header = new JPanel(new BorderLayout(0, 16));
         header.setOpaque(false);
         header.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.LINE),
-                BorderFactory.createEmptyBorder(24, 48, 24, 48)));
+                BorderFactory.createEmptyBorder(24, 48, 0, 48)));
         header.add(titleRow, BorderLayout.NORTH);
-        header.add(chipRow, BorderLayout.CENTER);
+        header.add(tabRow, BorderLayout.CENTER);
         return header;
     }
 
-    /** 머리말 아래: 안내 영역 + 카드 격자 + [더 보기]. 세로로만 스크롤한다. */
+    /** 머리말 아래: 필터 + 안내 영역 + 카드 격자 + [더 보기]. 세로로만 스크롤한다. */
     private JPanel createScreen(JPanel header) {
         clearSearchLink.addActionListener(e -> clearSearch());
         headlineRow.setOpaque(false);
@@ -180,9 +199,13 @@ public class ProductListPanel extends ScreenPanel {
         infoArea.setBorder(BorderFactory.createEmptyBorder(0, 0, 24, 0));
         Theme.addToCard(infoArea, headlineRow, 0);
         Theme.addToCard(infoArea, hint, 4);
-        Theme.addToCard(infoArea, createFilters(), 16);
         Theme.addToCard(infoArea, suggestions, 16);
         Theme.addToCard(infoArea, popularTitle, 40);
+
+        JPanel top = new JPanel(new GridBagLayout());
+        top.setOpaque(false);
+        Theme.addToCard(top, createFilters(), 0);
+        Theme.addToCard(top, infoArea, 0);
 
         moreButton.addActionListener(e -> showMore());
         moreRow.setOpaque(false);
@@ -190,7 +213,7 @@ public class ProductListPanel extends ScreenPanel {
         moreRow.add(moreButton);
 
         Body body = new Body();
-        body.add(infoArea, BorderLayout.NORTH);
+        body.add(top, BorderLayout.NORTH);
         body.add(grid, BorderLayout.CENTER);
         body.add(moreRow, BorderLayout.SOUTH);
         scroll.setViewportView(body);
@@ -201,47 +224,139 @@ public class ProductListPanel extends ScreenPanel {
         // 결과가 적어 스크롤이 필요 없을 때도 스크롤바 자리를 남겨, 오른쪽 링크와 카드 폭이 흔들리지 않게 한다.
         scroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
 
-        JPanel screen = new JPanel(new BorderLayout());
+        return withStickyTabs(header, body);
+    }
+
+    /**
+     * 머리말을 목록 위에 겹쳐 두고, 목록을 내린 만큼 머리말을 위로 밀어 올린다.
+     * 검색창은 위로 올라가 사라지고, 카테고리 탭이 맨 위에 닿으면 더 올라가지 않고 붙어서 따라온다.
+     * 목록 맨 위에는 머리말 높이만큼 여백을 두어 처음에는 아무것도 가려지지 않는다.
+     */
+    private JPanel withStickyTabs(JPanel header, Body body) {
+        header.setOpaque(true);
+        header.setBackground(Theme.CARD); // 밑으로 지나가는 카드를 가린다
+        Component tabRow = ((BorderLayout) header.getLayout()).getLayoutComponent(BorderLayout.CENTER);
+
+        JPanel screen = new JPanel(null) {
+            private int headerHeight = -1;
+
+            @Override
+            public void doLayout() {
+                scroll.setBounds(0, 0, getWidth(), getHeight());
+                JScrollBar bar = scroll.getVerticalScrollBar();
+                int width = getWidth() - (bar.isVisible() ? bar.getWidth() : 0); // 스크롤바는 가리지 않는다
+                header.setSize(width, header.getHeight()); // 탭 줄 바꿈(WrapLayout)이 이 폭으로 계산되게
+                int height = header.getPreferredSize().height;
+                header.doLayout();
+                int maxOffset = tabRow.getY(); // 이만큼 올리면 탭이 맨 위에 닿는다
+                int offset = Math.min(scroll.getViewport().getViewPosition().y, Math.max(0, maxOffset));
+                header.setBounds(0, -offset, width, height);
+                if (height != headerHeight) { // 목록 위 여백 = 머리말 높이
+                    headerHeight = height;
+                    body.setTopSpace(height);
+                }
+            }
+
+            @Override
+            public boolean isOptimizedDrawingEnabled() {
+                return false; // 머리말이 목록 위에 겹친다
+            }
+        };
         screen.setOpaque(false);
-        screen.add(header, BorderLayout.NORTH);
-        screen.add(scroll, BorderLayout.CENTER);
+        screen.add(header); // 먼저 넣은 것이 위에 그려진다
+        screen.add(scroll);
+        scroll.getViewport().addChangeListener(e -> {
+            screen.doLayout();
+            screen.repaint();
+        });
         return screen;
     }
 
-    /** 필터 두 줄 + 정렬 버튼 한 줄. 선택 상자의 첫 항목이 이름 역할을 한다. */
+    /**
+     * 필터 두 줄: [연령대 ∨] [체형 ∨] [사이즈 ∨] [가격대 ∨] [색상 ∨]
+     *            ☐ 내 체형에 맞는 상품   필터 초기화                         인기순 ↑↓
+     */
     private JPanel createFilters() {
-        String[] names = {"연령대", "체형", "사이즈", "가격대", "색상"};
-        List<JComboBox<String>> boxes = List.of(ageFilter, bodyTypeFilter, sizeFilter, priceFilter, colorFilter);
-        for (int i = 0; i < boxes.size(); i++) {
-            boxes.get(i).getAccessibleContext().setAccessibleName(names[i] + " 필터");
-            boxes.get(i).addActionListener(e -> filtersChanged());
+        JPanel pillRow = new JPanel(new WrapLayout(FlowLayout.LEFT, 0, 8));
+        pillRow.setOpaque(false);
+        for (FilterPill pill : pills) {
+            pill.onChange(this::filtersChanged);
+            if (pillRow.getComponentCount() > 0) {
+                pillRow.add(javax.swing.Box.createHorizontalStrut(10));
+            }
+            pillRow.add(pill);
         }
-        myBodyButton.addActionListener(e -> applyMyBody());
+        myBodyBox.addActionListener(e -> {
+            if (myBodyBox.isSelected()) {
+                applyMyBody();
+            } else {
+                setFilters(() -> List.of(ageFilter, bodyTypeFilter, sizeFilter).forEach(p -> p.setSelectedIndex(0)));
+                runList();
+            }
+        });
         JButton resetLink = Theme.linkButton("필터 초기화");
         resetLink.addActionListener(e -> {
             resetFilters();
-            runSearch();
+            runList();
         });
+        JPanel options = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        options.setOpaque(false);
+        options.add(myBodyBox);
+        options.add(myBodyGap);
+        options.add(resetLink);
 
-        JPanel firstRow = row(ageFilter, bodyTypeFilter, sizeFilter);
-        JPanel secondRow = row(priceFilter, colorFilter, myBodyButton, resetLink);
-        JPanel sortRow = row();
-        String[][] sorts = {{"인기순", SORT_POPULAR}, {"신상품순", SORT_NEWEST},
-                {"낮은 가격순", SORT_PRICE_LOW}, {"높은 가격순", SORT_PRICE_HIGH}};
-        for (String[] sort : sorts) {
-            JToggleButton chip = sort[1].equals(SORT_POPULAR) ? popularSort : Theme.chip(sort[0]);
-            chip.setActionCommand(sort[1]);
-            chip.addActionListener(e -> filtersChanged());
-            sortGroup.add(chip);
-            sortRow.add(chip);
+        JPanel optionRow = new JPanel(new BorderLayout(16, 0));
+        optionRow.setOpaque(false);
+        optionRow.add(options, BorderLayout.WEST);
+        updateSortButton();
+        optionRow.add(sortButton, BorderLayout.EAST);
+
+        JPanel filters = new JPanel(new GridBagLayout());
+        filters.setOpaque(false);
+        filters.setBorder(BorderFactory.createEmptyBorder(0, 0, 32, 0));
+        Theme.addToCard(filters, pillRow, 0);
+        Theme.addToCard(filters, optionRow, 8);
+        return filters;
+    }
+
+    /** 오른쪽의 [인기순 ↑↓]. 누르면 정렬 방법을 고르는 목록이 열린다. */
+    private JButton sortButton() {
+        JButton button = new JButton() {
+            @Override
+            public void updateUI() {
+                setUI(new BasicButtonUI());
+            }
+        };
+        button.setContentAreaFilled(false);
+        button.setFocusPainted(false);
+        button.setBorder(BorderFactory.createEmptyBorder(12, 8, 12, 0));
+        button.setForeground(Theme.TEXT);
+        button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        button.addActionListener(e -> {
+            JPopupMenu menu = new JPopupMenu();
+            for (String[] each : SORTS) {
+                JMenuItem item = new JMenuItem(each[0]);
+                item.setFont(button.getFont().deriveFont(each[1].equals(sort) ? Font.BOLD : Font.PLAIN));
+                item.setBorder(BorderFactory.createEmptyBorder(10, 16, 10, 24));
+                item.addActionListener(ev -> {
+                    sort = each[1];
+                    updateSortButton();
+                    filtersChanged();
+                });
+                menu.add(item);
+            }
+            menu.show(button, 0, button.getHeight());
+        });
+        return button;
+    }
+
+    private void updateSortButton() {
+        for (String[] each : SORTS) {
+            if (each[1].equals(sort)) {
+                sortButton.setText(each[0] + "  ↑↓");
+                sortButton.getAccessibleContext().setAccessibleName("정렬, 지금 " + each[0]);
+            }
         }
-        popularSort.setSelected(true);
-
-        filterArea.setOpaque(false);
-        Theme.addToCard(filterArea, firstRow, 0);
-        Theme.addToCard(filterArea, secondRow, 12);
-        Theme.addToCard(filterArea, sortRow, 16);
-        return filterArea;
     }
 
     /** 홈 화면의 카테고리 버튼에서 부른다. null([전체 상품 보기])이면 이 화면에 [전체]가 없어 상의를 보여준다. */
@@ -258,30 +373,20 @@ public class ProductListPanel extends ScreenPanel {
         search(text);
     }
 
-    /** UC-04 1~2단계: 카테고리의 첫 페이지를 보여준다. 없으면 인기 상품을 대신 보여준다 (2a). */
+    /** UC-04 1~2단계: 카테고리 탭을 고른다. 고른 필터·정렬은 그대로 둔다. */
     private void showCategory(Category selected) {
         category = selected;
         keyword = null;
-        page = 0;
-        chips.get(selected).setSelected(true);
+        tabs.get(selected).setSelected(true);
         clearSearchBox();
-        List<ProductItem> items = fetch(category, page);
-        if (items.isEmpty()) {
-            showInfo("준비 중인 상품입니다", false, "대신 지금 인기 있는 상품을 보여 드릴게요.", false, false, false);
-            showCards(fetchPopular(), false);
-        } else {
-            hideInfo();
-            showCards(items, items.size() == ProductService.PAGE_SIZE);
-        }
+        runList();
     }
 
-    /** UC-04 3단계 [더 보기]: 다음 페이지를 아래에 덧붙인다. 더 없으면 버튼을 감춘다. */
+    /** UC-04 3단계 [더 보기]: 다음 PAGE_SIZE 개를 아래에 덧붙인다. 더 없으면 버튼을 감춘다. */
     private void showMore() {
-        page++;
-        List<ProductItem> items = fetch(category, page);
         int firstNew = grid.getComponentCount();
-        addCards(items);
-        moreRow.setVisible(items.size() == ProductService.PAGE_SIZE);
+        addCards(results.subList(firstNew, Math.min(firstNew + ProductService.PAGE_SIZE, results.size())));
+        moreRow.setVisible(grid.getComponentCount() < results.size());
         refresh();
         if (firstNew < grid.getComponentCount()) {
             grid.getComponent(firstNew).requestFocusInWindow(); // 키보드 사용자가 새 상품부터 이어 볼 수 있게
@@ -299,57 +404,78 @@ public class ProductListPanel extends ScreenPanel {
         }
         searchError.setText("");
         Theme.setInvalid(searchField, false);
-        chipGroup.clearSelection(); // 검색 결과는 특정 카테고리가 아니다
+        tabGroup.clearSelection(); // 검색 결과는 특정 카테고리가 아니다
         keyword = trimmed;
         resetFilters();
-        runSearch();
+        runList();
     }
 
     /**
-     * UC-05 2~4단계: 검색어와 필터·정렬로 목록을 다시 불러온다.
-     * 검색어만으로 결과가 없으면 자주 찾는 검색어와 인기 상품을 제안하고 (2a),
-     * 필터 때문에 결과가 없으면 필터를 줄이도록 안내한다.
+     * UC-04 2단계, UC-05 2~4단계: 카테고리 또는 검색어와 필터·정렬로 목록을 다시 불러온다.
+     * 카테고리에 상품이 없으면 인기 상품을 (UC-04 2a), 검색어로 찾은 게 없으면 자주 찾는 검색어와 인기 상품을
+     * 제안하고 (UC-05 2a), 필터 때문에 결과가 없으면 필터를 줄이도록 안내한다.
      */
-    private void runSearch() {
-        myBodyButton.setVisible(myBodyProfile() != null); // 3a: 체형 정보가 있는 회원에게만
-        List<ProductItem> items = fetchSearch(currentFilter());
-        if (!items.isEmpty()) {
-            showInfo("'" + keyword + "' 검색 결과 " + items.size() + "개", true, null, true, false, false);
-            showCards(items, false); // search() 는 결과를 한 번에 준다
+    private void runList() {
+        myBodyBox.setVisible(myBodyProfile() != null); // 3a: 체형 정보가 있는 회원에게만
+        myBodyGap.setVisible(myBodyBox.isVisible());
+        List<Product> found = context.product.search(currentFilter());
+        if (keyword == null) {
+            found = found.stream().filter(product -> product.getCategory() == category).toList();
+        }
+        results = items(found);
+        if (!results.isEmpty()) {
+            if (keyword == null) {
+                hideInfo();
+                showCards(results.subList(0, Math.min(ProductService.PAGE_SIZE, results.size())),
+                        results.size() > ProductService.PAGE_SIZE);
+            } else {
+                showInfo("'" + keyword + "' 검색 결과 " + results.size() + "개", true, null, false, false);
+                showCards(results, false); // 검색 결과는 한 번에 보여준다
+            }
         } else if (filtersActive()) {
-            showInfo("'" + keyword + "' 중 조건에 맞는 상품이 없어요", true,
-                    "필터를 줄이거나 [필터 초기화]를 눌러 보세요", true, false, false);
+            showInfo(keyword == null ? "조건에 맞는 상품이 없어요" : "'" + keyword + "' 중 조건에 맞는 상품이 없어요",
+                    keyword != null, "필터를 줄이거나 [필터 초기화]를 눌러 보세요", false, false);
             showCards(List.of(), false);
+        } else if (keyword == null) {
+            showInfo("준비 중인 상품입니다", false, "대신 지금 인기 있는 상품을 보여 드릴게요.", false, false);
+            showCards(fetchPopular(), false);
         } else {
-            showInfo("'" + keyword + "'에 맞는 상품이 없어요", true, "이런 검색어로 찾아보세요", false, true, true);
+            showInfo("'" + keyword + "'에 맞는 상품이 없어요", true, "이런 검색어로 찾아보세요", true, true);
             showCards(fetchPopular(), false);
         }
     }
 
     private void filtersChanged() {
-        if (!settingFilters && keyword != null) {
-            runSearch();
+        if (!settingFilters) {
+            myBodyBox.setSelected(matchesMyBody());
+            runList();
         }
     }
 
-    /** 화면에서 고른 조건을 명세의 SearchFilter 로 만든다. "… 전체"는 null(조건 없음). */
+    /** 화면에서 고른 조건을 명세의 SearchFilter 로 만든다. "전체"는 null(조건 없음). */
     private SearchFilter currentFilter() {
-        Integer[] price = PRICE_RANGES[priceFilter.getSelectedIndex()];
-        return new SearchFilter(keyword, chosen(ageFilter), chosen(bodyTypeFilter), chosen(sizeFilter),
-                price[0], price[1], chosen(colorFilter), sortGroup.getSelection().getActionCommand());
+        Integer[] price = PRICE_RANGES[priceFilter.selectedIndex()];
+        return new SearchFilter(keyword, ageFilter.value(), bodyTypeFilter.value(), sizeFilter.value(),
+                price[0], price[1], colorFilter.value(), sort);
     }
 
     private boolean filtersActive() {
-        return List.of(ageFilter, bodyTypeFilter, sizeFilter, priceFilter, colorFilter).stream()
-                .anyMatch(box -> box.getSelectedIndex() > 0);
+        return pills.stream().anyMatch(pill -> pill.selectedIndex() > 0);
     }
 
     private void resetFilters() {
+        setFilters(() -> {
+            pills.forEach(pill -> pill.setSelectedIndex(0));
+            sort = SORT_POPULAR;
+            updateSortButton();
+            myBodyBox.setSelected(false);
+        });
+    }
+
+    /** 코드에서 필터를 바꾸는 동안 목록을 다시 불러오지 않게 한다. */
+    private void setFilters(Runnable change) {
         settingFilters = true;
-        for (JComboBox<String> box : List.of(ageFilter, bodyTypeFilter, sizeFilter, priceFilter, colorFilter)) {
-            box.setSelectedIndex(0);
-        }
-        popularSort.setSelected(true);
+        change.run();
         settingFilters = false;
     }
 
@@ -359,12 +485,20 @@ public class ProductListPanel extends ScreenPanel {
         if (body == null) {
             return;
         }
-        settingFilters = true;
-        select(ageFilter, body.ageGroup());
-        select(bodyTypeFilter, body.bodyType());
-        select(sizeFilter, body.usualSize());
-        settingFilters = false;
-        runSearch();
+        setFilters(() -> {
+            ageFilter.select(body.ageGroup());
+            bodyTypeFilter.select(body.bodyType());
+            sizeFilter.select(body.usualSize());
+        });
+        runList();
+    }
+
+    /** 연령대·체형·사이즈 필터가 내 체형 정보와 같은지. 직접 바꾸면 [내 체형에 맞는 상품] 체크를 푼다. */
+    private boolean matchesMyBody() {
+        BodyProfile body = myBodyProfile();
+        return body != null && java.util.Objects.equals(ageFilter.value(), body.ageGroup())
+                && java.util.Objects.equals(bodyTypeFilter.value(), body.bodyType())
+                && java.util.Objects.equals(sizeFilter.value(), body.usualSize());
     }
 
     /** 로그인했고 체형 정보(연령대·체형·사이즈 중 하나 이상)가 있으면 그 정보, 아니면 null. */
@@ -389,29 +523,20 @@ public class ProductListPanel extends ScreenPanel {
         Theme.setInvalid(searchField, false);
     }
 
-    private List<ProductItem> fetch(Category category, int page) {
-        return items(context.product.listByCategory(category, page));
-    }
-
     private List<ProductItem> fetchPopular() {
         return items(context.product.popular());
-    }
-
-    private List<ProductItem> fetchSearch(SearchFilter filter) {
-        return items(context.product.search(filter));
     }
 
     private static List<ProductItem> items(List<Product> products) {
         return products.stream().map(ProductItem::of).toList();
     }
 
-    private void showInfo(String title, boolean clearLink, String hintText, boolean showFilters,
-                          boolean showSuggestions, boolean showPopularTitle) {
+    private void showInfo(String title, boolean clearLink, String hintText, boolean showSuggestions,
+                          boolean showPopularTitle) {
         headline.setText(title);
         clearSearchLink.setVisible(clearLink);
         hint.setText(hintText == null ? "" : hintText);
         hint.setVisible(hintText != null);
-        filterArea.setVisible(showFilters);
         suggestions.setVisible(showSuggestions);
         popularTitle.setVisible(showPopularTitle);
         infoArea.setVisible(true);
@@ -432,9 +557,12 @@ public class ProductListPanel extends ScreenPanel {
 
     private void addCards(List<ProductItem> items) {
         for (ProductItem item : items) {
-            grid.add(new ProductCard(item, () -> frame.openProduct(item.id()))); // UC-06 상세로
+            grid.add(new ProductCard(item, cardActions, () -> frame.openProduct(item.id()))); // UC-06 상세로
         }
     }
+
+    /** 카드의 찜 하트와 "♥ 찜 수 ★ 평점 (리뷰 수)" 줄 (UC-10 1a, FR-23). */
+    private final ProductCard.Actions cardActions = new WishActions(context, frame, this);
 
     private void refresh() {
         infoArea.revalidate();
@@ -442,32 +570,57 @@ public class ProductListPanel extends ScreenPanel {
         grid.repaint();
     }
 
-    /** "… 전체" 를 맨 앞에 두고, 회원가입 선택지에서 "선택 안 함" 을 뺀 목록. */
-    private static String[] withAll(String all, String[] options) {
-        String[] items = Arrays.copyOf(options, options.length);
-        items[0] = all; // options[0] 은 "선택 안 함"
-        return items;
+    /** 회원가입 선택지(0번 "선택 안 함")를 필터 선택지로. 0번은 FilterPill 이 "전체"로 보여준다. */
+    private static String[] withAll(String[] options) {
+        return Arrays.copyOf(options, options.length);
     }
 
-    private static String chosen(JComboBox<String> box) {
-        return box.getSelectedIndex() == 0 ? null : (String) box.getSelectedItem();
-    }
+    /**
+     * 카테고리 탭: 테두리 없이 글자만, 고른 탭은 굵은 글씨와 검은 밑줄.
+     * [글씨 크기]를 바꿔도 탭 글씨는 "보통" 크기로 고정한다 (탭이 한 줄에 들어가게).
+     */
+    private static final class CategoryTab extends JToggleButton {
+        /** "보통" 글씨(본문 18px)일 때의 카테고리 글씨 크기. */
+        private static final float FIXED_SIZE = 20f;
+        private static final int UNDERLINE = 3;
 
-    /** 선택지에 있는 값이면 고르고, 없으면 "… 전체" 로 둔다. */
-    private static void select(JComboBox<String> box, String value) {
-        box.setSelectedIndex(0);
-        if (value != null) {
-            box.setSelectedItem(value);
+        CategoryTab(String text) {
+            super(text);
+            setContentAreaFilled(false);
+            setFocusPainted(false);
+            setBorder(BorderFactory.createEmptyBorder(12, 2, 14, 2)); // 높이 48px 이상 (NFR-02)
+            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            addItemListener(e -> updateStyle());
+            updateStyle();
         }
-    }
 
-    private static JPanel row(JComponent... components) {
-        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
-        row.setOpaque(false);
-        for (JComponent component : components) {
-            row.add(component);
+        @Override
+        public void updateUI() {
+            setUI(new BasicToggleButtonUI());
+            updateStyle();
         }
-        return row;
+
+        private void updateStyle() {
+            Font base = UIManager.getFont("Button.font");
+            setFont(base.deriveFont(isSelected() ? Font.BOLD : Font.PLAIN, FIXED_SIZE));
+            setForeground(isSelected() ? Theme.TEXT : Theme.HINT);
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            Graphics2D g2 = (Graphics2D) g.create();
+            if (isSelected()) {
+                g2.setColor(Theme.PRIMARY);
+                g2.fillRect(0, getHeight() - UNDERLINE, getWidth(), UNDERLINE);
+            }
+            if (isFocusOwner()) { // 키보드 사용자를 위한 테두리
+                g2.setColor(Theme.TEXT);
+                g2.setStroke(new BasicStroke(2f));
+                g2.drawRect(1, 1, getWidth() - 3, getHeight() - UNDERLINE - 3);
+            }
+            g2.dispose();
+        }
     }
 
     /** 목록 전체(안내 + 카드 + [더 보기]). 폭은 창에 맞추고 세로로만 스크롤한다. */
@@ -475,7 +628,13 @@ public class ProductListPanel extends ScreenPanel {
         Body() {
             super(new BorderLayout());
             setBackground(Theme.CARD);
-            setBorder(BorderFactory.createEmptyBorder(32, 48, 48, 48));
+            setTopSpace(0);
+        }
+
+        /** 목록 위에 겹쳐 있는 머리말 높이만큼 위쪽을 비운다. */
+        void setTopSpace(int headerHeight) {
+            setBorder(BorderFactory.createEmptyBorder(headerHeight + 32, 48, 48, 48));
+            revalidate();
         }
 
         @Override
