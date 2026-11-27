@@ -69,7 +69,6 @@ public class MyInfoPanel extends ScreenPanel {
         Theme.addToCard(card, Theme.field("기본 배송지", null, addressField), 20);
 
         Theme.addToCard(card, Theme.label("체형 정보", 1.2f, Font.BOLD, Theme.TEXT), 40);
-        Theme.addToCard(card, Theme.label("저장하면 추천 옷에 바로 반영돼요", 1f, Font.PLAIN, Theme.HINT), 4);
         Theme.addToCard(card, SignUpPanel.twoColumns(Theme.field("연령대", null, ageGroupBox),
                 Theme.field("키 (cm)", heightError, heightField)), 16);
         Theme.addToCard(card, SignUpPanel.twoColumns(Theme.field("평소 사이즈", null, sizeBox),

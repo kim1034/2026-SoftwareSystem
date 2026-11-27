@@ -88,7 +88,7 @@ class PhotoUploadDialog extends JDialog {
             protected void paintComponent(Graphics graphics) {
                 Graphics2D g = TryOnUi.smooth(graphics);
                 RoundRectangle2D shape = new RoundRectangle2D.Float(0.5f, 0.5f, getWidth() - 1, getHeight() - 1, 16, 16);
-                g.setColor(new Color(0xF7F7F7));
+                g.setColor(Theme.PAGE);
                 g.fill(shape);
                 g.setColor(Theme.LINE);
                 g.draw(shape);
@@ -304,7 +304,7 @@ class PhotoUploadDialog extends JDialog {
             Graphics2D g = TryOnUi.smooth(graphics);
             int w = getWidth();
             int h = getHeight();
-            g.setColor(new Color(0xEBEBEB));
+            g.setColor(Theme.SOFT);
             g.fill(new RoundRectangle2D.Float(0, 0, w, h, 14, 14));
             g.setColor(new Color(0x6B6B6B));
             g.setStroke(new BasicStroke(3f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));

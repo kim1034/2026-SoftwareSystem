@@ -23,7 +23,7 @@ import java.awt.geom.RoundRectangle2D;
  * 첫 선택지(0번)는 "전체"(조건 없음)이다. 조건을 고른 버튼은 검정 바탕으로 눈에 띄게 한다.
  */
 final class FilterPill extends JButton {
-    private static final Color FILL = new Color(0xF1F1F1);
+    private static final Color FILL = Theme.SECONDARY;
 
     private final String name;
     private final String[] options;

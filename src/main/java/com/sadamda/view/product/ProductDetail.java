@@ -10,10 +10,10 @@ import java.util.List;
  * imageUrls 에는 중장년 모델 착용 사진도 들어 있다.
  */
 public record ProductDetail(Long id, String name, int price, String material, List<String> imageUrls,
-                     List<ProductOption> options) {
+                     List<ProductOption> options, String brand) {
 
     public static ProductDetail of(Product product) {
         return new ProductDetail(product.getId(), product.getName(), product.getPrice(), product.getMaterial(),
-                product.getImageUrls(), product.getOptions());
+                product.getImageUrls(), product.getOptions(), product.getBrand());
     }
 }

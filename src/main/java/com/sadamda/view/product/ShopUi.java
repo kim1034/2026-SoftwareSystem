@@ -83,6 +83,19 @@ public final class ShopUi {
         return PRICE.format(won) + "원";
     }
 
+    /**
+     * 화면에 짧게 보여줄 상품명. 앞의 [기획전] 꼬리표와 뒤의 (상품 코드)를 뺀다.
+     * "[백화점BEST] 블랙 퀼팅 자켓 (WKJU5D991N3)" → "블랙 퀼팅 자켓"
+     */
+    public static String displayName(String name) {
+        if (name == null) {
+            return "";
+        }
+        String shortName = name.replaceAll("^(\\s*\\[[^\\]]*\\])+\\s*", "")
+                .replaceAll("\\s*\\([A-Za-z0-9-]{6,}\\)\\s*$", "").trim();
+        return shortName.isEmpty() ? name : shortName;
+    }
+
     /** HTML 특수 문자를 바꾼다. 상품명 등 데이터 글자를 JLabel HTML 에 넣을 때 쓴다. */
     public static String escape(String text) {
         if (text == null) {

@@ -90,12 +90,12 @@ public class ProductDetailPanel extends ScreenPanel {
     private final JLabel actionError = Theme.errorLabel();
     /** 살 개수. 상품을 열 때마다 1로 돌린다. */
     private int quantity = 1;
-    private final JLabel quantityLabel = Theme.label("1개", 1.1f, Font.BOLD, Theme.TEXT);
+    private final JLabel quantityLabel = Theme.label("1", 1.1f, Font.BOLD, Theme.TEXT);
     private final JLabel quantityError = Theme.errorLabel();
     private final JLabel totalLabel = Theme.label(" ", 1.1f, Font.BOLD, Theme.TEXT);
     /** 아래에 늘 붙어 있는 구매 줄: [♡] 합계 ... [장바구니 담기] [바로 구매] (쇼핑몰 상세 화면의 고정 버튼 줄). */
     private final JPanel purchaseBar = new JPanel(new BorderLayout(16, 0));
-    private final JButton wishButton = Theme.secondaryButton("♡");
+    private final HeartCircle wishButton = new HeartCircle();
     private final JLabel barTotal = Theme.label(" ", 1.2f, Font.BOLD, Theme.TEXT);
 
     public ProductDetailPanel(AppContext context, MainFrame frame) {
@@ -208,13 +208,7 @@ public class ProductDetailPanel extends ScreenPanel {
         c.anchor = GridBagConstraints.NORTHWEST;
         if (sideBySide) {
             mainRow.add(gallery, c);
-            c.fill = GridBagConstraints.VERTICAL;
-            c.insets = new Insets(0, 48, 0, 48);
-            JPanel line = new JPanel();
-            line.setBackground(Theme.LINE);
-            line.setPreferredSize(new Dimension(1, 1));
-            mainRow.add(line, c);
-            c.insets = new Insets(0, 0, 0, 0);
+            c.insets = new Insets(0, 56, 0, 0);
             c.fill = GridBagConstraints.HORIZONTAL;
             c.weightx = 1;
             mainRow.add(info, c);
@@ -253,9 +247,7 @@ public class ProductDetailPanel extends ScreenPanel {
             }
             Theme.addToCard(panel, thumbs, 16);
         }
-        JLabel hint = Theme.label("사진을 누르면 크게 볼 수 있어요", 1f, Font.PLAIN, Theme.HINT);
-        hint.setHorizontalAlignment(SwingConstants.CENTER);
-        Theme.addToCard(panel, hint, 12);
+        photo.setToolTipText("누르면 크게 보기");
         return panel;
     }
 
@@ -263,8 +255,13 @@ public class ProductDetailPanel extends ScreenPanel {
     private JPanel createInfo() {
         JPanel panel = new JPanel(new GridBagLayout());
         panel.setOpaque(false);
-        Theme.addToCard(panel, Theme.label(price(product.price()), 1.8f, Font.BOLD, Theme.TEXT), 0);
-        Theme.addToCard(panel, text(product.name(), 1.3f, Font.PLAIN, Theme.TEXT), 8);
+        if (product.brand() != null && !product.brand().isBlank()) {
+            Theme.addToCard(panel, Theme.label(product.brand(), 1f, Font.PLAIN, Theme.HINT), 0);
+        }
+        JTextArea name = text(ShopUi.displayName(product.name()), 1.5f, Font.BOLD, Theme.TEXT);
+        name.setToolTipText(product.name());
+        Theme.addToCard(panel, name, 6);
+        Theme.addToCard(panel, Theme.label(price(product.price()), 1.6f, Font.BOLD, Theme.TEXT), 10);
         Theme.addToCard(panel, ratingRow(), 8);
 
         Theme.addToCard(panel, divider(), 24);
@@ -287,7 +284,7 @@ public class ProductDetailPanel extends ScreenPanel {
         Theme.addToCard(panel, quantityRow(), 4);
 
         // 찜·장바구니·바로 구매는 화면 아래 고정 줄에 있다 (createPurchaseBar). 여기에는 입어보기만.
-        JButton tryOn = Theme.secondaryButton("AI로 입어보기");
+        JButton tryOn = Theme.filledButton("AI로 입어보기", Theme.OLIVE, Color.WHITE);
         tryOn.addActionListener(e -> tryOn());
         Theme.addToCard(panel, tryOn, 32);
         // 사담다 차별 기능: 고른 옷을 가족에게 "어때?" 물어보고, 가족이 대신 결제해 줄 수도 있다.
@@ -304,19 +301,19 @@ public class ProductDetailPanel extends ScreenPanel {
         purchaseBar.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(1, 0, 0, 0, Theme.LINE),
                 BorderFactory.createEmptyBorder(12, 48, 12, 48)));
-        wishButton.setBorder(BorderFactory.createEmptyBorder(12, 20, 12, 20));
         wishButton.addActionListener(e -> toggleWish());
-        JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 16, 0));
+        JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         left.setOpaque(false);
         left.add(wishButton);
-        left.add(barTotal);
 
-        JButton addToCart = Theme.secondaryButton("장바구니 담기");
+        JButton addToCart = Theme.filledButton("장바구니 담기", Theme.BEIGE, Theme.TEXT);
         addToCart.addActionListener(e -> addToCart());
         JButton buyNow = Theme.primaryButton("바로 구매");
         buyNow.addActionListener(e -> buyNow());
-        JPanel buttons = new JPanel(new GridLayout(1, 2, 12, 0));
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
         buttons.setOpaque(false);
+        buttons.add(barTotal);
+        buttons.add(javax.swing.Box.createHorizontalStrut(12));
         buttons.add(addToCart);
         buttons.add(buyNow);
 
@@ -332,8 +329,8 @@ public class ProductDetailPanel extends ScreenPanel {
 
     /** [−] 2개 [+]   합계 1,480,000원 (장바구니 화면의 수량 줄과 같은 모양) */
     private JPanel quantityRow() {
-        JButton minus = Theme.secondaryButton("−");
-        JButton plus = Theme.secondaryButton("+");
+        JButton minus = Theme.filledButton("−", Theme.CARD, Theme.TEXT);
+        JButton plus = Theme.filledButton("+", Theme.CARD, Theme.TEXT);
         for (JButton button : List.of(minus, plus)) {
             button.setBorder(BorderFactory.createEmptyBorder(12, 18, 12, 18)); // 48px 이상 (NFR-02)
         }
@@ -343,15 +340,32 @@ public class ProductDetailPanel extends ScreenPanel {
         plus.addActionListener(e -> changeQuantity(1));
         quantityLabel.setHorizontalAlignment(SwingConstants.CENTER);
         quantityLabel.setPreferredSize(new Dimension(
-                quantityLabel.getFontMetrics(quantityLabel.getFont()).stringWidth("99개") + 24,
+                quantityLabel.getFontMetrics(quantityLabel.getFont()).stringWidth("99") + 32,
                 quantityLabel.getPreferredSize().height));
 
-        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        // [− 1 +] 를 둥근 테두리 하나로 묶는다
+        JPanel stepper = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0)) {
+            @Override
+            protected void paintComponent(java.awt.Graphics g) {
+                java.awt.Graphics2D g2 = Theme.smooth(g);
+                g2.setColor(Theme.CARD);
+                g2.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, getHeight(), getHeight());
+                g2.setColor(Theme.LINE);
+                g2.setStroke(new java.awt.BasicStroke(1.4f));
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, getHeight() - 1, getHeight() - 1);
+                g2.dispose();
+            }
+        };
+        stepper.setOpaque(false);
+        stepper.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));
+        stepper.add(minus);
+        stepper.add(quantityLabel);
+        stepper.add(plus);
+
+        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         row.setOpaque(false);
-        row.add(minus);
-        row.add(quantityLabel);
-        row.add(plus);
-        row.add(javax.swing.Box.createHorizontalStrut(16));
+        row.add(stepper);
+        row.add(javax.swing.Box.createHorizontalStrut(24));
         row.add(totalLabel);
         return row;
     }
@@ -381,7 +395,7 @@ public class ProductDetailPanel extends ScreenPanel {
     }
 
     private void updateQuantity() {
-        quantityLabel.setText(quantity + "개");
+        quantityLabel.setText(String.valueOf(quantity));
         quantityLabel.getAccessibleContext().setAccessibleName("수량 " + quantity + "개");
         totalLabel.setText("합계 " + String.format("%,d원", product.price() * quantity));
         barTotal.setText(String.format("%,d원", product.price() * quantity) + (quantity > 1 ? " (" + quantity + "개)" : ""));
@@ -551,7 +565,7 @@ public class ProductDetailPanel extends ScreenPanel {
     /** UC-10 1a 찜 버튼: 찜했으면 ♥ (채운 하트), 아니면 ♡. */
     private void updateWishButton() {
         boolean wished = product != null && context.cart.isWished(product.id());
-        wishButton.setText(wished ? "♥ 찜" : "♡ 찜");
+        wishButton.setWished(wished);
         wishButton.getAccessibleContext().setAccessibleName(wished ? "찜 해제하기" : "찜하기");
     }
 
@@ -587,8 +601,7 @@ public class ProductDetailPanel extends ScreenPanel {
         JPanel section = new JPanel(new GridBagLayout());
         section.setOpaque(false);
         Theme.addToCard(section, Theme.label("사이즈표", 1.3f, Font.BOLD, Theme.TEXT), 0);
-        Theme.addToCard(section, Theme.label("사담다 표준 치수예요 (단위 cm). 상품마다 조금 다를 수 있어요.",
-                1f, Font.PLAIN, Theme.HINT), 4);
+        Theme.addToCard(section, Theme.label("단위 cm", 1f, Font.PLAIN, Theme.HINT), 4);
 
         JPanel table = new JPanel(new GridLayout(SIZE_CHART.length, SIZE_CHART[0].length));
         table.setOpaque(false);
@@ -719,6 +732,60 @@ public class ProductDetailPanel extends ScreenPanel {
         area.setBorder(null);
         area.setColumns(1); // 폭은 놓인 칸에 맞춘다
         return area;
+    }
+
+    /** 아래 고정 줄 왼쪽의 동그란 찜 버튼. 찜했으면 빨간 하트. 48px 이상 (NFR-02). */
+    private static final class HeartCircle extends JButton {
+        private boolean wished;
+
+        HeartCircle() {
+            setContentAreaFilled(false);
+            setBorderPainted(false);
+            setFocusPainted(false);
+            setRolloverEnabled(true);
+            setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
+            setPreferredSize(new Dimension(52, 52));
+        }
+
+        @Override
+        public void updateUI() {
+            setUI(new javax.swing.plaf.basic.BasicButtonUI());
+        }
+
+        void setWished(boolean wished) {
+            this.wished = wished;
+            setToolTipText(wished ? "찜 해제" : "찜하기");
+            repaint();
+        }
+
+        @Override
+        protected void paintComponent(java.awt.Graphics g) {
+            java.awt.Graphics2D g2 = Theme.smooth(g);
+            int d = Math.min(getWidth(), getHeight()) - 2;
+            int x = (getWidth() - d) / 2;
+            int y = (getHeight() - d) / 2;
+            g2.setColor(getModel().isRollover() ? Theme.SECONDARY : Theme.CARD);
+            g2.fillOval(x, y, d, d);
+            g2.setColor(isFocusOwner() ? Theme.TEXT : Theme.LINE);
+            g2.setStroke(new java.awt.BasicStroke(isFocusOwner() ? 2f : 1.4f));
+            g2.drawOval(x, y, d, d);
+            float s = d * 0.42f;
+            float hx = (getWidth() - s) / 2f;
+            float hy = (getHeight() - s) / 2f + 1;
+            java.awt.geom.Path2D heart = new java.awt.geom.Path2D.Float();
+            heart.moveTo(hx + s / 2, hy + s * 0.90f);
+            heart.curveTo(hx - s * 0.08f, hy + s * 0.50f, hx + s * 0.02f, hy - s * 0.02f, hx + s / 2, hy + s * 0.24f);
+            heart.curveTo(hx + s * 0.98f, hy - s * 0.02f, hx + s * 1.08f, hy + s * 0.50f, hx + s / 2, hy + s * 0.90f);
+            heart.closePath();
+            if (wished) {
+                g2.setColor(Theme.ERROR);
+                g2.fill(heart);
+            }
+            g2.setColor(wished ? Theme.ERROR : Theme.TEXT);
+            g2.setStroke(new java.awt.BasicStroke(1.8f, java.awt.BasicStroke.CAP_ROUND, java.awt.BasicStroke.JOIN_ROUND));
+            g2.draw(heart);
+            g2.dispose();
+        }
     }
 
     /** 화면 전체. 폭은 창에 맞추고 세로로만 스크롤한다. */

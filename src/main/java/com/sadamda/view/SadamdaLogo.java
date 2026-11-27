@@ -38,6 +38,10 @@ public final class SadamdaLogo extends JButton {
     private static final int PADDING_X = 4;
     private static final int PADDING_Y = 12;
 
+    /** 글자 뒤 골드 점의 지름과 글자와의 간격 (글자 크기 대비). */
+    private static final float DOT = 0.2f;
+    private static final float DOT_GAP = 0.08f;
+
     private static String serifFamily; // 한 번만 찾는다
     private static boolean serifSearched;
 
@@ -91,10 +95,14 @@ public final class SadamdaLogo extends JButton {
         return path;
     }
 
+    private float dotSpace() {
+        return size * (DOT + DOT_GAP);
+    }
+
     @Override
     public Dimension getPreferredSize() {
         Rectangle2D bounds = name().getBounds2D();
-        return new Dimension((int) Math.ceil(bounds.getWidth()) + PADDING_X * 2,
+        return new Dimension((int) Math.ceil(bounds.getWidth() + dotSpace()) + PADDING_X * 2,
                 (int) Math.ceil(bounds.getHeight()) + PADDING_Y * 2);
     }
 
@@ -108,11 +116,16 @@ public final class SadamdaLogo extends JButton {
         Rectangle2D bounds = name.getBounds2D();
         Graphics2D text = (Graphics2D) g2.create();
         text.setColor(Theme.PRIMARY);
-        text.translate((getWidth() - bounds.getWidth()) / 2 - bounds.getX(),
+        text.translate((getWidth() - bounds.getWidth() - dotSpace()) / 2 - bounds.getX(),
                 (getHeight() - bounds.getHeight()) / 2 - bounds.getY());
         text.fill(name);
         text.setStroke(new BasicStroke(WEIGHT, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         text.draw(name);
+        // 글자 오른쪽 아래의 골드 점
+        float dot = size * DOT;
+        text.setColor(Theme.GOLD);
+        text.fill(new java.awt.geom.Ellipse2D.Double(bounds.getMaxX() + size * DOT_GAP,
+                bounds.getMaxY() - dot, dot, dot));
         text.dispose();
 
         if (isFocusOwner()) { // 키보드 사용자를 위한 테두리

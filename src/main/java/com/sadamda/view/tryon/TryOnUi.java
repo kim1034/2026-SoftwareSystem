@@ -74,6 +74,79 @@ final class TryOnUi {
         return compact(Theme.primaryButton(text));
     }
 
+    /**
+     * 둥근 흰 틀 안의 세그먼트 버튼 하나 (그림체·내 사진 고르기). 고른 것은 골드 바탕에 진한 글씨 (8.5:1).
+     * segmentGroup 안에 넣어 쓴다. 높이 48px 이상 (NFR-02).
+     */
+    static javax.swing.JToggleButton segment(String text) {
+        javax.swing.JToggleButton button = new javax.swing.JToggleButton(text) {
+            @Override
+            public void updateUI() {
+                setUI(new javax.swing.plaf.basic.BasicToggleButtonUI());
+                java.awt.Font base = javax.swing.UIManager.getFont("Button.font");
+                setFont(base.deriveFont(java.awt.Font.BOLD, base.getSize2D()));
+            }
+
+            @Override
+            protected void paintComponent(Graphics graphics) {
+                Graphics2D g = smooth(graphics);
+                RoundRectangle2D pill = new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), getHeight(), getHeight());
+                if (isSelected()) {
+                    g.setColor(Theme.GOLD);
+                    g.fill(pill);
+                } else if (getModel().isRollover() && isEnabled()) {
+                    g.setColor(Theme.SECONDARY);
+                    g.fill(pill);
+                }
+                if (isFocusOwner()) {
+                    g.setColor(Theme.TEXT);
+                    g.setStroke(new BasicStroke(2f));
+                    g.draw(new RoundRectangle2D.Float(2, 2, getWidth() - 5, getHeight() - 5, getHeight() - 5, getHeight() - 5));
+                }
+                g.dispose();
+                super.paintComponent(graphics);
+            }
+        };
+        button.setForeground(Theme.TEXT);
+        button.setContentAreaFilled(false);
+        button.setFocusPainted(false);
+        button.setRolloverEnabled(true);
+        button.setBorder(BorderFactory.createEmptyBorder(13, 26, 13, 26));
+        button.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
+        return button;
+    }
+
+    /** 세그먼트 버튼들을 담는 둥근 흰 틀. 폭이 모자라면 줄을 바꾼다. */
+    static JPanel segmentGroup() {
+        JPanel group = new JPanel(new com.sadamda.view.WrapLayout(java.awt.FlowLayout.CENTER, 2, 0)) {
+            @Override
+            protected void paintComponent(Graphics graphics) {
+                // 버튼들이 놓인 자리만 감싸도록 틀을 그린다 (가운데 정렬·줄 바꿈에 맞춘다)
+                java.awt.Rectangle area = null;
+                for (Component child : getComponents()) {
+                    area = area == null ? child.getBounds() : area.union(child.getBounds());
+                }
+                if (area == null) {
+                    return;
+                }
+                area.grow(4, 4);
+                Graphics2D g = smooth(graphics);
+                float arc = Math.min(area.height, 64);
+                RoundRectangle2D shape = new RoundRectangle2D.Float(area.x + 0.5f, area.y + 0.5f, area.width - 1,
+                        area.height - 1, arc, arc);
+                g.setColor(Theme.CARD);
+                g.fill(shape);
+                g.setColor(Theme.LINE);
+                g.setStroke(new BasicStroke(1.2f));
+                g.draw(shape);
+                g.dispose();
+            }
+        };
+        group.setOpaque(false);
+        group.setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
+        return group;
+    }
+
     /** 그림을 칸에 꽉 차게(넘치는 쪽은 잘라) 그린다. */
     static void drawCover(Graphics2D g, BufferedImage image, int x, int y, int width, int height, double focusY) {
         double scale = Math.max((double) width / image.getWidth(), (double) height / image.getHeight());

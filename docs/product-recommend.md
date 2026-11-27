@@ -37,7 +37,7 @@
 
 ## 데모 데이터
 
-- `src/main/resources/data/products.tsv`: 팀 구글 시트의 테스트 데이터 370개입니다. (https://docs.google.com/spreadsheets/d/1OEbyJTQ3_8mpnIesrYRcQPwiPQlF9hbfUxq6GUTmyi4/edit?gid=0#gid=0) 상의 35, 하의 35, 원피스 5, 아우터 5, 모자 35, 신발 105, 양말 35, 주얼리 105, 가방 5, 스카프 5개가 들어 있습니다 (11-17에 300개 → 370개, [docs/ui-data-update.md](ui-data-update.md)).
+- `src/main/resources/data/products.tsv`: 팀 구글 시트의 테스트 데이터 370개 중 350개입니다. (https://docs.google.com/spreadsheets/d/1OEbyJTQ3_8mpnIesrYRcQPwiPQlF9hbfUxq6GUTmyi4/edit?gid=0#gid=0) 상의 34, 하의 33, 원피스 5, 아우터 5, 모자 35, 신발 95, 양말 33, 주얼리 100, 가방 5, 스카프 5개가 들어 있습니다 (11-17에 300개 → 370개, [docs/ui-data-update.md](ui-data-update.md)). 11-24에 사진을 불러올 수 없는 상품 20개(사진 주소 403·404, 앱이 못 읽는 WebP)를 뺐습니다. 세트 상품 11개는 쇼핑몰에는 그대로 두고 옷 입혀보기에서만 고를 수 없게 했습니다 (`DressUpSlot.isSetProduct`).
 - 시트의 "현지표시가"와 "이미지 속성" 열은 쓰지 않습니다. 가격은 숫자로 바꿔 넣습니다.
 - 데이터에 없는 값은 임시 규칙으로 채웁니다 (`ProductSeedLoader`, `RecommendService` 주석).
   - 옵션·재고: 카테고리별 기본 사이즈 × 소재 문구의 색상, 재고 10

@@ -15,12 +15,12 @@ import java.util.List;
  * 상품 카드의 찜 하트와 "♥ 찜 수 ★ 평점 (리뷰 수)" 줄 (UC-10 1a, FR-23). 상품 목록과 홈 카드가 함께 쓴다.
  * 비회원이 하트를 누르면 로그인 화면으로 보내고 (UC-06 4a 처럼 로그인 뒤 돌아온다), 찜하면 아래에 안내를 띄운다.
  */
-final class WishActions implements ProductCard.Actions {
+public final class WishActions implements ProductCard.Actions {
     private final AppContext context;
     private final MainFrame frame;
     private final JComponent toastAnchor;
 
-    WishActions(AppContext context, MainFrame frame, JComponent toastAnchor) {
+    public WishActions(AppContext context, MainFrame frame, JComponent toastAnchor) {
         this.context = context;
         this.frame = frame;
         this.toastAnchor = toastAnchor;

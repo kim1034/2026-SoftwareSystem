@@ -116,7 +116,7 @@ class ItemPickerDialog extends JDialog {
     private JComponent sidebar() {
         JPanel list = new JPanel();
         list.setLayout(new BoxLayout(list, BoxLayout.Y_AXIS));
-        list.setBackground(new Color(0xFAFAFA));
+        list.setBackground(Theme.PAGE);
         list.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         DressUpSlot.Group group = null;
         for (DressUpSlot slot : DressUpSlot.values()) {
@@ -496,7 +496,7 @@ class ItemPickerDialog extends JDialog {
             if (image != null) {
                 TryOnUi.drawContain(g, image, 4, 4, width - 8, CARD_IMAGE - 8);
             } else {
-                g.setColor(new Color(0xF4F4F4));
+                g.setColor(Theme.SOFT);
                 g.fillRect(4, 4, width - 8, CARD_IMAGE - 8);
             }
             Font base = UIManager.getFont("Label.font");

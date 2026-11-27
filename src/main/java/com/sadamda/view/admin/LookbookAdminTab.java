@@ -55,13 +55,13 @@ final class LookbookAdminTab extends JPanel {
         });
         JButton delete = AdminUi.small(Theme.secondaryButton("삭제"));
         delete.addActionListener(e -> deleteLookbook());
-        JPanel top = section("룩북 코디 (UC-17 1~3단계)", lookbooks, create, modify, delete);
+        JPanel top = section("룩북 코디", lookbooks, create, modify, delete);
 
         JButton add = AdminUi.small(Theme.primaryButton("유행 아이템 지정"));
         add.addActionListener(e -> addTrending());
         JButton remove = AdminUi.small(Theme.secondaryButton("지정 해제"));
         remove.addActionListener(e -> removeTrending());
-        JPanel bottom = section("이번 시즌 유행 아이템 (UC-17 4~5단계)", trending, add, remove);
+        JPanel bottom = section("이번 시즌 유행 아이템", trending, add, remove);
 
         JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT, top, bottom);
         split.setResizeWeight(0.5);

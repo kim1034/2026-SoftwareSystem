@@ -53,15 +53,24 @@ import java.util.Map;
  * 글씨 크기 조절(UC-15) 때 updateComponentTreeUI 가 UI 를 다시 깔기 때문에, 모양은 updateUI 에서 지정한다.
  */
 public final class Theme {
-    // 흑백 톤. 색은 오류(빨강)에만 쓴다.
-    public static final Color PAGE = new Color(0xF2F2F2);      // 화면 배경: 아주 연한 회색
+    // 아이보리·앤틱 골드·딥 차콜 톤.
+    public static final Color PAGE = new Color(0xF7F4EE);      // 화면 배경: 웜 아이보리
     public static final Color CARD = Color.WHITE;
-    public static final Color TEXT = new Color(0x1F1F1F);      // 흰 배경 대비 16.6:1
-    public static final Color HINT = new Color(0x666666);      // 흰 배경 대비 5.7:1
-    public static final Color LINE = new Color(0xD4D4D4);      // 테두리 (글자 아님)
-    public static final Color PRIMARY = new Color(0x262626);   // 거의 검정. 흰 글씨 대비 15.1:1
-    public static final Color SECONDARY = new Color(0xE6E6E6); // 연한 회색. TEXT 글씨 대비 13.3:1
-    public static final Color ERROR = new Color(0xC62828);     // 흰 배경 대비 5.6:1
+    public static final Color SOFT = new Color(0xF4F0E8);      // 사진 칸·카테고리 칸 배경
+    public static final Color TEXT = new Color(0x1F1D1A);      // 흰 배경 대비 16.4:1
+    public static final Color HINT = new Color(0x5C564E);      // 흰 배경 대비 7.2:1
+    public static final Color LINE = new Color(0xE5DED2);      // 테두리 (글자 아님)
+    public static final Color PRIMARY = new Color(0x2B2723);   // 딥 차콜. 흰 글씨 대비 14.7:1
+    public static final Color SECONDARY = new Color(0xF1EBE0); // 연한 베이지. TEXT 글씨 대비 14:1
+    public static final Color ERROR = new Color(0xC83E3B);     // 흰 배경 대비 5.3:1
+
+    public static final Color GOLD = new Color(0xDFB042);        // 고른 알약·순위 뱃지. 위 글씨는 TEXT (8.5:1)
+    public static final Color GOLD_TEXT = new Color(0x9A6D0F);   // 흰 배경 위 골드 글씨 (4.9:1)
+    public static final Color GOLD_BORDER = new Color(0xD4A234); // 검색창·지금 메뉴 밑줄
+    public static final Color BEIGE = new Color(0xEADFCF);       // [장바구니 담기] 버튼. TEXT 글씨 대비 12:1
+    public static final Color OLIVE = new Color(0x6F7236);       // [AI로 입어보기] 버튼. 흰 글씨 대비 5.1:1
+    public static final Color PROMO_ROSE = new Color(0xF6E9E6);  // 홈 프로모션 카드
+    public static final Color PROMO_OLIVE = new Color(0xEFECDF);
 
     private static final float ARC = 14;
     private static final String INVALID = "Theme.invalid";
@@ -252,6 +261,11 @@ public final class Theme {
     /** 보조 버튼과 같고, [글씨 크기]와 상관없이 본문 글씨를 baseSize(px)로 보고 그린다 (상단 메뉴의 [글씨 크기] 등). */
     public static JButton secondaryButton(String text, float baseSize) {
         return button(text, SECONDARY, TEXT, baseSize);
+    }
+
+    /** 바탕색·글씨색을 직접 정한 알약 버튼 (예: 상품 상세의 [AI로 입어보기], [장바구니 담기]). */
+    public static JButton filledButton(String text, Color background, Color foreground) {
+        return button(text, background, foreground, null);
     }
 
     private static JButton button(String text, Color background, Color foreground) {
@@ -522,7 +536,8 @@ public final class Theme {
         g2.dispose();
     }
 
-    private static Graphics2D smooth(Graphics g) {
+    /** 안티앨리어싱을 켠 Graphics 복사본. 다 쓰면 dispose 한다. */
+    public static Graphics2D smooth(Graphics g) {
         Graphics2D g2 = (Graphics2D) g.create();
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);

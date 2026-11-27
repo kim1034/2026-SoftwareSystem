@@ -125,9 +125,25 @@ public class OutfitHelper {
     /**
      * UC-21 그날의 코디: 날짜마다 상황을 돌아가며 바꾸고(결혼식 → 모임 → 여행 → 일상), 같은 상황이 다시 오면
      * 다른 순번의 코디를 고른다. 계절은 그 날짜의 계절. 같은 날짜·체형이면 늘 같은 코디라 따로 저장하지 않는다.
+     * 한 주(월~일) 안에서는 상의가 겹치지 않게, 그 주 월요일부터 차례로 골라 앞 날짜에 나온 상의는 건너뛴다.
      * 고를 상품이 없으면 null.
      */
     public OutfitSuggestion dailyOutfit(LocalDate date, String bodyType, String ageGroup) {
+        LocalDate monday = date.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY));
+        Set<Long> weekTops = new java.util.HashSet<>();
+        OutfitSuggestion suggestion = null;
+        for (LocalDate day = monday; !day.isAfter(date); day = day.plusDays(1)) {
+            suggestion = dailyOutfit(day, bodyType, ageGroup, weekTops);
+            if (suggestion != null) {
+                suggestion.products().stream().filter(p -> p.getCategory() == Category.TOP)
+                        .forEach(p -> weekTops.add(p.getId()));
+            }
+        }
+        return suggestion;
+    }
+
+    /** usedTops: 이 주의 앞 날짜에 이미 나온 상의. 남은 상의가 없으면 겹쳐도 고른다. */
+    private OutfitSuggestion dailyOutfit(LocalDate date, String bodyType, String ageGroup, Set<Long> usedTops) {
         long day = date.toEpochDay();
         String occasion = OCCASIONS.get((int) Math.floorMod(day, OCCASIONS.size()));
         String season = seasonOf(date);
@@ -137,6 +153,12 @@ public class OutfitHelper {
         List<Product> products = new ArrayList<>();
         for (Map.Entry<Category, List<Product>> entry : ranked.entrySet()) {
             List<Product> candidates = entry.getValue();
+            if (entry.getKey() == Category.TOP) {
+                List<Product> fresh = candidates.stream().filter(p -> !usedTops.contains(p.getId())).toList();
+                if (!fresh.isEmpty()) {
+                    candidates = fresh;
+                }
+            }
             if (!candidates.isEmpty()) {
                 products.add(candidates.get(Math.min(position, candidates.size() - 1)));
             } else if (entry.getKey() == Category.TOP || entry.getKey() == Category.BOTTOM) {

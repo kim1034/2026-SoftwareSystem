@@ -43,7 +43,7 @@ class ModernScrollBar extends JScrollBar {
     }
 
     private static class UI extends BasicScrollBarUI {
-        private static final Color THUMB = new Color(0xC2C2C2);
+        private static final Color THUMB = new Color(0xCFC5B5);
         private static final Color TRACK = new Color(0, 0, 0, 12);
 
         @Override

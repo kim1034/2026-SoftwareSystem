@@ -114,7 +114,6 @@ public class SignUpPanel extends ScreenPanel {
         Theme.addToCard(card, Theme.field("연락처", phoneError, phoneField), 20);
 
         Theme.addToCard(card, Theme.label("선택 입력", 1.2f, Font.BOLD, Theme.TEXT), 40);
-        Theme.addToCard(card, Theme.label("입력하시면 체형에 맞는 옷을 추천해 드려요", 1f, Font.PLAIN, Theme.HINT), 4);
         Theme.addToCard(card, twoColumns(Theme.field("연령대", null, ageGroupBox), Theme.field("키 (cm)", heightError, heightField)), 16);
         Theme.addToCard(card, twoColumns(Theme.field("평소 사이즈", null, sizeBox), Theme.field("체형", null, bodyTypeBox)), 20);
 

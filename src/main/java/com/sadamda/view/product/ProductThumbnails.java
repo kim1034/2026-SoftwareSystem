@@ -1,5 +1,6 @@
 package com.sadamda.view.product;
 
+import com.sadamda.view.Theme;
 import com.sadamda.external.RemoteImages;
 
 import javax.swing.ImageIcon;
@@ -94,7 +95,7 @@ public final class ProductThumbnails {
         BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
         Graphics2D g = image.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-        g.setColor(new Color(0xF3F4F6));
+        g.setColor(Theme.SOFT);
         g.fillRect(0, 0, width, height);
         g.setColor(ShopUi.HINT);
         g.setFont(new Font(Font.DIALOG, Font.PLAIN, Math.max(12, Math.min(width, height) / 12)));
